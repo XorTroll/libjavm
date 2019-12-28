@@ -731,7 +731,20 @@ namespace javm::core {
                             }
                         }
                         if(done) {
-                            // If we found a native class to handle with, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    // Call static block in case it hasn't been called yet :P
+                                    class_file->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
+                                    auto obj = class_file->GetField(fld_nat_data.processed_name);
+                                    frame.Push(obj);
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -757,10 +770,24 @@ namespace javm::core {
                                 native->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
                                 auto obj = frame.Pop();
                                 native->SetField(fld_nat_data.processed_name, obj);
+                                done = true;
                             }
                         }
                         if(done) {
-                            // If we found a native class to handle with, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    // Call static block in case it hasn't been called yet :P
+                                    class_file->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
+                                    auto obj = frame.Pop();
+                                    class_file->SetField(fld_nat_data.processed_name, obj);
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -820,7 +847,26 @@ namespace javm::core {
                             }
                         }
                         if(done) {
-                            // If we found a native class to handle with, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    if(class_file->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc)) {
+                                        bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
+                                        auto ret = class_file->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                        if(should_ret) {
+                                            frame.Push(ret);
+                                        }
+                                    }
+                                    else {
+                                        frame.Pop();
+                                    }
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -865,7 +911,22 @@ namespace javm::core {
                             }
                         }
                         if(done) {
-                            // If we found a native class to handle with, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    if(class_file->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc)) {
+                                        class_file->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                    }
+                                    else {
+                                        frame.Pop();
+                                    }
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -899,7 +960,21 @@ namespace javm::core {
                             }
                         }
                         if(done) {
-                            // If we found a native class to handle with, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
+                                    auto ret = class_file->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                    if(should_ret) {
+                                        frame.Push(ret);
+                                    }
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -907,7 +982,7 @@ namespace javm::core {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_file->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
-                                   frame.Push(ret);
+                                    frame.Push(ret);
                                 }
                             }
                         }
@@ -927,7 +1002,18 @@ namespace javm::core {
                             }
                         }
                         if(done) {
-                            // If we found a native class to create new, exit
+                            break;
+                        }
+                        for(auto &archive: this->loaded_archives) {
+                            for(auto &class_file: archive->GetLoadedClasses()) {
+                                if(class_file->GetName() == class_name) {
+                                    auto obj = class_file->CreateInstance();
+                                    frame.Push(obj);
+                                    done = true;
+                                }
+                            }
+                        }
+                        if(done) {
                             break;
                         }
                         for(auto &class_file: this->class_files) {
@@ -1022,9 +1108,10 @@ namespace javm::core {
             }
 
             template<typename ...Args>
-            void LoadClassFile(Args &&...args) {
+            std::unique_ptr<ClassFile> &LoadClassFile(Args &&...args) {
                 auto classptr = std::make_unique<ClassFile>(args...);
                 this->class_files.push_back(std::move(classptr));
+                return this->class_files.back();
             }
 
             template<typename C, typename ...Args>
@@ -1080,6 +1167,30 @@ namespace javm::core {
                         return native->HandleStaticFunction(fn_name, "", frame);
                     }
                 }
+                // Then, loaded JARs
+                for(auto &archive: this->loaded_archives) {
+                    for(auto &class_file: archive->GetLoadedClasses()) {
+                        if(class_file->GetName() == proper_class_name) {
+                            for(auto &method: class_file->GetMethods()) {
+                                if(method.GetName() == fn_name) {
+                                    for(auto &attr: method.GetAttributes()) {
+                                        if(attr.GetName() == JAVM_CODE_ATTRIBUTE_NAME) {
+                                            MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
+                                            CodeAttribute code_attr(code_reader);
+                                            Frame frame(&code_attr, class_file.get(), reinterpret_cast<void*>(this));
+                                            u32 index = 0;
+                                            ((this->HandlePushArgument(frame, index, args)), ...);
+                                            auto ret = this->ExecuteCode(frame);
+                                            code_attr.Dispose();
+                                            return ret;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Finally, plain .class files
                 for(auto &class_file: this->class_files) {
                     if(class_file->GetName() == proper_class_name) {
                         for(auto &method: class_file->GetMethods()) {
