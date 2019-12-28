@@ -30,6 +30,8 @@ namespace javm::native {
         public:
             Class(std::string class_name) : name(core::ClassObject::ProcessClassName(class_name)), static_done(false) {}
 
+            virtual ~Class() {}
+
             virtual std::string GetName() override {
                 return this->name;
             }
@@ -143,4 +145,6 @@ namespace javm::native {
     #define JAVM_NATIVE_CLASS_REGISTER_STATIC_BLOCK(name) _JAVM_NATIVE_CLASS_REGISTER_METHOD(JAVM_STATIC_BLOCK_METHOD_NAME, name)
     #define JAVM_NATIVE_CLASS_REGISTER_METHOD(name) _JAVM_NATIVE_CLASS_REGISTER_METHOD(#name, name)
     #define JAVM_NATIVE_CLASS_REGISTER_STATIC_FN(name) _JAVM_NATIVE_CLASS_REGISTER_STATIC_FN(#name, name)
+
+    #define JAVM_NATIVE_CLASS_NO_RETURN return javm::core::ValuePointerHolder::CreateVoid();
 }

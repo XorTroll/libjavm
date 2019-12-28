@@ -50,7 +50,7 @@ namespace java::lang {
                     }
                 }
 
-                return core::ValuePointerHolder::CreateVoid();
+                JAVM_NATIVE_CLASS_NO_RETURN
             }
 
             core::ValuePointerHolder append(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {

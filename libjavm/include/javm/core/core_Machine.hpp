@@ -137,7 +137,7 @@ namespace javm::core {
                         break; \
                     }
 
-                printf(" -- Read instruction: 0x%X\n", (u32)inst);
+                // printf(" -- Read instruction: 0x%X\n", (u32)inst);
                 switch(inst) {
                     case Instruction::NOP: {
                         // Do nothing :P
@@ -726,7 +726,7 @@ namespace javm::core {
                             if(native->GetName() == class_name) {
                                 // Call static block in case it hasn't been called yet :P
                                 native->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
-                                auto obj = native->GetField(fld_nat_data.processed_name);
+                                auto obj = native->GetStaticField(fld_nat_data.processed_name);
                                 frame.Push(obj);
                             }
                         }
@@ -1094,7 +1094,7 @@ namespace javm::core {
                     }
                     
                     default:
-                        printf("Unimplemented or unknown instruction!\n");
+                        // printf("Unimplemented or unknown instruction!\n");
                         break;
                 }
 
@@ -1126,6 +1126,8 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::Object>();
                 this->LoadNativeClass<java::lang::String>();
                 this->LoadNativeClass<java::lang::StringBuilder>();
+                this->LoadNativeClass<java::io::PrintStream>();
+                this->LoadNativeClass<java::lang::System>();
             }
 
             template<typename ...Args>
@@ -1144,7 +1146,7 @@ namespace javm::core {
 
                     if(frame.StackMaximum()) {
                         // (...)
-                        printf("Max stack!\n");
+                        // printf("Max stack!\n");
                         break;
                     }
 

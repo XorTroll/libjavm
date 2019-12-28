@@ -76,7 +76,7 @@ namespace javm::core {
 
             void Push(ValuePointerHolder var) {
                 stack.push_back(var);
-                printf("Pushing pointer: %p\n", var.GetAddress());
+                // printf("Pushing pointer: %p\n", var.GetAddress());
             }
 
             template<typename T, typename ...Args>
@@ -95,7 +95,7 @@ namespace javm::core {
 
             ValuePointerHolder Pop() { // In this case we don't dispose the holder, since Pop is used for holders which will be used again
                 auto copy = this->stack.back();
-                printf("Popping pointer: %p\n", copy.GetAddress());
+                // printf("Popping pointer: %p\n", copy.GetAddress());
                 this->stack.pop_back();
                 return copy;
             }
