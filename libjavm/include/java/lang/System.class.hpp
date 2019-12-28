@@ -6,10 +6,6 @@ namespace java::lang {
 
     class System : public Object {
 
-        private:
-            core::ValuePointerHolder stream_out;
-            core::ValuePointerHolder stream_err;
-
         public:
             System() : Object("java.lang.System") {
                 auto strm_out = core::ValuePointerHolder::Create<io::PrintStream>();
