@@ -3,10 +3,13 @@
 #include <andyzip/zipfile_reader.hpp>
 #include <javm/core/core_ClassFile.hpp>
 #include <javm/core/core_ManifestFile.hpp>
+#include <memory>
 
 namespace javm::core {
 
-    #define JAVM_JAR_MANIFEST_FILE "META-INF/MANIFEST.MF"
+    #define JAVM_ARCHIVE_MANIFEST_FILE "META-INF/MANIFEST.MF"
+
+    #define JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE "Main-Class"
 
     class Archive : public File {
 
@@ -14,7 +17,7 @@ namespace javm::core {
 
             bool jar_valid;
             std::string main_class_name;
-            std::vector<ClassFile> classes;
+            std::vector<std::unique_ptr<ClassFile>> classes;
 
             void Load() {
                 if(this->IsValid()) {
@@ -23,7 +26,7 @@ namespace javm::core {
                     bool manifest_found = true;
                     std::vector<std::string> class_files;
                     for(auto &file: files) {
-                        if(file == JAVM_JAR_MANIFEST_FILE) {
+                        if(file == JAVM_ARCHIVE_MANIFEST_FILE) {
                             manifest_found = true;
                         }
                         else {
@@ -35,17 +38,14 @@ namespace javm::core {
                         }
                     }
                     if(manifest_found) {
-                        auto u8v = reader.read(JAVM_JAR_MANIFEST_FILE);
+                        auto u8v = reader.read(JAVM_ARCHIVE_MANIFEST_FILE);
                         ManifestFile manifest(u8v.data(), u8v.size());
-                        auto main_class = manifest.FindAttribute("Main-Class");
+                        auto main_class = manifest.FindAttribute(JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE);
                         this->main_class_name = main_class;
 
                         for(auto &class_file: class_files) {
-                            printf("Loading '%s'...\n", class_file.c_str());
                             auto classv = reader.read(class_file);
-                            printf("Class size: %ld\n", classv.size());
-                            auto &class_ref = this->classes.emplace_back(&classv[0], classv.size());
-                            printf("Loaded...\n");
+                            this->classes.push_back(std::make_unique<ClassFile>(&classv[0], classv.size()));
                         }
                     }
                 }
@@ -54,8 +54,11 @@ namespace javm::core {
         public:
             using File::File;
 
-            void Initialize() {
-                this->jar_valid = false;
+            Archive(std::string path) : File(path) {
+                this->Load();
+            }
+            
+            Archive(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns) {
                 this->Load();
             }
 
@@ -67,7 +70,7 @@ namespace javm::core {
                 return !this->main_class_name.empty();
             }
 
-            std::vector<ClassFile> &GetLoadedClasses() {
+            std::vector<std::unique_ptr<ClassFile>> &GetLoadedClasses() {
                 return this->classes;
             }
     };

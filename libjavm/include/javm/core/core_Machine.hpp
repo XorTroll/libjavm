@@ -14,6 +14,7 @@ namespace javm::core {
     class Machine {
 
         private:
+            std::vector<std::unique_ptr<Archive>> loaded_archives;
             std::vector<std::unique_ptr<ClassFile>> class_files;
             std::vector<std::unique_ptr<native::Class>> native_classes;
 
@@ -1041,10 +1042,10 @@ namespace javm::core {
             }
 
             template<typename ...Args>
-            void LoadJavaArchive(bool execute, Args &&...args) {
-                Archive jar(args...);
-                jar.Initialize();
-                // T O D O
+            std::unique_ptr<Archive> &LoadJavaArchive(Args &&...args) {
+                auto archiveptr = std::make_unique<Archive>(args...);
+                this->loaded_archives.push_back(std::move(archiveptr));
+                return this->loaded_archives.back();
             }
 
             ValuePointerHolder ExecuteCode(Frame &frame) {
