@@ -37,7 +37,7 @@ namespace java::io {
             JAVM_NATIVE_CLASS_CTOR(PrintStream)
 
             core::ValuePointerHolder constructor(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<PrintStream>();
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
                 if(parameters.size() == 1) {
                     if(parameters[0].value.IsValidCast<lang::String>()) {
                         auto str_ref = parameters[0].value.GetReference<lang::String>();
@@ -52,7 +52,7 @@ namespace java::io {
             }
 
             core::ValuePointerHolder print(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<PrintStream>();
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
@@ -107,7 +107,7 @@ namespace java::io {
             }
             
             core::ValuePointerHolder println(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<PrintStream>();
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {

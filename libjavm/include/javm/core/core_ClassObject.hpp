@@ -3,6 +3,7 @@
 #include <javm/core/core_Frame.hpp>
 #include <javm/core/core_ConstantPool.hpp>
 #include <map>
+#include <memory>
 
 namespace javm::core {
 
@@ -26,6 +27,16 @@ namespace javm::core {
 
     class ClassObject {
 
+        private:
+            ValuePointerHolder super_class_instance;
+
+            template<typename T>
+            void HandlePushArgument(Frame &frame, T &t) {
+                static_assert(std::is_pointer_v<T>, "PPP");
+                auto holder = ValuePointerHolder::CreateFromExisting(t);
+                frame.Push(holder);
+            }
+
         public:
 
             // Some static helpers for Java classes and functions
@@ -37,6 +48,15 @@ namespace javm::core {
 
                 // Names like "java.lang.String" -> "java/lang/String"
                 std::replace(copy.begin(), copy.end(), '.', '/');
+
+                return copy;
+            }
+
+            static std::string GetPresentableClassName(std::string input_name) {
+                std::string copy = input_name;
+
+                // Opposite to the function above :P
+                std::replace(copy.begin(), copy.end(), '/', '.');
 
                 return copy;
             }
@@ -191,20 +211,91 @@ namespace javm::core {
                 return "<unknown>";
             }
 
+            template<typename T>
+            static std::string MakeDescriptorParameter(T &t) {
+                static_assert(!std::is_pointer_v<T>, "PPP");
+                if constexpr(std::is_same_v<T, u8>) {
+                    return "B";
+                }
+                if constexpr(std::is_same_v<T, bool>) {
+                    return "Z";
+                }
+                if constexpr(std::is_same_v<T, short>) {
+                    return "S";
+                }
+                if constexpr(std::is_same_v<T, char>) {
+                    return "C";
+                }
+                if constexpr(std::is_same_v<T, int>) {
+                    return "I";
+                }
+                if constexpr(std::is_same_v<T, long>) {
+                    return "J";
+                }
+                if constexpr(std::is_same_v<T, float>) {
+                    return "F";
+                }
+                if constexpr(std::is_same_v<T, double>) {
+                    return "D";
+                }
+                if constexpr(std::is_same_v<T, std::vector<ValuePointerHolder>>) {
+                    return "[I";
+                }
+                if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
+                    return "L" + t.GetName() + ";";
+                }
+                return "";
+            }
+
+            template<typename ...Args>
+            static std::string BuildFunctionDescriptor(Args &&...args) {
+                std::string desc;
+                ((desc += MakeDescriptorParameter(*args)), ...);
+                return desc;
+            }
+
             static bool ExpectsReturn(std::string desc) {
                 return desc.back() != 'V';
             }
 
             virtual std::string GetName() = 0;
+            virtual std::string GetSuperClassName() = 0;
             virtual std::vector<CPInfo> &GetConstantPool() = 0;
-            virtual ValuePointerHolder CreateInstance() = 0;
+            virtual ValuePointerHolder CreateInstanceEx(void *machine_ptr) = 0;
             virtual ValuePointerHolder GetField(std::string name) = 0;
             virtual ValuePointerHolder GetStaticField(std::string name) = 0;
             virtual void SetField(std::string name, ValuePointerHolder value) = 0;
             virtual void SetStaticField(std::string name, ValuePointerHolder value) = 0;
-            virtual bool CanHandleMethod(std::string name, std::string desc) = 0;
+            virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) = 0;
             virtual ValuePointerHolder HandleMethod(std::string name, std::string desc, Frame &frame) = 0;
             virtual ValuePointerHolder HandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
+
+            ValuePointerHolder CreateInstance(Frame &frame) {
+                return this->CreateInstanceEx(frame.GetMachinePointer());
+            }
+
+            void SetSuperClassInstance(ValuePointerHolder super_class) {
+                this->super_class_instance = super_class;
+            }
+
+            ValuePointerHolder GetSuperClassInstance() {
+                return this->super_class_instance;
+            }
+
+            template<typename ...Args>
+            ValuePointerHolder CallMethod(Frame &frame, std::string name, Args &&...args) {
+                frame.PushReference(this);
+                (this->HandlePushArgument(frame, args), ...);
+                auto desc = BuildFunctionDescriptor(args...);
+                if(this->CanHandleMethod(name, desc, frame)) {
+                    return this->HandleMethod(name, desc, frame);
+                }
+                return ValuePointerHolder::CreateVoid();
+            }
     };
 
+    // Defined later in machine code
+    std::shared_ptr<ClassObject> &FindClassByName(Frame &frame, std::string name);
+
+    std::shared_ptr<ClassObject> &FindClassByNameEx(void *machine, std::string name);
 }

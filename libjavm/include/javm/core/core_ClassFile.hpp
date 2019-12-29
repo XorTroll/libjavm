@@ -150,8 +150,28 @@ namespace javm::core {
                 return this->pool;
             }
 
-            virtual ValuePointerHolder CreateInstance() override {
-                return ValuePointerHolder::Create<ClassFile>(this);
+            virtual ValuePointerHolder CreateInstanceEx(void *machine_ptr) override {
+                auto class_holder = ValuePointerHolder::Create<ClassFile>(this);
+                auto class_ref = class_holder.GetReference<ClassFile>();
+                auto super_class_name = class_ref->GetSuperClassName();
+                auto super_class_ref = FindClassByNameEx(machine_ptr, super_class_name);
+                if(super_class_ref) {
+                    auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr);
+                    class_ref->SetSuperClassInstance(super_class_instance);
+                }
+                return class_holder;
+            }
+
+            template<typename ...Args>
+            static std::shared_ptr<ClassFile> CreateDefinitionInstance(void *machine_ptr, Args ...args) {
+                auto class_ref = std::make_shared<ClassFile>(args...);
+                auto super_class_name = class_ref->GetSuperClassName();
+                auto super_class_ref = FindClassByNameEx(machine_ptr, super_class_name);
+                if(super_class_ref) {
+                    auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr);
+                    class_ref->SetSuperClassInstance(super_class_instance);
+                }
+                return class_ref;
             }
 
             virtual ValuePointerHolder GetField(std::string name) override {
@@ -194,13 +214,22 @@ namespace javm::core {
                 return this->class_name;
             }
 
-            virtual bool CanHandleMethod(std::string name, std::string desc) override {
+            virtual std::string GetSuperClassName() override {
+                return this->super_class_name;
+            }
+
+            virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) override {
                 for(auto &method: this->methods) {
                     if(method.GetName() == name) {
                         if(method.GetDesc() == desc) {
                             return true;
                         }
                     }
+                }
+                auto super_class = this->GetSuperClassInstance();
+                if(!super_class.IsNull()) {
+                    auto super_class_ref = super_class.GetReference<core::ClassObject>();
+                    return super_class_ref->CanHandleMethod(name, desc, frame);
                 }
                 return false;
             }
@@ -219,10 +248,6 @@ namespace javm::core {
                     }
                 }
                 return HandleClassFileStaticFunction(this, name, desc, frame);
-            }
-
-            std::string GetSuperClassName() {
-                return this->super_class_name;
             }
 
             std::vector<FieldInfo> &GetMethods() {

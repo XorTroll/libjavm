@@ -8,11 +8,36 @@ namespace javm::native {
     using NativeMethodFunction = std::function<core::ValuePointerHolder(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters)>;
     using NativeStaticFunction = std::function<core::ValuePointerHolder(std::vector<core::FunctionParameter> parameters)>;
 
-    #define JAVM_NATIVE_CLASS_CTOR(clss) \
+    #define JAVM_NATIVE_DEFINITION_CTOR(clss) \
     public: \
-    virtual javm::core::ValuePointerHolder CreateInstance() override { \
-        return javm::core::ValuePointerHolder::Create<clss>(); \
+    static std::shared_ptr<clss> CreateDefinitionInstance(void *machine_ptr) { \
+        auto class_ref = std::make_shared<clss>(); \
+        auto super_class_name = class_ref->GetSuperClassName(); \
+        auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
+        if(super_class_ref) { \
+            auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
+            class_ref->SetSuperClassInstance(super_class_instance); \
+        } \
+        return class_ref; \
     }
+
+    #define JAVM_NATIVE_INSTANCE_CTOR(clss) \
+    public: \
+    virtual javm::core::ValuePointerHolder CreateInstanceEx(void *machine_ptr) override { \
+        auto class_holder = javm::core::ValuePointerHolder::Create<clss>(); \
+        auto class_ref = class_holder.GetReference<clss>(); \
+        auto super_class_name = class_ref->GetSuperClassName(); \
+        auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
+        if(super_class_ref) { \
+            auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
+            class_ref->SetSuperClassInstance(super_class_instance); \
+        } \
+        return class_holder; \
+    }
+
+    #define JAVM_NATIVE_CLASS_CTOR(clss) \
+    JAVM_NATIVE_DEFINITION_CTOR(clss) \
+    JAVM_NATIVE_INSTANCE_CTOR(clss)
 
     class Class : public core::ClassObject {
 
@@ -22,6 +47,7 @@ namespace javm::native {
             bool static_done;
 
         protected:
+            std::string super_class_name;
             std::map<std::string, NativeMethodFunction> methods;
             std::map<std::string, NativeStaticFunction> static_fns;
             std::map<std::string, core::ValuePointerHolder> static_fields;
@@ -34,6 +60,10 @@ namespace javm::native {
 
             virtual std::string GetName() override {
                 return this->name;
+            }
+
+            virtual std::string GetSuperClassName() override {
+                return this->super_class_name;
             }
 
             virtual std::vector<core::CPInfo> &GetConstantPool() override {
@@ -73,12 +103,17 @@ namespace javm::native {
                 }
             }
 
-            virtual bool CanHandleMethod(std::string name, std::string desc) override {
+            virtual bool CanHandleMethod(std::string name, std::string desc, core::Frame &frame) override {
                 if(this->methods.find(name) != this->methods.end()) {
                     return true;
                 }
                 if(this->static_fns.find(name) != this->static_fns.end()) {
                     return true;
+                }
+                auto super_class = this->GetSuperClassInstance();
+                if(super_class.IsClassObject()) {
+                    auto super_class_ref = super_class.GetReference<core::ClassObject>();
+                    return super_class_ref->CanHandleMethod(name, desc, frame);
                 }
                 return false;
             }
@@ -100,6 +135,11 @@ namespace javm::native {
                     this_fparam.value = frame.Pop();
                     this_fparam.parsed_type = ClassObject::ParseValueType(this_fparam.desc);
                     return it->second(this_fparam, fn_params);
+                }
+                auto super_class = this->GetSuperClassInstance();
+                if(!super_class.IsNull()) {
+                    auto super_class_ref = super_class.GetReference<core::ClassObject>();
+                    return super_class_ref->HandleMethod(name, desc, frame);
                 }
                 return core::ValuePointerHolder::CreateVoid();
             }
@@ -127,7 +167,31 @@ namespace javm::native {
                     }
                     return it->second(fn_params);
                 }
+                auto super_class = this->GetSuperClassInstance();
+                if(!super_class.IsNull()) {
+                    auto super_class_ref = super_class.GetReference<core::ClassObject>();
+                    return super_class_ref->HandleStaticFunction(name, desc, frame);
+                }
                 return core::ValuePointerHolder::CreateVoid();
+            }
+
+            // Gets the proper 'this' - since super classes are stored within the derived class, iterate until we find the correct class
+            template<typename C>
+            static core::ValuePointerHolder GetThis(core::ValuePointerHolder this_param) {
+                if(!this_param.IsValidCast<C>()) {
+                    auto class_ref = this_param.GetReference<core::ClassObject>();
+                    auto super_class = class_ref->GetSuperClassInstance();
+                    if(!super_class.IsNull()) {
+                        return GetThis<C>(super_class);
+                    }
+                }
+                return this_param;
+            }
+
+            template<typename C>
+            static C *GetThisReference(core::ValuePointerHolder this_param) {
+                auto holder = GetThis<C>(this_param);
+                return holder.template GetReference<C>();
             }
     };
 

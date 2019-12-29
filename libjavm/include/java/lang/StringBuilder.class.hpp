@@ -27,12 +27,8 @@ namespace java::lang {
             }
 
             core::ValuePointerHolder constructor(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<String>();
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
                 switch(parameters.size()) {
-                    case 0: {
-                        // Empty constructor, only with 'this'
-                        break;
-                    }
                     case 1: {
                         auto initial_arg = parameters[0].value;
                         if(initial_arg.IsValidCast<String>()) {
@@ -54,7 +50,7 @@ namespace java::lang {
             }
 
             core::ValuePointerHolder append(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<String>();
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
                 if(parameters[0].value.IsValidCast<String>()) {
                     auto str_ref = parameters[0].value.GetReference<String>();
                     
@@ -83,7 +79,7 @@ namespace java::lang {
             }
 
             core::ValuePointerHolder toString(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<String>();
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
                 auto str = this_ref->GetString();
 
                 auto str_obj = core::ValuePointerHolder::Create<String>();

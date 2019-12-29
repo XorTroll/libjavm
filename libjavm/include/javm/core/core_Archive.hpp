@@ -17,7 +17,7 @@ namespace javm::core {
 
             bool jar_valid;
             std::string main_class_name;
-            std::vector<std::unique_ptr<ClassFile>> classes;
+            std::vector<std::shared_ptr<ClassObject>> classes;
 
             void Load() {
                 if(this->IsValid()) {
@@ -38,14 +38,16 @@ namespace javm::core {
                         }
                     }
                     if(manifest_found) {
-                        auto u8v = reader.read(JAVM_ARCHIVE_MANIFEST_FILE);
-                        ManifestFile manifest(u8v.data(), u8v.size());
-                        auto main_class = manifest.FindAttribute(JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE);
-                        this->main_class_name = main_class;
+                        {
+                            auto u8v = reader.read(JAVM_ARCHIVE_MANIFEST_FILE);
+                            ManifestFile manifest(u8v.data(), u8v.size());
+                            auto main_class = manifest.FindAttribute(JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE);
+                            this->main_class_name = main_class;
+                        }
 
                         for(auto &class_file: class_files) {
                             auto classv = reader.read(class_file);
-                            this->classes.push_back(std::make_unique<ClassFile>(&classv[0], classv.size()));
+                            this->classes.push_back(std::make_shared<ClassFile>(classv.data(), classv.size()));
                         }
                     }
                 }
@@ -70,7 +72,7 @@ namespace javm::core {
                 return !this->main_class_name.empty();
             }
 
-            std::vector<std::unique_ptr<ClassFile>> &GetLoadedClasses() {
+            std::vector<std::shared_ptr<ClassObject>> &GetLoadedClasses() {
                 return this->classes;
             }
     };

@@ -26,14 +26,14 @@ namespace java::lang {
             }
 
             core::ValuePointerHolder length(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<String>();
+                auto this_ref = native::Class::GetThisReference<String>(this_param.value);
 
                 auto len = this_ref->GetString().length();
                 return core::ValuePointerHolder::Create<int>(len);
             }
 
             core::ValuePointerHolder charAt(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this_param.value.GetReference<String>();
+                auto this_ref = native::Class::GetThisReference<String>(this_param.value);
                 
                 auto index = parameters[0].value.Get<int>();
                 auto char_at = this_ref->GetString()[index];

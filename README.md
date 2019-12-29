@@ -27,8 +27,11 @@ int main() {
     // First of all, create a machine.
     core::Machine machine;
 
-    // Then (if you need to) load the .class file you want.
+    // You can load .class files...
     machine.LoadClassFile("<path-to-class-file>");
+
+    // ...or even JAR archive files!
+    machine.LoadJavaArchive("<path-to-jar-file>");
 
     // Then, this loads the basic Java classes and types: Object, String... (necessary for most stuff)
     machine.LoadBuiltinNativeClasses();
@@ -44,16 +47,25 @@ int main() {
     // Call the function. Input parameters must be passed as pointers, so it's as simple as creating them here and passing by '&'.
     auto ret_value = machine.CallFunction("<loaded-class-name>", "<static-function-name>", &args);
     
-    auto value_type = ret_value.GetValueType();
-    auto value_name = core::ClassObject::GetValueTypeName(value_type);
-    printf("Returned value type: %s\n", value_name.c_str());
+    // Before checking the return value, check if any exceptions ocurred.
+    if(machine.WasExceptionThrown()) {
+        auto exception_info = machine.GetExceptionInfo();
 
-    // Switch and handle the result, depending on the type
-    /*
-    switch(value_type) {
-
+        // Log Java-style exception info :P
+        printf("Exception in thread 'main' %s: %s\n", exception_info.class_type.c_str(), exception_info.message.c_str());
     }
-    */
+    else {
+        // Everything went fine, let's check the returned value.
+        auto value_type = ret_value.GetValueType();
+
+        auto value_name = core::ClassObject::GetValueTypeName(value_type);
+        printf("Returned value type: %s\n", value_name.c_str());
+
+        // Switch and handle the value, depending on the type
+        switch(value_type) {
+            // ...
+        }
+    }
 
     return 0;
 }
@@ -63,6 +75,24 @@ int main() {
 
 - [ ] Implement all opcodes/instructions (very, very few missing)
 
-- [ ] Add JAR support (started with it)
+- [x] Add JAR support
 
 - [ ] Implement standard library (barely started, this will take a long time)
+
+## Standard library
+
+### Implemented types
+
+- `java.lang.Object` (methods like `clone` not implemented yet)
+
+- `java.lang.String` (constructor or methods not implemented yet)
+
+- `java.lang.StringBuilder` (barely implemented constructor, `append` and `toString`)
+
+- `java.io.PrintStream` (implemented String-based constructor and `println`)
+
+- `java.lang.System` (implemented `out` and `err` static streams to write to console)
+
+- `java.lang.Throwable` (implemented String-based constructor and `getMessage`)
+
+- `java.lang.Exception` (empty class extending from `Throwable`)
