@@ -282,6 +282,11 @@ namespace javm::core {
                 return this->super_class_instance;
             }
 
+            template<typename C>
+            C *GetSuperClassReference() {
+                return this->super_class_instance.GetReference<C>();
+            }
+
             template<typename ...Args>
             ValuePointerHolder CallMethod(Frame &frame, std::string name, Args &&...args) {
                 frame.PushReference(this);

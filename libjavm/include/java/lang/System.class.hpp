@@ -7,7 +7,10 @@ namespace java::lang {
     class System : public Object {
 
         public:
-            System() : Object("java.lang.System") {
+            JAVM_NATIVE_CLASS_CTOR(System) {
+
+                JAVM_NATIVE_CLASS_NAME("java.lang.System")
+
                 auto strm_out = core::ValuePointerHolder::Create<io::PrintStream>();
                 auto out_ref = strm_out.GetReference<io::PrintStream>();
                 out_ref->SetNativeStream(stdout, true);
@@ -18,8 +21,7 @@ namespace java::lang {
                 err_ref->SetNativeStream(stderr, true);
                 this->SetStaticField("err", strm_err);
             }
-
-            JAVM_NATIVE_CLASS_CTOR(System)
+            
     };
 
 }

@@ -11,10 +11,24 @@ namespace java::io {
             bool is_std; // Avoid fclosing stdout or stderr...
 
         public:
-            PrintStream() : Object("java.io.PrintStream"), stream(nullptr), is_std(false) {
+            FILE *GetNativeStream() {
+                return this->stream;
+            }
+
+            void SetNativeStream(FILE *strm, bool isstd = false) {
+                this->stream = strm;
+                this->is_std = isstd;
+            }
+
+        public:
+            JAVM_NATIVE_CLASS_CTOR(PrintStream) : stream(nullptr), is_std(false) {
+
+                JAVM_NATIVE_CLASS_NAME("java.io.PrintStream")
+
                 JAVM_NATIVE_CLASS_REGISTER_CTOR(constructor)
                 JAVM_NATIVE_CLASS_REGISTER_METHOD(print)
                 JAVM_NATIVE_CLASS_REGISTER_METHOD(println)
+
             }
 
             ~PrintStream() {
@@ -25,19 +39,8 @@ namespace java::io {
                 }
             }
 
-            FILE *GetNativeStream() {
-                return this->stream;
-            }
-
-            void SetNativeStream(FILE *strm, bool isstd = false) {
-                this->stream = strm;
-                this->is_std = isstd;
-            }
-
-            JAVM_NATIVE_CLASS_CTOR(PrintStream)
-
-            core::ValuePointerHolder constructor(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
+            core::ValuePointerHolder constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
                 if(parameters.size() == 1) {
                     if(parameters[0].value.IsValidCast<lang::String>()) {
                         auto str_ref = parameters[0].value.GetReference<lang::String>();
@@ -51,8 +54,8 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::ValuePointerHolder print(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
+            core::ValuePointerHolder print(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
@@ -106,8 +109,8 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
             
-            core::ValuePointerHolder println(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param.value);
+            core::ValuePointerHolder println(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
@@ -159,6 +162,7 @@ namespace java::io {
 
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
+
     };
 
 }

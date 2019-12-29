@@ -30,10 +30,30 @@ namespace javm::core {
             std::vector<std::shared_ptr<ClassObject>> native_classes;
             ThrownInfo thrown_info;
 
+            void ThrowClassNotFound(std::string class_name) {
+                if(this->HasClass("java.lang.NoClassDefFoundError")) {
+                    auto &err_class = this->FindClass("java.lang.NoClassDefFoundError");
+                    Frame frame(reinterpret_cast<void*>(this));
+                    auto err_instance = err_class->CreateInstance(frame);
+                    auto err_ref = err_instance.GetReference<java::lang::NoClassDefFoundError>();
+                    err_ref->SetMessage(ClassObject::ProcessClassName(class_name));
+                    
+                    this->ThrowExceptionWithInstance(frame, err_instance);
+                }
+                else {
+                    // W T F
+                }
+            }
+
             template<typename Arg>
             void HandlePushArgument(Frame &frame, u32 &index, Arg &arg) {
-                static_assert(std::is_pointer_v<Arg>, "Call arguments must be pointers to variables!");
-                frame.SetLocalReference(index, arg);
+                static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, ValuePointerHolder>, "Call arguments must be pointers to variables or core::ValuePointerHolder!");
+                if constexpr(std::is_pointer_v<Arg>) {
+                    frame.SetLocalReference(index, arg);
+                }
+                else if constexpr(std::is_same_v<Arg, ValuePointerHolder>) {
+                    frame.SetLocal(index, arg);
+                }
                 index++;
             }
 
@@ -734,14 +754,14 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
                             auto obj = class_ref->GetStaticField(fld_nat_data.processed_name);
                             frame.Push(obj);
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -753,14 +773,15 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
                             auto obj = frame.Pop();
                             class_ref->SetStaticField(fld_nat_data.processed_name, obj);
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -796,8 +817,8 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
@@ -810,7 +831,7 @@ namespace javm::core {
                             }
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -822,8 +843,8 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
@@ -832,7 +853,7 @@ namespace javm::core {
                             }
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -844,8 +865,8 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                             auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             if(ret.IsVoid() && should_ret) {
@@ -854,7 +875,7 @@ namespace javm::core {
                             frame.Push(std::move(ret));
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -865,13 +886,13 @@ namespace javm::core {
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto class_name = constant_pool[index - 1].GetClassData().processed_name;
 
-                        auto &class_ref = this->FindClass(class_name);
-                        if(class_ref) {
+                        if(this->HasClass(class_name)) {
+                            auto &class_ref = this->FindClass(class_name);
                             auto obj = class_ref->CreateInstance(frame);
                             frame.Push(obj);
                         }
                         else {
-                            printf("Unable to find class: %s\n", class_name.c_str());
+                            this->ThrowClassNotFound(class_name);
                         }
 
                         break;
@@ -906,18 +927,8 @@ namespace javm::core {
                         break;
                     }
                     case Instruction::ATHROW: {
-                        auto obj = frame.PopReference<ClassObject>();
-                        auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
+                        this->ThrowExceptionWithInstance(frame, frame.Pop());
                         should_ret = true;
-                        this->thrown_info = {};
-                        this->thrown_info.info_valid = true;
-                        this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
-                        this->thrown_info.message = "<null message>";
-                        if(str.IsValidCast<java::lang::String>()) {
-                            auto str_ref = str.GetReference<java::lang::String>();
-                            this->thrown_info.message = str_ref->GetString();
-                        }
-                        return ValuePointerHolder::CreateVoid();
                         break;
                     }
                     case Instruction::CHECKCAST:
@@ -987,6 +998,34 @@ namespace javm::core {
                 return this->thrown_info.info_valid;
             }
 
+            void ThrowExceptionWithMessage(std::string message) {
+                if(this->HasClass("java.lang.Exception")) {
+                    auto &err_class = this->FindClass("java.lang.Exception");
+                    Frame frame(reinterpret_cast<void*>(this));
+                    auto err_instance = err_class->CreateInstance(frame);
+                    auto err_ref = err_instance.GetReference<java::lang::Exception>();
+                    err_ref->SetMessage(message);
+                    
+                    this->ThrowExceptionWithInstance(frame, err_instance);
+                }
+                else {
+                    this->ThrowClassNotFound("java.lang.Exception");
+                }
+            }
+
+            void ThrowExceptionWithInstance(Frame &frame, ValuePointerHolder holder) {
+                auto obj = holder.GetReference<ClassObject>();
+                auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
+                this->thrown_info = {};
+                this->thrown_info.info_valid = true;
+                this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
+                this->thrown_info.message = "<null message>";
+                if(str.IsValidCast<java::lang::String>()) {
+                    auto str_ref = str.GetReference<java::lang::String>();
+                    this->thrown_info.message = str_ref->GetString();
+                }
+            }
+
             // Simplify getting the machine pointer from a frame
             static Machine *GetFrameMachinePointer(Frame &frame) {
                 return reinterpret_cast<Machine*>(frame.GetMachinePointer());
@@ -1015,6 +1054,9 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::System>();
                 this->LoadNativeClass<java::lang::Throwable>();
                 this->LoadNativeClass<java::lang::Exception>();
+                this->LoadNativeClass<java::lang::Error>();
+                this->LoadNativeClass<java::lang::LinkageError>();
+                this->LoadNativeClass<java::lang::NoClassDefFoundError>();
             }
 
             template<typename ...Args>
@@ -1024,23 +1066,48 @@ namespace javm::core {
                 return this->loaded_archives.back();
             }
 
-            std::shared_ptr<ClassObject> &FindClass(std::string name) {
+            bool HasClass(std::string name) {
+                auto cls_name = ClassObject::ProcessClassName(name);
                 for(auto &native: this->native_classes) {
-                    if(native->GetName() == name) {
+                    if(native->GetName() == cls_name) {
+                        return true;
+                    }
+                }
+                // Then, loaded JARs
+                for(auto &archive: this->loaded_archives) {
+                    for(auto &class_file: archive->GetLoadedClasses()) {
+                        if(class_file->GetName() == cls_name) {
+                            return true;
+                        }
+                    }
+                }
+                // Finally, plain .class files
+                for(auto &class_file: this->class_files) {
+                    if(class_file->GetName() == cls_name) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            std::shared_ptr<ClassObject> &FindClass(std::string name) {
+                auto cls_name = ClassObject::ProcessClassName(name);
+                for(auto &native: this->native_classes) {
+                    if(native->GetName() == cls_name) {
                         return native;
                     }
                 }
                 // Then, loaded JARs
                 for(auto &archive: this->loaded_archives) {
                     for(auto &class_file: archive->GetLoadedClasses()) {
-                        if(class_file->GetName() == name) {
+                        if(class_file->GetName() == cls_name) {
                             return class_file;
                         }
                     }
                 }
                 // Finally, plain .class files
                 for(auto &class_file: this->class_files) {
-                    if(class_file->GetName() == name) {
+                    if(class_file->GetName() == cls_name) {
                         return class_file;
                     }
                 }
@@ -1048,11 +1115,11 @@ namespace javm::core {
             }
 
             ValuePointerHolder ExecuteCode(Frame &frame) {
-                if(this->WasExceptionThrown()) {
-                    return ValuePointerHolder::CreateVoid();
-                }
-
                 while(true) {
+                    if(this->WasExceptionThrown()) {
+                        return ValuePointerHolder::CreateVoid();
+                    }
+
                     auto inst = static_cast<Instruction>(frame.Read<u8>());
 
                     if(frame.StackMaximum()) {
@@ -1204,5 +1271,9 @@ namespace javm::core {
 
     std::shared_ptr<ClassObject> &FindClassByName(Frame &frame, std::string name) {
         return FindClassByNameEx(frame.GetMachinePointer(), name);
+    }
+
+    void MachineThrowException(void *machine, std::string message) {
+        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithMessage(message);
     }
 }

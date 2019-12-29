@@ -10,14 +10,6 @@ namespace java::lang {
             std::string value;
 
         public:
-            StringBuilder() : Object("java.lang.StringBuilder") {
-                JAVM_NATIVE_CLASS_REGISTER_CTOR(constructor)
-                JAVM_NATIVE_CLASS_REGISTER_METHOD(append)
-                JAVM_NATIVE_CLASS_REGISTER_METHOD(toString)
-            }
-            
-            JAVM_NATIVE_CLASS_CTOR(StringBuilder)
-
             std::string GetString() {
                 return this->value;
             }
@@ -26,8 +18,19 @@ namespace java::lang {
                 this->value = str;
             }
 
-            core::ValuePointerHolder constructor(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
+        public:
+            JAVM_NATIVE_CLASS_CTOR(StringBuilder) {
+
+                JAVM_NATIVE_CLASS_NAME("java.lang.StringBuilder")
+
+                JAVM_NATIVE_CLASS_REGISTER_CTOR(constructor)
+                JAVM_NATIVE_CLASS_REGISTER_METHOD(append)
+                JAVM_NATIVE_CLASS_REGISTER_METHOD(toString)
+
+            }
+
+            core::ValuePointerHolder constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
                 switch(parameters.size()) {
                     case 1: {
                         auto initial_arg = parameters[0].value;
@@ -49,8 +52,8 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::ValuePointerHolder append(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
+            core::ValuePointerHolder append(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
                 if(parameters[0].value.IsValidCast<String>()) {
                     auto str_ref = parameters[0].value.GetReference<String>();
                     
@@ -78,8 +81,8 @@ namespace java::lang {
                 return this_param.value;
             }
 
-            core::ValuePointerHolder toString(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param.value);
+            core::ValuePointerHolder toString(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
                 auto str = this_ref->GetString();
 
                 auto str_obj = core::ValuePointerHolder::Create<String>();

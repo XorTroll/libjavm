@@ -9,6 +9,8 @@ namespace javm::core {
 
     class ClassObject;
 
+    void MachineThrowException(void *machine, std::string message);
+
     class Frame {
 
         private:
@@ -20,8 +22,9 @@ namespace javm::core {
             void *machine;
 
         public:
-            Frame(ClassObject *cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {
-            }
+            Frame(void *mach) : code_attr(nullptr), cur_class_obj(nullptr), offset(0), machine(mach) {}
+            
+            Frame(ClassObject *cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {}
             
             Frame(CodeAttribute *code, ClassObject *cur_class, void *mach) : code_attr(code), cur_class_obj(cur_class), offset(0), machine(mach) {
                 this->locals.push_back(ValuePointerHolder::CreateFromExisting(this->cur_class_obj));
@@ -157,6 +160,10 @@ namespace javm::core {
                     this->offset += sizeof(T);
                 }
                 return t;
+            }
+
+            void ThrowException(std::string message) {
+                MachineThrowException(this->machine, message);
             }
 
             void *GetMachinePointer() {

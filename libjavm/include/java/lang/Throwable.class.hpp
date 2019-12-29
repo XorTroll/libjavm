@@ -10,11 +10,6 @@ namespace java::lang {
             std::string msg;
 
         public:
-            Throwable() : Object("java.lang.Throwable") {
-                JAVM_NATIVE_CLASS_REGISTER_CTOR(constructor)
-                JAVM_NATIVE_CLASS_REGISTER_METHOD(getMessage)
-            }
-
             std::string GetMessage() {
                 return this->msg;
             }
@@ -23,10 +18,17 @@ namespace java::lang {
                 this->msg = message;
             }
 
-            JAVM_NATIVE_CLASS_CTOR(Throwable)
+        public:
+            JAVM_NATIVE_CLASS_CTOR(Throwable) {
 
-            core::ValuePointerHolder constructor(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<Throwable>(this_param.value);
+                JAVM_NATIVE_CLASS_NAME("java.lang.Throwable")
+
+                JAVM_NATIVE_CLASS_REGISTER_CTOR(constructor)
+                JAVM_NATIVE_CLASS_REGISTER_METHOD(getMessage)
+            }
+
+            core::ValuePointerHolder constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
                 switch(parameters.size()) {
                     case 1: {
                         if(parameters[0].value.IsValidCast<String>()) {
@@ -41,8 +43,8 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::ValuePointerHolder getMessage(core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<Throwable>(this_param.value);
+            core::ValuePointerHolder getMessage(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
                 auto msg = this_ref->GetMessage();
 
                 auto str_obj = core::ValuePointerHolder::Create<String>();
@@ -50,6 +52,7 @@ namespace java::lang {
                 str_ref->SetString(msg);
                 return str_obj;
             }
+
     };
 
 }

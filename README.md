@@ -89,7 +89,7 @@ int main() {
 
 - `java.lang.StringBuilder` (barely implemented constructor, `append` and `toString`)
 
-- `java.io.PrintStream` (implemented String-based constructor and `println`)
+- `java.io.PrintStream` (implemented String-based constructor, `print` and `println`)
 
 - `java.lang.System` (implemented `out` and `err` static streams to write to console)
 

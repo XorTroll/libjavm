@@ -7,3 +7,6 @@
 #include <java/lang/System.class.hpp>
 #include <java/lang/Throwable.class.hpp>
 #include <java/lang/Exception.class.hpp>
+#include <java/lang/Error.class.hpp>
+#include <java/lang/LinkageError.class.hpp>
+#include <java/lang/NoClassDefFoundError.hpp>
