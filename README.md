@@ -4,7 +4,7 @@ libjavm is a small, header-only, zero-dependency C++17 Java Virtual Machine libr
 
 It provides everything necessary to run Java (8) code in any kind of system.
 
-The only thing necessary is a proper standard library, whose native interface is being worked on asan optional part of the library.
+The only thing necessary is a proper standard library, whose native interface is being worked on as an optional part of the library.
 
 ## Credits
 
