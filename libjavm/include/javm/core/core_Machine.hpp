@@ -31,18 +31,11 @@ namespace javm::core {
             ThrownInfo thrown_info;
 
             void ThrowClassNotFound(std::string class_name) {
-                if(this->HasClass("java.lang.NoClassDefFoundError")) {
-                    auto &err_class = this->FindClass("java.lang.NoClassDefFoundError");
-                    Frame frame(reinterpret_cast<void*>(this));
-                    auto err_instance = err_class->CreateInstance(frame);
-                    auto err_ref = err_instance.GetReference<java::lang::NoClassDefFoundError>();
-                    err_ref->SetMessage(ClassObject::ProcessClassName(class_name));
-                    
-                    this->ThrowExceptionWithInstance(frame, err_instance);
-                }
-                else {
-                    // W T F
-                }
+                this->ThrowExceptionWithType("java.lang.NoClassDefFoundError", ClassObject::ProcessClassName(class_name));
+            }
+
+            void ThrowRuntimeException(std::string message) {
+                this->ThrowExceptionWithType("java.lang.RuntimeException", message);
             }
 
             template<typename Arg>
@@ -758,7 +751,12 @@ namespace javm::core {
                             auto &class_ref = this->FindClass(class_name);
                             class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
                             auto obj = class_ref->GetStaticField(fld_nat_data.processed_name);
-                            frame.Push(obj);
+                            if(obj.IsVoid()) {
+                                this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
+                            }
+                            else {
+                                frame.Push(obj);
+                            }
                         }
                         else {
                             this->ThrowClassNotFound(class_name);
@@ -795,7 +793,12 @@ namespace javm::core {
                         
                         auto clss = frame.PopReference<ClassObject>();
                         auto obj = clss->GetField(fld_nat_data.processed_name);
-                        frame.Push(obj);
+                        if(obj.IsVoid()) {
+                            this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+                        }
+                        else {
+                            frame.Push(obj);
+                        }
                         break;
                     }
                     case Instruction::PUTFIELD: {
@@ -823,11 +826,16 @@ namespace javm::core {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
-                                    frame.Push(ret);
+                                    if(ret.IsVoid()) {
+                                        this->ThrowRuntimeException("Invalid method return - " + fn_nat_data.processed_name);
+                                    }
+                                    else {
+                                        frame.Push(ret);
+                                    }
                                 }
                             }
                             else {
-                                frame.Pop();
+                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -849,7 +857,7 @@ namespace javm::core {
                                 class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
-                                frame.Pop();
+                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -868,11 +876,20 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
-                            auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
-                            if(ret.IsVoid() && should_ret) {
-                                // Throw error - should return and isn't returning...?
+                            if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                                auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                if(should_ret) {
+                                    if(ret.IsVoid()) {
+                                        this->ThrowRuntimeException("Invalid static function return - " + fn_nat_data.processed_name);
+                                    }
+                                    else {
+                                        frame.Push(ret);
+                                    }
+                                }
                             }
-                            frame.Push(std::move(ret));
+                            else {
+                                this->ThrowRuntimeException("Invalid static function - " + fn_nat_data.processed_name);
+                            }
                         }
                         else {
                             this->ThrowClassNotFound(class_name);
@@ -998,21 +1015,6 @@ namespace javm::core {
                 return this->thrown_info.info_valid;
             }
 
-            void ThrowExceptionWithMessage(std::string message) {
-                if(this->HasClass("java.lang.Exception")) {
-                    auto &err_class = this->FindClass("java.lang.Exception");
-                    Frame frame(reinterpret_cast<void*>(this));
-                    auto err_instance = err_class->CreateInstance(frame);
-                    auto err_ref = err_instance.GetReference<java::lang::Exception>();
-                    err_ref->SetMessage(message);
-                    
-                    this->ThrowExceptionWithInstance(frame, err_instance);
-                }
-                else {
-                    this->ThrowClassNotFound("java.lang.Exception");
-                }
-            }
-
             void ThrowExceptionWithInstance(Frame &frame, ValuePointerHolder holder) {
                 auto obj = holder.GetReference<ClassObject>();
                 auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
@@ -1024,6 +1026,25 @@ namespace javm::core {
                     auto str_ref = str.GetReference<java::lang::String>();
                     this->thrown_info.message = str_ref->GetString();
                 }
+            }
+
+            void ThrowExceptionWithType(std::string class_name, std::string message) {
+                if(this->HasClass(class_name)) {
+                    auto &err_class = this->FindClass(class_name);
+                    Frame frame(reinterpret_cast<void*>(this));
+                    auto err_instance = err_class->CreateInstance(frame);
+                    auto err_ref = err_instance.GetReference<java::lang::Throwable>();
+                    err_ref->SetMessage(message);
+                    
+                    this->ThrowExceptionWithInstance(frame, err_instance);
+                }
+                else {
+                    this->ThrowClassNotFound(class_name);
+                }
+            }
+
+            void ThrowExceptionWithMessage(std::string message) {
+                this->ThrowExceptionWithType("java.lang.Exception", message);
             }
 
             // Simplify getting the machine pointer from a frame
@@ -1054,6 +1075,7 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::System>();
                 this->LoadNativeClass<java::lang::Throwable>();
                 this->LoadNativeClass<java::lang::Exception>();
+                this->LoadNativeClass<java::lang::RuntimeException>();
                 this->LoadNativeClass<java::lang::Error>();
                 this->LoadNativeClass<java::lang::LinkageError>();
                 this->LoadNativeClass<java::lang::NoClassDefFoundError>();
