@@ -5,8 +5,6 @@
 #include <typeinfo>
 #include <memory>
 
-extern int tmp_allocated_count;
-
 namespace javm::core {
 
     using DtorFunction = std::function<void(void*)>;
@@ -62,7 +60,6 @@ namespace javm::core {
 
             void Dispose() {
                 if(this->inner_ptr != nullptr) {
-                    tmp_allocated_count--;
                     this->dtor(this->inner_ptr); // if the holder is empty, this function is the empty destructor
                     this->inner_ptr = nullptr;
                 }
