@@ -822,7 +822,7 @@ namespace javm::core {
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                            if(class_ref->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
@@ -853,7 +853,7 @@ namespace javm::core {
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                            if(class_ref->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
@@ -876,7 +876,7 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
-                            if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                            if(class_ref->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
                                     if(ret->IsVoid()) {
@@ -1253,9 +1253,11 @@ namespace javm::core {
             }
         }
         auto super_class = class_file->GetSuperClassInstance();
-        if(!super_class->IsNull()) {
-            auto super_class_ref = super_class->GetReference<ClassObject>();
-            return super_class_ref->HandleMethod(name, desc, frame);
+        if(super_class) {
+            if(super_class->IsClassObject()) {
+                auto super_class_ref = super_class->GetReference<ClassObject>();
+                return super_class_ref->HandleMethod(name, desc, frame);
+            }
         }
         return CreateNullValue();
     }
@@ -1283,9 +1285,11 @@ namespace javm::core {
             }
         }
         auto super_class = class_file->GetSuperClassInstance();
-        if(!super_class->IsNull()) {
-            auto super_class_ref = super_class->GetReference<ClassObject>();
-            return super_class_ref->HandleStaticFunction(name, desc, frame);
+        if(super_class) {
+            if(super_class->IsClassObject()) {
+                auto super_class_ref = super_class->GetReference<ClassObject>();
+                return super_class_ref->HandleStaticFunction(name, desc, frame);
+            }
         }
         return CreateNullValue();
     }

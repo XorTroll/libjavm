@@ -266,8 +266,51 @@ namespace javm::core {
             virtual void SetField(std::string name, Value value) = 0;
             virtual void SetStaticField(std::string name, Value value) = 0;
             virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) = 0;
+            virtual bool CanHandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
             virtual Value HandleMethod(std::string name, std::string desc, Frame &frame) = 0;
             virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
+            
+            bool CanSuperClassHandleMethod(std::string name, std::string desc, Frame &frame) {
+                if(this->super_class_instance) {
+                    printf("CanSuperClassHandleMethod - %s\n", this->GetSuperClassReference<ClassObject>()->GetName().c_str());
+                    if(this->GetSuperClassReference<ClassObject>()->CanHandleMethod(name, desc, frame)) {
+                        return true;
+                    }
+                    return this->GetSuperClassReference<ClassObject>()->CanSuperClassHandleMethod(name, desc, frame);
+                }
+                return false;
+            }
+
+            bool CanSuperClassHandleStaticFunction(std::string name, std::string desc, Frame &frame) {
+                if(this->super_class_instance) {
+                    printf("CanSuperClassHandleStaticFunction - %s\n", this->GetSuperClassReference<ClassObject>()->GetName().c_str());
+                    if(this->GetSuperClassReference<ClassObject>()->CanHandleStaticFunction(name, desc, frame)) {
+                        return true;
+                    }
+                    return this->GetSuperClassReference<ClassObject>()->CanSuperClassHandleStaticFunction(name, desc, frame);
+                }
+                return false;
+            }
+
+            bool CanAllHandleMethod(std::string name, std::string desc, Frame &frame) {
+                if(this->CanHandleMethod(name, desc, frame)) {
+                    return true;
+                }
+                if(this->CanSuperClassHandleMethod(name, desc, frame)) {
+                    return true;
+                }
+                return false;
+            }
+
+            bool CanAllHandleStaticFunction(std::string name, std::string desc, Frame &frame) {
+                if(this->CanHandleStaticFunction(name, desc, frame)) {
+                    return true;
+                }
+                if(this->CanSuperClassHandleStaticFunction(name, desc, frame)) {
+                    return true;
+                }
+                return false;
+            }
 
             Value CreateInstance(Frame &frame) {
                 return this->CreateInstanceEx(frame.GetMachinePointer());
@@ -292,7 +335,7 @@ namespace javm::core {
                 frame.PushReference(this);
                 (this->HandlePushArgument(frame, args), ...);
                 auto desc = BuildFunctionDescriptor(args...);
-                if(this->CanHandleMethod(name, desc, frame)) {
+                if(this->CanAllHandleMethod(name, desc, frame)) {
                     return this->HandleMethod(name, desc, frame);
                 }
                 return CreateVoidValue();

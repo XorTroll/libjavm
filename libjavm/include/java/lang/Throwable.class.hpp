@@ -29,6 +29,7 @@ namespace java::lang {
 
             core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
+                printf("This class: %s\n", this_ref->GetName().c_str());
                 switch(parameters.size()) {
                     case 1: {
                         if(parameters[0].value->IsValidCast<String>()) {

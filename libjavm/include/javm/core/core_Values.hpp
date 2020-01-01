@@ -157,6 +157,7 @@ namespace javm::core {
     };
 
     using Value = std::shared_ptr<ValuePointerHolder>;
+    using Array = std::vector<Value>;
 
     template<typename T, typename ...Args>
     static inline Value CreateNewValue(Args &&...args) {
@@ -176,8 +177,6 @@ namespace javm::core {
     static inline Value CreateNullValue() {
         return std::make_shared<ValuePointerHolder>();
     }
-
-    using Array = std::vector<Value>;
 
     template<typename T>
     Array CreateArray(std::initializer_list<T> list) {

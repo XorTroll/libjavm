@@ -222,14 +222,24 @@ namespace javm::core {
                 for(auto &method: this->methods) {
                     if(method.GetName() == name) {
                         if(method.GetDesc() == desc) {
-                            return true;
+                            if(!method.Is<AccessFlags::Static>()) {
+                                return true;
+                            }
                         }
                     }
                 }
-                auto super_class = this->GetSuperClassInstance();
-                if(!super_class->IsNull()) {
-                    auto super_class_ref = super_class->GetReference<core::ClassObject>();
-                    return super_class_ref->CanHandleMethod(name, desc, frame);
+                return false;
+            }
+
+            virtual bool CanHandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
+                for(auto &method: this->methods) {
+                    if(method.GetName() == name) {
+                        if(method.GetDesc() == desc) {
+                            if(method.Is<AccessFlags::Static>()) {
+                                return true;
+                            }
+                        }
+                    }
                 }
                 return false;
             }

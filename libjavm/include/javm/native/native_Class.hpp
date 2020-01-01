@@ -110,13 +110,12 @@ namespace javm::native {
                 if(this->methods.find(name) != this->methods.end()) {
                     return true;
                 }
+                return false;
+            }
+
+            virtual bool CanHandleStaticFunction(std::string name, std::string desc, core::Frame &frame) override {
                 if(this->static_fns.find(name) != this->static_fns.end()) {
                     return true;
-                }
-                auto super_class = this->GetSuperClassInstance();
-                if(super_class->IsClassObject()) {
-                    auto super_class_ref = super_class->GetReference<core::ClassObject>();
-                    return super_class_ref->CanHandleMethod(name, desc, frame);
                 }
                 return false;
             }
@@ -133,16 +132,29 @@ namespace javm::native {
                         fparam.parsed_type = ClassObject::ParseValueType(fparam.desc);
                         fn_params.push_back(fparam);
                     }
+                    // This is the class definition, so it has the class name of the 'this' object to pass to the method
+                    auto method_class_name = core::ClassObject::ProcessClassName(this->GetName());
                     core::Value this_holder = frame.Pop();
                     auto orig_this = this_holder;
                     // Auto-detect whether the function is accessible by the class, and if not, loop until a super class does implement it, to send the correct 'this' object :P
-                    while(!this_holder->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
+                    // Basically, the name of the class requested by the invoking instruction (this definition's class name) must be the same name/type of the 'this' object we send to the native function.
+                    while(method_class_name != core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
                         auto super_holder = this_holder->GetReference<core::ClassObject>()->GetSuperClassInstance();
+                        if(!super_holder) {
+                            this_holder = orig_this;
+                            break;
+                        }
                         if(!super_holder->IsClassObject()) {
                             this_holder = orig_this;
                             break;
                         }
                         this_holder = super_holder;
+                    }
+                    if(method_class_name != core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
+                        frame.ThrowException("Invalid method call");
+                    }
+                    if(!this_holder->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
+                        frame.ThrowException("Invalid method call");
                     }
                     core::FunctionParameter this_fparam = {};
                     this_fparam.desc = this->GetName();
@@ -151,9 +163,11 @@ namespace javm::native {
                     return it->second(frame, this_fparam, fn_params);
                 }
                 auto super_class = this->GetSuperClassInstance();
-                if(!super_class->IsNull()) {
-                    auto super_class_ref = super_class->GetReference<core::ClassObject>();
-                    return super_class_ref->HandleMethod(name, desc, frame);
+                if(super_class) {
+                    if(super_class->IsClassObject()) {
+                        auto super_class_ref = super_class->GetReference<core::ClassObject>();
+                        return super_class_ref->HandleMethod(name, desc, frame);
+                    }
                 }
                 return core::CreateVoidValue();
             }
