@@ -9,6 +9,7 @@ namespace javm::core {
 
     #define JAVM_CTOR_METHOD_NAME "<init>"
     #define JAVM_STATIC_BLOCK_METHOD_NAME "<clinit>"
+    #define JAVM_EMPTY_METHOD_DESCRIPTOR "()V"
 
     struct FunctionParameter {
         std::string desc;
@@ -272,7 +273,6 @@ namespace javm::core {
             
             bool CanSuperClassHandleMethod(std::string name, std::string desc, Frame &frame) {
                 if(this->super_class_instance) {
-                    printf("CanSuperClassHandleMethod - %s\n", this->GetSuperClassReference<ClassObject>()->GetName().c_str());
                     if(this->GetSuperClassReference<ClassObject>()->CanHandleMethod(name, desc, frame)) {
                         return true;
                     }
@@ -283,7 +283,6 @@ namespace javm::core {
 
             bool CanSuperClassHandleStaticFunction(std::string name, std::string desc, Frame &frame) {
                 if(this->super_class_instance) {
-                    printf("CanSuperClassHandleStaticFunction - %s\n", this->GetSuperClassReference<ClassObject>()->GetName().c_str());
                     if(this->GetSuperClassReference<ClassObject>()->CanHandleStaticFunction(name, desc, frame)) {
                         return true;
                     }

@@ -150,17 +150,15 @@ namespace javm::native {
                         }
                         this_holder = super_holder;
                     }
-                    if(method_class_name != core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
-                        frame.ThrowException("Invalid method call");
+                    if(method_class_name == core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
+                        if(this_holder->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
+                            core::FunctionParameter this_fparam = {};
+                            this_fparam.desc = this->GetName();
+                            this_fparam.value = this_holder;
+                            this_fparam.parsed_type = ClassObject::ParseValueType(this_fparam.desc);
+                            return it->second(frame, this_fparam, fn_params);
+                        }
                     }
-                    if(!this_holder->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
-                        frame.ThrowException("Invalid method call");
-                    }
-                    core::FunctionParameter this_fparam = {};
-                    this_fparam.desc = this->GetName();
-                    this_fparam.value = this_holder;
-                    this_fparam.parsed_type = ClassObject::ParseValueType(this_fparam.desc);
-                    return it->second(frame, this_fparam, fn_params);
                 }
                 auto super_class = this->GetSuperClassInstance();
                 if(super_class) {
@@ -169,6 +167,7 @@ namespace javm::native {
                         return super_class_ref->HandleMethod(name, desc, frame);
                     }
                 }
+                frame.ThrowExceptionWithType("java.lang.RuntimeException", "Invalid method call");
                 return core::CreateVoidValue();
             }
 
@@ -202,7 +201,7 @@ namespace javm::native {
                         return super_class_ref->HandleStaticFunction(name, desc, frame);
                     }
                 }
-                
+                frame.ThrowExceptionWithType("java.lang.RuntimeException", "Invalid static function call - " + name + " - " + this->GetName());
                 return core::CreateVoidValue();
             }
 
@@ -228,7 +227,7 @@ namespace javm::native {
     #define JAVM_NATIVE_CLASS_EXTENDS(clss) this->super_class_name = core::ClassObject::ProcessClassName(clss);
 
     #define JAVM_NATIVE_CLASS_REGISTER_CTOR(name) _JAVM_NATIVE_CLASS_REGISTER_METHOD(JAVM_CTOR_METHOD_NAME, name)
-    #define JAVM_NATIVE_CLASS_REGISTER_STATIC_BLOCK(name) _JAVM_NATIVE_CLASS_REGISTER_METHOD(JAVM_STATIC_BLOCK_METHOD_NAME, name)
+    #define JAVM_NATIVE_CLASS_REGISTER_STATIC_BLOCK(name) _JAVM_NATIVE_CLASS_REGISTER_STATIC_FN(JAVM_STATIC_BLOCK_METHOD_NAME, name)
     #define JAVM_NATIVE_CLASS_REGISTER_METHOD(name) _JAVM_NATIVE_CLASS_REGISTER_METHOD(#name, name)
     #define JAVM_NATIVE_CLASS_REGISTER_STATIC_FN(name) _JAVM_NATIVE_CLASS_REGISTER_STATIC_FN(#name, name)
 

@@ -749,7 +749,9 @@ namespace javm::core {
                         
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
-                            class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
+                            if(class_ref->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
+                                class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                            }
                             auto obj = class_ref->GetStaticField(fld_nat_data.processed_name);
                             if(obj->IsVoid()) {
                                 this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
@@ -774,7 +776,9 @@ namespace javm::core {
                         
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
-                            class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
+                            if(class_ref->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
+                                class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                            }
                             auto obj = frame.Pop();
                             class_ref->SetStaticField(fld_nat_data.processed_name, obj);
                         }
@@ -1303,7 +1307,16 @@ namespace javm::core {
         return FindClassByNameEx(frame.GetMachinePointer(), name);
     }
 
-    void MachineThrowException(void *machine, std::string message) {
+    void MachineThrowExceptionWithMessage(void *machine, std::string message) {
         return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithMessage(message);
+    }
+
+    void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message) {
+        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithType(class_name, message);
+    }
+
+    void MachineThrowExceptionWithInstance(void *machine, Value holder) {
+        Frame frame(machine);
+        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, holder);
     }
 }
