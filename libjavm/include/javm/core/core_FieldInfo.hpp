@@ -71,8 +71,8 @@ namespace javm::core {
                 return this->desc_index;
             }
             
-            void SetValue(Value holder) {
-                this->val_holder = holder;
+            void SetValue(Value value) {
+                this->val_holder = value;
             }
 
             core::Value GetValue() {

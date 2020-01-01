@@ -262,6 +262,8 @@ namespace javm::core {
             virtual std::string GetSuperClassName() = 0;
             virtual std::vector<CPInfo> &GetConstantPool() = 0;
             virtual Value CreateInstanceEx(void *machine_ptr) = 0;
+            virtual bool HasField(std::string name) = 0;
+            virtual bool HasStaticField(std::string name) = 0;
             virtual Value GetField(std::string name) = 0;
             virtual Value GetStaticField(std::string name) = 0;
             virtual void SetField(std::string name, Value value) = 0;
@@ -307,6 +309,18 @@ namespace javm::core {
                 }
                 if(this->CanSuperClassHandleStaticFunction(name, desc, frame)) {
                     return true;
+                }
+                return false;
+            }
+
+            bool CanCastTo(std::string class_name) {
+                // Iterate through every superclass to see if the name matches
+                if(this->GetName() == class_name) {
+                    return true;
+                }
+                auto super_class_instance = this->GetSuperClassInstance();
+                if(super_class_instance) {
+                    return super_class_instance->GetReference<ClassObject>()->CanCastTo(class_name);
                 }
                 return false;
             }

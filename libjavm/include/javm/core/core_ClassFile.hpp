@@ -174,10 +174,34 @@ namespace javm::core {
                 return class_ref;
             }
 
+            virtual bool HasField(std::string name) override {
+                for(auto &field: this->fields) {
+                    if(!field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            virtual bool HasStaticField(std::string name) override {
+                for(auto &field: this->fields) {
+                    if(field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
             virtual Value GetField(std::string name) override {
                 for(auto &field: this->fields) {
-                    if(field.GetName() == name) {
-                        return field.GetValue();
+                    if(!field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            return field.GetValue();
+                        }
                     }
                 }
                 return CreateVoidValue();
@@ -185,8 +209,10 @@ namespace javm::core {
 
             virtual Value GetStaticField(std::string name) override {
                 for(auto &field: this->fields) {
-                    if(field.GetName() == name) {
-                        return field.GetValue();
+                    if(field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            return field.GetValue();
+                        }
                     }
                 }
                 return CreateVoidValue();
@@ -194,18 +220,22 @@ namespace javm::core {
 
             virtual void SetField(std::string name, Value value) override {
                 for(auto &field: this->fields) {
-                    if(field.GetName() == name) {
-                        field.SetValue(value);
-                        break;
+                    if(!field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            field.SetValue(value);
+                            break;
+                        }
                     }
                 }
             }
 
             virtual void SetStaticField(std::string name, Value value) override {
                 for(auto &field: this->fields) {
-                    if(field.GetName() == name) {
-                        field.SetValue(value);
-                        break;
+                    if(field.Is<AccessFlags::Static>()) {
+                        if(field.GetName() == name) {
+                            field.SetValue(value);
+                            break;
+                        }
                     }
                 }
             }

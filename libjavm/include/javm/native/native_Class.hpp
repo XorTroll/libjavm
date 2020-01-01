@@ -74,6 +74,14 @@ namespace javm::native {
                 return this->stub_empty_pool;
             }
 
+            virtual bool HasField(std::string name) override {
+                return this->member_fields.find(name) != this->member_fields.end();
+            }
+
+            virtual bool HasStaticField(std::string name) override {
+                return this->static_fields.find(name) != this->static_fields.end();
+            }
+            
             virtual core::Value GetField(std::string name) override {
                 if(this->member_fields.find(name) != this->member_fields.end()) {
                     return this->member_fields[name];
@@ -108,6 +116,10 @@ namespace javm::native {
 
             virtual bool CanHandleMethod(std::string name, std::string desc, core::Frame &frame) override {
                 if(this->methods.find(name) != this->methods.end()) {
+                    return true;
+                }
+                else if(name == JAVM_CTOR_METHOD_NAME) {
+                    // Constructors always exist, just that they are empty by default
                     return true;
                 }
                 return false;
@@ -159,6 +171,10 @@ namespace javm::native {
                             return it->second(frame, this_fparam, fn_params);
                         }
                     }
+                }
+                else if(name == JAVM_CTOR_METHOD_NAME) {
+                    // Constructors always exist, just that they are empty by default, so return nothing (void) as if an empty method was called.
+                    return core::CreateVoidValue();
                 }
                 auto super_class = this->GetSuperClassInstance();
                 if(super_class) {

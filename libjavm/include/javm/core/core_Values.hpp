@@ -60,7 +60,7 @@ namespace javm::core {
 
             void Dispose() {
                 if(this->inner_ptr != nullptr) {
-                    this->dtor(this->inner_ptr); // if the holder is empty, this function is the empty destructor
+                    this->dtor(this->inner_ptr); // if the value is empty, this function is the empty destructor
                     this->inner_ptr = nullptr;
                 }
             }

@@ -11,7 +11,7 @@ namespace javm::core {
 
     void MachineThrowExceptionWithMessage(void *machine, std::string message);
     void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message);
-    void MachineThrowExceptionWithInstance(void *machine, Value holder);
+    void MachineThrowExceptionWithInstance(void *machine, Value value);
 
     class Frame {
 
@@ -98,7 +98,7 @@ namespace javm::core {
                 return this->cur_class_obj;
             }
 
-            Value Pop() { // In this case we don't dispose the holder, since Pop is used for holders which will be used again
+            Value Pop() { // In this case we don't dispose the value, since Pop is used for holders which will be used again
                 auto copy = this->stack.back();
                 // printf("Popping pointer: %p\n", copy->GetAddress());
                 this->stack.pop_back();
@@ -107,19 +107,19 @@ namespace javm::core {
 
             template<typename T>
             T *PopReference() {
-                auto holder = this->Pop();
-                return holder->GetReference<T>();
+                auto value = this->Pop();
+                return value->GetReference<T>();
             }
 
             template<typename T>
             T PopValue() { // PopValue = dispose and remove last element from stack, and return its value
-                auto holder = this->Pop();
+                auto value = this->Pop();
                 T copy = T();
-                auto ptr = holder->GetReference<T>();
+                auto ptr = value->GetReference<T>();
                 if(ptr != nullptr) {
                     memcpy(&copy, ptr, sizeof(copy));
                 }
-                // holder.Dispose(); // Dispose the holder (free the pointer it holds) manually
+                // value.Dispose(); // Dispose the value (free the pointer it holds) manually
                 return copy;
             }
 
@@ -172,8 +172,8 @@ namespace javm::core {
                 MachineThrowExceptionWithType(this->machine, class_name, message);
             }
 
-            void ThrowExceptionWithInstance(Value holder) {
-                MachineThrowExceptionWithInstance(this->machine, holder);
+            void ThrowExceptionWithInstance(Value value) {
+                MachineThrowExceptionWithInstance(this->machine, value);
             }
 
             void *GetMachinePointer() {

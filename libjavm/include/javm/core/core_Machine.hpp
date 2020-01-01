@@ -74,8 +74,8 @@ namespace javm::core {
                 #define _JAVM_ASTORE_N_INSTRUCTION(idx) \
                 case Instruction::ASTORE_##idx: { \
                         u8 index = idx; \
-                        auto holder = frame.Pop(); \
-                        frame.SetLocal((u32)index, holder); \
+                        auto value = frame.Pop(); \
+                        frame.SetLocal((u32)index, value); \
                         break; \
                     }
                 
@@ -110,17 +110,17 @@ namespace javm::core {
                 case Instruction::instr: { \
                         int index = frame.PopValue<int>(); \
                         auto array = frame.PopReference<Array>(); \
-                        auto holder = array->at(index); \
-                        frame.Push(holder); \
+                        auto value = array->at(index); \
+                        frame.Push(value); \
                         break; \
                     }
 
                 #define _JAVM_ASTORE_INSTRUCTION(instr) \
                 case Instruction::instr: { \
-                        auto holder = frame.Pop(); \
+                        auto value = frame.Pop(); \
                         int idx = frame.PopValue<int>(); \
                         auto arr = frame.PopReference<Array>(); \
-                        arr->at(idx) = holder; \
+                        arr->at(idx) = value; \
                         break; \
                     }
 
@@ -266,8 +266,8 @@ namespace javm::core {
                     _JAVM_LOAD_INSTRUCTION_INDEX_READ(DLOAD, double)
                     case Instruction::ALOAD: {
                         u8 index = frame.Read<u8>();
-                        auto holder = frame.GetLocal((u32)index);
-                        frame.Push(holder);
+                        auto value = frame.GetLocal((u32)index);
+                        frame.Push(value);
                         break;
                     }
                     _JAVM_LOAD_INSTRUCTION(ILOAD_0, 0, int)
@@ -275,8 +275,8 @@ namespace javm::core {
                     _JAVM_LOAD_INSTRUCTION(FLOAD_0, 0, float)
                     _JAVM_LOAD_INSTRUCTION(DLOAD_0, 0, double)
                     case Instruction::ALOAD_0: {
-                        auto holder = frame.GetLocal(0);
-                        frame.Push(holder);
+                        auto value = frame.GetLocal(0);
+                        frame.Push(value);
                         break;
                     }
                     _JAVM_LOAD_INSTRUCTION(ILOAD_1, 1, int)
@@ -284,8 +284,8 @@ namespace javm::core {
                     _JAVM_LOAD_INSTRUCTION(FLOAD_1, 1, float)
                     _JAVM_LOAD_INSTRUCTION(DLOAD_1, 1, double)
                     case Instruction::ALOAD_1: {
-                        auto holder = frame.GetLocal(1);
-                        frame.Push(holder);
+                        auto value = frame.GetLocal(1);
+                        frame.Push(value);
                         break;
                     }
                     _JAVM_LOAD_INSTRUCTION(ILOAD_2, 2, int)
@@ -293,8 +293,8 @@ namespace javm::core {
                     _JAVM_LOAD_INSTRUCTION(FLOAD_2, 2, float)
                     _JAVM_LOAD_INSTRUCTION(DLOAD_2, 2, double)
                     case Instruction::ALOAD_2: {
-                        auto holder = frame.GetLocal(2);
-                        frame.Push(holder);
+                        auto value = frame.GetLocal(2);
+                        frame.Push(value);
                         break;
                     }
                     _JAVM_LOAD_INSTRUCTION(ILOAD_3, 3, int)
@@ -302,8 +302,8 @@ namespace javm::core {
                     _JAVM_LOAD_INSTRUCTION(FLOAD_3, 3, float)
                     _JAVM_LOAD_INSTRUCTION(DLOAD_3, 3, double)
                     case Instruction::ALOAD_3: {
-                        auto holder = frame.GetLocal(3);
-                        frame.Push(holder);
+                        auto value = frame.GetLocal(3);
+                        frame.Push(value);
                         break;
                     }
                     _JAVM_ALOAD_INSTRUCTION(IALOAD)
@@ -320,8 +320,8 @@ namespace javm::core {
                     _JAVM_STORE_INSTRUCTION_INDEX_READ(DSTORE, double)
                     case Instruction::ASTORE: {
                         u8 index = frame.Read<u8>();
-                        auto holder = frame.Pop();
-                        frame.SetLocal((u32)index, holder);
+                        auto value = frame.Pop();
+                        frame.SetLocal((u32)index, value);
                         break;
                     }
                     _JAVM_STORE_INSTRUCTION(0, ISTORE_0, int)
@@ -794,15 +794,21 @@ namespace javm::core {
                         auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
-                        
-                        auto clss = frame.PopReference<ClassObject>();
-                        auto obj = clss->GetField(fld_nat_data.processed_name);
-                        if(obj->IsVoid()) {
-                            this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+
+                        auto value = frame.Pop();
+                        if(!value) {
+                            this->ThrowRuntimeException("WTF");
                         }
-                        else {
+                        
+                        auto clss = value->GetReference<ClassObject>();
+                        if(clss->HasField(fld_nat_data.processed_name)) {
+                            auto obj = clss->GetField(fld_nat_data.processed_name);
                             frame.Push(obj);
                         }
+                        else {
+                            this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+                        }
+                        
                         break;
                     }
                     case Instruction::PUTFIELD: {
@@ -861,7 +867,7 @@ namespace javm::core {
                                 class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
-                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name + " - " + class_name);
                             }
                         }
                         else {
@@ -952,13 +958,27 @@ namespace javm::core {
                         should_ret = true;
                         break;
                     }
-                    case Instruction::CHECKCAST:
-                    case Instruction::INSTANCEOF: {
+                    case Instruction::CHECKCAST: {
                         u16 index = BE(frame.Read<u16>());
-                        auto obj = frame.PopReference<ClassObject>();
+                        auto value = frame.Pop();
+                        auto obj = value->GetReference<ClassObject>();
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto class_name = constant_pool[index - 1].GetClassData().processed_name;
-                        if(obj->GetName() == class_name) {
+                        if(obj->CanCastTo(class_name)) {
+                            frame.Push(value);
+                        }
+                        else {
+                            this->ThrowRuntimeException(ClassObject::GetPresentableClassName(obj->GetName()) + " cannot be cast to "+  ClassObject::GetPresentableClassName(class_name));
+                        }
+                        break;
+                    }
+                    case Instruction::INSTANCEOF: {
+                        u16 index = BE(frame.Read<u16>());
+                        auto value = frame.Pop();
+                        auto obj = value->GetReference<ClassObject>();
+                        auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
+                        auto class_name = constant_pool[index - 1].GetClassData().processed_name;
+                        if(obj->CanCastTo(class_name)) {
                             frame.CreatePush<int>(1);
                         }
                         else {
@@ -967,18 +987,18 @@ namespace javm::core {
                         break;
                     }
                     case Instruction::IFNULL: {
-                        auto holder = frame.Pop();
+                        auto value = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if(holder->IsNull()) {
+                        if(value->IsNull()) {
                             offset -= 3;
                             offset += branch;
                         }
                         break;
                     }
                     case Instruction::IFNONNULL: {
-                        auto holder = frame.Pop();
+                        auto value = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if(!holder->IsNull()) {
+                        if(!value->IsNull()) {
                             offset -= 3;
                             offset += branch;
                         }
@@ -1019,8 +1039,8 @@ namespace javm::core {
                 return this->thrown_info.info_valid;
             }
 
-            void ThrowExceptionWithInstance(Frame &frame, Value holder) {
-                auto obj = holder->GetReference<ClassObject>();
+            void ThrowExceptionWithInstance(Frame &frame, Value value) {
+                auto obj = value->GetReference<ClassObject>();
                 auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
                 if(str->IsVoid()) {
                     this->ThrowRuntimeException("Invalid exception type");
@@ -1315,8 +1335,8 @@ namespace javm::core {
         return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithType(class_name, message);
     }
 
-    void MachineThrowExceptionWithInstance(void *machine, Value holder) {
+    void MachineThrowExceptionWithInstance(void *machine, Value value) {
         Frame frame(machine);
-        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, holder);
+        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, value);
     }
 }
