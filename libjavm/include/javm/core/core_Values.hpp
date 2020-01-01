@@ -42,6 +42,11 @@ namespace javm::core {
     // Used to create void values - anyway, any value not matching the list above will be considered as void :P
     struct VoidValue {};
 
+    class ValuePointerHolder;
+
+    using Value = std::shared_ptr<ValuePointerHolder>;
+    using Array = std::vector<Value>;
+
     class ValuePointerHolder {
 
         private:
@@ -88,7 +93,7 @@ namespace javm::core {
                 if constexpr(std::is_same_v<T, nullptr_t>) {
                     return ValueType::Null;
                 }
-                if constexpr(std::is_same_v<T, std::vector<ValuePointerHolder>>) {
+                if constexpr(std::is_same_v<T, std::vector<Value>>) {
                     return ValueType::Array;
                 }
                 if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
@@ -116,6 +121,10 @@ namespace javm::core {
 
             bool IsClassObject() {
                 return this->type == ValueType::ClassObject;
+            }
+
+            bool IsArray() {
+                return this->type == ValueType::Array;
             }
             
             ValueType GetValueType() {
@@ -155,9 +164,6 @@ namespace javm::core {
                 }
             }
     };
-
-    using Value = std::shared_ptr<ValuePointerHolder>;
-    using Array = std::vector<Value>;
 
     template<typename T, typename ...Args>
     static inline Value CreateNewValue(Args &&...args) {

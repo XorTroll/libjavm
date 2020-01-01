@@ -38,6 +38,34 @@ namespace javm::core {
                 this->ThrowExceptionWithType("java.lang.RuntimeException", message);
             }
 
+            ValueType GetValueTypeFromNewArrayType(NewArrayType type) {
+                switch(type) {
+                    case NewArrayType::Boolean:
+                        return ValueType::Boolean;
+                    case NewArrayType::Character:
+                        return ValueType::Character;
+                    case NewArrayType::Float:
+                        return ValueType::Float;
+                    case NewArrayType::Double:
+                        return ValueType::Double;
+                    case NewArrayType::Byte:
+                        return ValueType::Byte;
+                    case NewArrayType::Short:
+                        return ValueType::Short;
+                    case NewArrayType::Integer:
+                        return ValueType::Integer;
+                    case NewArrayType::Long:
+                        return ValueType::Long;
+                    default:
+                        return ValueType::Void;
+                }
+                return ValueType::Void;
+            }
+
+            Value CreateValueTypeValue(ValueType type) {
+                return std::make_shared<ValuePointerHolder>(nullptr, 0, type);
+            }
+
             template<typename Arg>
             void HandlePushArgument(Frame &frame, u32 &index, Arg &arg) {
                 static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, Value>, "Arguments must be pointers to variables or core::Value");
@@ -109,9 +137,26 @@ namespace javm::core {
                 #define _JAVM_ALOAD_INSTRUCTION(instr) \
                 case Instruction::instr: { \
                         int index = frame.PopValue<int>(); \
-                        auto array = frame.PopReference<Array>(); \
-                        auto value = array->at(index); \
-                        frame.Push(value); \
+                        if(index < 0) { \
+                            this->ThrowRuntimeException("Invalid array index"); \
+                        } \
+                        else { \
+                            auto value = frame.Pop(); \
+                            if(value->IsArray()) { \
+                                auto array = value->GetReference<Array>(); \
+                                auto arr_sz = array->size() - 1; \
+                                if(index < arr_sz) { \
+                                    auto val = array->at(index); \
+                                    frame.Push(val); \
+                                } \
+                                else { \
+                                    this->ThrowRuntimeException("Invalid array index"); \
+                                } \
+                            } \
+                            else { \
+                                this->ThrowRuntimeException("Invalid input variable (not an array)"); \
+                            } \
+                        } \
                         break; \
                     }
 
@@ -119,8 +164,30 @@ namespace javm::core {
                 case Instruction::instr: { \
                         auto value = frame.Pop(); \
                         int idx = frame.PopValue<int>(); \
-                        auto arr = frame.PopReference<Array>(); \
-                        arr->at(idx) = value; \
+                        if(idx < 0) { \
+                            this->ThrowRuntimeException("Invalid array index"); \
+                        } \
+                        else { \
+                            auto arr_value = frame.Pop(); \
+                            if(arr_value->IsArray()) { \
+                                auto array = arr_value->GetReference<Array>(); \
+                                if(array->at(0)->GetValueType() == value->GetValueType()) { \
+                                    auto arr_sz = array->size() - 1; \
+                                    if(idx < arr_sz) { \
+                                        array->at(idx) = value; \
+                                    } \
+                                    else { \
+                                        this->ThrowRuntimeException("Invalid array index"); \
+                                    } \
+                                }  \
+                                else { \
+                                    this->ThrowRuntimeException("Value and array type mismatch: " + std::to_string((u32)array->at(0)->GetValueType()) + " and " + std::to_string((u32)value->GetValueType())); \
+                                } \
+                            } \
+                            else { \
+                                this->ThrowRuntimeException("Invalid input variable (not an array)"); \
+                            } \
+                        } \
                         break; \
                     }
 
@@ -925,32 +992,56 @@ namespace javm::core {
                         break;
                     }
                     case Instruction::NEWARRAY: {
-                        u8 type = BE(frame.Read<u8>());
-
-                        int len = frame.PopValue<int>();
-                        auto arr_holder = CreateNewValue<Array>();
-                        auto arr_ref = arr_holder->GetReference<Array>();
-                        for(int i = 0; i < len; i++) {
-                            arr_ref->emplace_back(); // Push empty (null) holders
+                        u8 type = frame.Read<u8>();
+                        auto vtype = this->GetValueTypeFromNewArrayType(static_cast<NewArrayType>(type));
+                        if(vtype == ValueType::Void) {
+                            this->ThrowRuntimeException("Invalid array primitive type");
                         }
-                        frame.Push(arr_holder);
+                        else {
+                            int len = frame.PopValue<int>();
+                            if(len < 0) {
+                                this->ThrowRuntimeException("Array size cannot be negative");
+                            }
+                            else {
+                                auto arr_value = CreateNewValue<Array>();
+                                auto arr_ref = arr_value->GetReference<Array>();
+                                // We treat arrays in a special way: an array of N elements is a C++ vector of N+1 elements, being the [0] element ValueType value of the type of the array.
+                                arr_ref->push_back(this->CreateValueTypeValue(vtype));
+                                for(int i = 0; i < len; i++) {
+                                    arr_ref->emplace_back(); // Push empty (null) values
+                                }
+                                frame.Push(arr_value);
+                            }
+                        }
                         break;
                     }
                     case Instruction::ANEWARRAY: {
                         u16 idx = BE(frame.Read<u16>());
-
                         int len = frame.PopValue<int>();
-                        auto arr_holder = CreateNewValue<Array>();
-                        auto arr_ref = arr_holder->GetReference<Array>();
-                        for(int i = 0; i < len; i++) {
-                            arr_ref->emplace_back(); // Push empty (null) holders
+                        if(len < 0) {
+                            this->ThrowRuntimeException("Array size cannot be negative");
                         }
-                        frame.Push(arr_holder);
+                        else {
+                            auto arr_value = CreateNewValue<Array>();
+                            auto arr_ref = arr_value->GetReference<Array>();
+                            // We treat arrays in a special way: an array of N elements is a C++ vector of N+1 elements, being the [0] element ValueType value of the type of the array.
+                            arr_ref->push_back(this->CreateValueTypeValue(ValueType::ClassObject));
+                            for(int i = 0; i < len; i++) {
+                                arr_ref->emplace_back(); // Push empty (null) values
+                            }
+                            frame.Push(arr_value);
+                        }
                         break;
                     }
                     case Instruction::ARRAYLENGTH: {
-                        auto arr = frame.PopReference<Array>();
-                        frame.CreatePush<int>((int)arr->size());
+                        auto value = frame.Pop();
+                        if(value->IsArray()) {
+                            auto arr = value->GetReference<Array>();
+                            frame.CreatePush<int>((int)(arr->size() - 1));
+                        }
+                        else {
+                            this->ThrowRuntimeException("Invalid input variable (not an array)");
+                        }
                         break;
                     }
                     case Instruction::ATHROW: {

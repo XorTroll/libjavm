@@ -205,5 +205,20 @@ namespace javm::core {
         IFNONNULL = 0xC7, // TODO
         GOTO_W = 0xC8, // Again, old opcode
         JSR_W = 0xC9, // Same as JSR above, not implementing it
+
+    };
+
+    // Types for NEWARRAY instruction
+    enum class NewArrayType : u8 {
+
+        Boolean = 4,
+        Character = 5,
+        Float = 6,
+        Double = 7,
+        Byte = 8,
+        Short = 9,
+        Integer = 10,
+        Long = 11,
+
     };
 }

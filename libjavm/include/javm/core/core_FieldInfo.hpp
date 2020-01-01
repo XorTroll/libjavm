@@ -6,6 +6,7 @@
 namespace javm::core {
 
     enum class AccessFlags : u16 {
+
         Public = 0x0001,
         Private = 0x0002,
         Protected = 0x0004,
@@ -26,6 +27,7 @@ namespace javm::core {
         Enum = 0x4000,
         Miranda = 0x8000,
         ReflectMask = 0xFFFF,
+        
     };
 
     inline constexpr u16 mask = (u16)AccessFlags::Public | (u16)AccessFlags::Private;
