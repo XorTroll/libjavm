@@ -15,8 +15,9 @@ namespace javm::core {
 
             void Load() {
                 if(this->IsValid()) {
-                    std::string manifest_file((char*)this->GetFileData(), this->GetFileSize());
-                    std::istringstream strm(manifest_file);
+                    char *manifest_str = new char[this->GetFileSize() + 1]();
+                    memcpy(manifest_str, this->GetFileData(), this->GetFileSize());
+                    std::istringstream strm(manifest_str);
                     std::string tmpline;
                     while(std::getline(strm, tmpline)) {
                         if(tmpline.empty()) {
@@ -30,8 +31,11 @@ namespace javm::core {
                         while(attr_value.front() == ' ') {
                             attr_value.erase(attr_value.begin());
                         }
+                        attr_value.erase(std::remove(attr_value.begin(), attr_value.end(), '\n'), attr_value.end());
+                        attr_value.erase(std::remove(attr_value.begin(), attr_value.end(), '\r'), attr_value.end());
                         this->attributes.insert(std::make_pair(attr_name, attr_value));
                     }
+                    delete[] manifest_str;
                 }
             }
 

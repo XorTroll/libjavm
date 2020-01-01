@@ -14,8 +14,8 @@ namespace javm::core {
     class Frame {
 
         private:
-            std::vector<ValuePointerHolder> stack;
-            std::vector<ValuePointerHolder> locals;
+            std::vector<Value> stack;
+            std::vector<Value> locals;
             CodeAttribute *code_attr;
             ClassObject *cur_class_obj;
             size_t offset;
@@ -27,28 +27,28 @@ namespace javm::core {
             Frame(ClassObject *cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {}
             
             Frame(CodeAttribute *code, ClassObject *cur_class, void *mach) : code_attr(code), cur_class_obj(cur_class), offset(0), machine(mach) {
-                this->locals.push_back(ValuePointerHolder::CreateFromExisting(this->cur_class_obj));
+                this->locals.push_back(CreateExistingValue(this->cur_class_obj));
                 this->locals.reserve(code->GetMaxLocals());
                 for(u16 i = 0; i < code->GetMaxLocals(); i++) {
-                    this->locals.push_back(ValuePointerHolder::CreateNull());
+                    this->locals.push_back(CreateNullValue());
                 }
             }
 
             template<typename T, typename ...Args>
             void CreateSetLocal(u32 index, Args &&...args) {
                 if(index < this->locals.size()) {
-                    this->SetLocal(index, ValuePointerHolder::Create<T>(args...));
+                    this->SetLocal(index, CreateNewValue<T>(args...));
                 }
             }
             
             template<typename T>
             void SetLocalReference(u32 index, T *local_var) {
                 if(index < this->locals.size()) {
-                    this->SetLocal(index, ValuePointerHolder::CreateFromExisting<T>(local_var));
+                    this->SetLocal(index, CreateExistingValue<T>(local_var));
                 }
             }
 
-            void SetLocal(u32 index, ValuePointerHolder local_var) {
+            void SetLocal(u32 index, Value local_var) {
                 if(index < this->locals.size()) {
                     this->locals[index] = local_var;
                 }
@@ -59,7 +59,7 @@ namespace javm::core {
                 if(index >= this->locals.size()) {
                     return nullptr;
                 }
-                return this->GetLocal(index).GetReference<T>();
+                return this->GetLocal(index)->GetReference<T>();
             }
 
             template<typename T>
@@ -67,38 +67,38 @@ namespace javm::core {
                 if(index >= this->locals.size()) {
                     return T();
                 }
-                return this->GetLocal(index).Get<T>();
+                return this->GetLocal(index)->Get<T>();
             }
 
-            ValuePointerHolder GetLocal(u32 index) {
+            Value GetLocal(u32 index) {
                 if(index >= this->locals.size()) {
-                    return ValuePointerHolder::CreateNull();
+                    return CreateNullValue();
                 }
                 return this->locals[index];
             }
 
-            void Push(ValuePointerHolder var) {
+            void Push(Value var) {
                 stack.push_back(var);
-                // printf("Pushing pointer: %p\n", var.GetAddress());
+                // printf("Pushing pointer: %p\n", var->GetAddress());
             }
 
             template<typename T, typename ...Args>
             void CreatePush(Args ...args) {
-                this->Push(ValuePointerHolder::Create<T>(args...));
+                this->Push(CreateNewValue<T>(args...));
             }
 
             template<typename T>
             void PushReference(T *var) {
-                this->Push(ValuePointerHolder::CreateFromExisting<T>(var));
+                this->Push(CreateExistingValue<T>(var));
             }
 
             ClassObject *GetCurrentClass() {
                 return this->cur_class_obj;
             }
 
-            ValuePointerHolder Pop() { // In this case we don't dispose the holder, since Pop is used for holders which will be used again
+            Value Pop() { // In this case we don't dispose the holder, since Pop is used for holders which will be used again
                 auto copy = this->stack.back();
-                // printf("Popping pointer: %p\n", copy.GetAddress());
+                // printf("Popping pointer: %p\n", copy->GetAddress());
                 this->stack.pop_back();
                 return copy;
             }
@@ -106,18 +106,18 @@ namespace javm::core {
             template<typename T>
             T *PopReference() {
                 auto holder = this->Pop();
-                return holder.GetReference<T>();
+                return holder->GetReference<T>();
             }
 
             template<typename T>
             T PopValue() { // PopValue = dispose and remove last element from stack, and return its value
                 auto holder = this->Pop();
                 T copy = T();
-                auto ptr = holder.GetReference<T>();
+                auto ptr = holder->GetReference<T>();
                 if(ptr != nullptr) {
                     memcpy(&copy, ptr, sizeof(copy));
                 }
-                holder.Dispose(); // Dispose the holder (free the pointer it holds) manually
+                // holder.Dispose(); // Dispose the holder (free the pointer it holds) manually
                 return copy;
             }
 

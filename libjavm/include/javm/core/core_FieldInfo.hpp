@@ -15,10 +15,10 @@ namespace javm::core {
             std::string processed_desc;
             u16 attribute_count;
             std::vector<AttributeInfo> attributes;
-            ValuePointerHolder val_holder;
+            Value val_holder;
 
         public:
-            FieldInfo(MemoryReader &reader) : access_flags(0), name_index(0), desc_index(0), val_holder(ValuePointerHolder::CreateVoid()) {
+            FieldInfo(MemoryReader &reader) : access_flags(0), name_index(0), desc_index(0), val_holder(CreateVoidValue()) {
                 this->access_flags = BE(reader.Read<u16>());
                 this->name_index = BE(reader.Read<u16>());
                 this->desc_index = BE(reader.Read<u16>());
@@ -42,11 +42,11 @@ namespace javm::core {
                 return this->desc_index;
             }
             
-            void SetValue(ValuePointerHolder holder) {
+            void SetValue(Value holder) {
                 this->val_holder = holder;
             }
 
-            core::ValuePointerHolder GetValue() {
+            core::Value GetValue() {
                 return this->val_holder;
             }
 

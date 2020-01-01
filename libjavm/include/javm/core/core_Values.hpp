@@ -3,6 +3,9 @@
 #include <javm/javm_Base.hpp>
 #include <functional>
 #include <typeinfo>
+#include <memory>
+
+extern int tmp_allocated_count;
 
 namespace javm::core {
 
@@ -52,18 +55,14 @@ namespace javm::core {
         public:
             ValuePointerHolder(void *t, size_t type_hash, ValueType vtype, DtorFunction dtor_fn = EmptyPointerDestructor) : inner_ptr(t), type_hash_code(type_hash), type(vtype), dtor(dtor_fn) {}
             ValuePointerHolder() : inner_ptr(nullptr), type_hash_code(0), type(ValueType::Null), dtor(EmptyPointerDestructor) {}
-            ValuePointerHolder(const ValuePointerHolder &other) : inner_ptr(other.inner_ptr), type_hash_code(other.type_hash_code), dtor(other.dtor), type(other.type) {}
 
-            ValuePointerHolder operator=(ValuePointerHolder other) {
-                this->inner_ptr = other.GetAddress();
-                this->type_hash_code = other.GetTypeHashCode();
-                this->dtor = other.GetDtorFunction();
-                this->type = other.GetValueType();
-                return *this;
+            ~ValuePointerHolder() {
+                this->Dispose();
             }
 
             void Dispose() {
                 if(this->inner_ptr != nullptr) {
+                    tmp_allocated_count--;
                     this->dtor(this->inner_ptr); // if the holder is empty, this function is the empty destructor
                     this->inner_ptr = nullptr;
                 }
@@ -108,25 +107,6 @@ namespace javm::core {
 
             size_t GetTypeHashCode() {
                 return this->type_hash_code;
-            }
-
-            template<typename T, typename ...Args>
-            static inline ValuePointerHolder Create(Args &&...args) {
-                T *t_ptr = new T(args...);
-                return ValuePointerHolder(reinterpret_cast<void*>(t_ptr), typeid(T).hash_code(), DetectValueType<T>(), TypeDeletePointerDestructor<T>);
-            }
-
-            template<typename T>
-            static ValuePointerHolder CreateFromExisting(T *t) {
-                return ValuePointerHolder(reinterpret_cast<void*>(t), typeid(T).hash_code(), DetectValueType<T>());
-            }
-
-            static ValuePointerHolder CreateVoid() {
-                return Create<VoidValue>();
-            }
-
-            static ValuePointerHolder CreateNull() {
-                return ValuePointerHolder();
             }
 
             bool IsNull() {
@@ -179,13 +159,34 @@ namespace javm::core {
             }
     };
 
-    using Array = std::vector<ValuePointerHolder>;
+    using Value = std::shared_ptr<ValuePointerHolder>;
+
+    template<typename T, typename ...Args>
+    static inline Value CreateNewValue(Args &&...args) {
+        T *t_ptr = new T(args...);
+        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t_ptr), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>(), TypeDeletePointerDestructor<T>);
+    }
+
+    template<typename T>
+    static inline Value CreateExistingValue(T *t) {
+        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>());
+    }
+
+    static inline Value CreateVoidValue() {
+        return CreateNewValue<VoidValue>();
+    }
+
+    static inline Value CreateNullValue() {
+        return std::make_shared<ValuePointerHolder>();
+    }
+
+    using Array = std::vector<Value>;
 
     template<typename T>
     Array CreateArray(std::initializer_list<T> list) {
         Array array;
         for(auto &item: list) {
-            array.push_back(ValuePointerHolder::Create<T>(item));
+            array.push_back(CreateNewValue<T>(item));
         }
         return array;
     }

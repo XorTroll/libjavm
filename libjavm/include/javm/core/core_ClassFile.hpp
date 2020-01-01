@@ -12,8 +12,8 @@ namespace javm::core {
 
     class ClassFile;
 
-    ValuePointerHolder HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
-    ValuePointerHolder HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
+    Value HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
+    Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
 
     class ClassFile : public ClassObject, public File {
 
@@ -150,9 +150,9 @@ namespace javm::core {
                 return this->pool;
             }
 
-            virtual ValuePointerHolder CreateInstanceEx(void *machine_ptr) override {
-                auto class_holder = ValuePointerHolder::Create<ClassFile>(this);
-                auto class_ref = class_holder.GetReference<ClassFile>();
+            virtual Value CreateInstanceEx(void *machine_ptr) override {
+                auto class_holder = CreateNewValue<ClassFile>(this);
+                auto class_ref = class_holder->GetReference<ClassFile>();
                 auto super_class_name = class_ref->GetSuperClassName();
                 auto super_class_ref = FindClassByNameEx(machine_ptr, super_class_name);
                 if(super_class_ref) {
@@ -174,25 +174,25 @@ namespace javm::core {
                 return class_ref;
             }
 
-            virtual ValuePointerHolder GetField(std::string name) override {
+            virtual Value GetField(std::string name) override {
                 for(auto &field: this->fields) {
                     if(field.GetName() == name) {
                         return field.GetValue();
                     }
                 }
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
 
-            virtual ValuePointerHolder GetStaticField(std::string name) override {
+            virtual Value GetStaticField(std::string name) override {
                 for(auto &field: this->fields) {
                     if(field.GetName() == name) {
                         return field.GetValue();
                     }
                 }
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
 
-            virtual void SetField(std::string name, ValuePointerHolder value) override {
+            virtual void SetField(std::string name, Value value) override {
                 for(auto &field: this->fields) {
                     if(field.GetName() == name) {
                         field.SetValue(value);
@@ -201,7 +201,7 @@ namespace javm::core {
                 }
             }
 
-            virtual void SetStaticField(std::string name, ValuePointerHolder value) override {
+            virtual void SetStaticField(std::string name, Value value) override {
                 for(auto &field: this->fields) {
                     if(field.GetName() == name) {
                         field.SetValue(value);
@@ -227,21 +227,21 @@ namespace javm::core {
                     }
                 }
                 auto super_class = this->GetSuperClassInstance();
-                if(!super_class.IsNull()) {
-                    auto super_class_ref = super_class.GetReference<core::ClassObject>();
+                if(!super_class->IsNull()) {
+                    auto super_class_ref = super_class->GetReference<core::ClassObject>();
                     return super_class_ref->CanHandleMethod(name, desc, frame);
                 }
                 return false;
             }
 
-            virtual ValuePointerHolder HandleMethod(std::string name, std::string desc, Frame &frame) override {
+            virtual Value HandleMethod(std::string name, std::string desc, Frame &frame) override {
                 return HandleClassFileMethod(this, name, desc, frame);
             }
 
-            virtual ValuePointerHolder HandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
+            virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
                 if(name == JAVM_STATIC_BLOCK_METHOD_NAME) {
                     if(this->static_done) {
-                        return ValuePointerHolder::CreateVoid();
+                        return CreateVoidValue();
                     }
                     else {
                         this->static_done = true;

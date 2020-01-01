@@ -28,19 +28,19 @@ namespace java::lang {
 
             }
 
-            core::ValuePointerHolder length(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value length(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<String>(this_param);
 
                 auto len = this_ref->GetString().length();
-                return core::ValuePointerHolder::Create<int>(len);
+                return core::CreateNewValue<int>(len);
             }
 
-            core::ValuePointerHolder charAt(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value charAt(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<String>(this_param);
                 
-                auto index = parameters[0].value.Get<int>();
+                auto index = parameters[0].value->Get<int>();
                 auto char_at = this_ref->GetString()[index];
-                return core::ValuePointerHolder::Create<char>(char_at);
+                return core::CreateNewValue<char>(char_at);
             }
             
     };

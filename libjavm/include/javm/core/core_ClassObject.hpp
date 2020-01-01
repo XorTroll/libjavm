@@ -13,7 +13,7 @@ namespace javm::core {
     struct FunctionParameter {
         std::string desc;
         ValueType parsed_type;
-        ValuePointerHolder value;
+        Value value;
     };
 
     /*
@@ -28,13 +28,12 @@ namespace javm::core {
     class ClassObject {
 
         private:
-            ValuePointerHolder super_class_instance;
+            Value super_class_instance;
 
             template<typename T>
             void HandlePushArgument(Frame &frame, T &t) {
-                static_assert(std::is_pointer_v<T>, "PPP");
-                auto holder = ValuePointerHolder::CreateFromExisting(t);
-                frame.Push(holder);
+                static_assert(std::is_pointer_v<T>, "Arguments must be pointers to variables");
+                frame.Push(CreateExistingValue(t));
             }
 
         public:
@@ -238,7 +237,7 @@ namespace javm::core {
                 if constexpr(std::is_same_v<T, double>) {
                     return "D";
                 }
-                if constexpr(std::is_same_v<T, std::vector<ValuePointerHolder>>) {
+                if constexpr(std::is_same_v<T, std::vector<Value>>) {
                     return "[I";
                 }
                 if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
@@ -261,41 +260,42 @@ namespace javm::core {
             virtual std::string GetName() = 0;
             virtual std::string GetSuperClassName() = 0;
             virtual std::vector<CPInfo> &GetConstantPool() = 0;
-            virtual ValuePointerHolder CreateInstanceEx(void *machine_ptr) = 0;
-            virtual ValuePointerHolder GetField(std::string name) = 0;
-            virtual ValuePointerHolder GetStaticField(std::string name) = 0;
-            virtual void SetField(std::string name, ValuePointerHolder value) = 0;
-            virtual void SetStaticField(std::string name, ValuePointerHolder value) = 0;
+            virtual Value CreateInstanceEx(void *machine_ptr) = 0;
+            virtual Value GetField(std::string name) = 0;
+            virtual Value GetStaticField(std::string name) = 0;
+            virtual void SetField(std::string name, Value value) = 0;
+            virtual void SetStaticField(std::string name, Value value) = 0;
             virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) = 0;
-            virtual ValuePointerHolder HandleMethod(std::string name, std::string desc, Frame &frame) = 0;
-            virtual ValuePointerHolder HandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
+            virtual Value HandleMethod(std::string name, std::string desc, Frame &frame) = 0;
+            virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
 
-            ValuePointerHolder CreateInstance(Frame &frame) {
+            Value CreateInstance(Frame &frame) {
                 return this->CreateInstanceEx(frame.GetMachinePointer());
             }
 
-            void SetSuperClassInstance(ValuePointerHolder super_class) {
+            void SetSuperClassInstance(Value super_class) {
                 this->super_class_instance = super_class;
             }
 
-            ValuePointerHolder GetSuperClassInstance() {
+            Value GetSuperClassInstance() {
                 return this->super_class_instance;
             }
 
             template<typename C>
             C *GetSuperClassReference() {
-                return this->super_class_instance.GetReference<C>();
+                return this->super_class_instance->GetReference<C>();
             }
 
+            // Meant to be used from native code
             template<typename ...Args>
-            ValuePointerHolder CallMethod(Frame &frame, std::string name, Args &&...args) {
+            Value CallMethod(Frame &frame, std::string name, Args &&...args) {
                 frame.PushReference(this);
                 (this->HandlePushArgument(frame, args), ...);
                 auto desc = BuildFunctionDescriptor(args...);
                 if(this->CanHandleMethod(name, desc, frame)) {
                     return this->HandleMethod(name, desc, frame);
                 }
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
     };
 

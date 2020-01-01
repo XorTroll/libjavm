@@ -40,17 +40,17 @@ namespace javm::core {
 
             template<typename Arg>
             void HandlePushArgument(Frame &frame, u32 &index, Arg &arg) {
-                static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, ValuePointerHolder>, "Call arguments must be pointers to variables or core::ValuePointerHolder!");
+                static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, Value>, "Arguments must be pointers to variables or core::Value");
                 if constexpr(std::is_pointer_v<Arg>) {
                     frame.SetLocalReference(index, arg);
                 }
-                else if constexpr(std::is_same_v<Arg, ValuePointerHolder>) {
+                else if constexpr(std::is_same_v<Arg, Value>) {
                     frame.SetLocal(index, arg);
                 }
                 index++;
             }
 
-            ValuePointerHolder HandleInstruction(Frame &frame, bool &should_ret, Instruction inst) {
+            Value HandleInstruction(Frame &frame, bool &should_ret, Instruction inst) {
                 auto &offset = frame.GetOffset();
 
                 #define _JAVM_LOAD_INSTRUCTION(instr, idx, type) \
@@ -94,8 +94,8 @@ namespace javm::core {
                             } \
                             case CPTag::String: { \
                                 std::string value = constant.GetStringData().processed_string; \
-                                auto str_obj = ValuePointerHolder::Create<java::lang::String>(); \
-                                auto str_ref = str_obj.GetReference<java::lang::String>(); \
+                                auto str_obj = CreateNewValue<java::lang::String>(); \
+                                auto str_ref = str_obj->GetReference<java::lang::String>(); \
                                 str_ref->SetString(value); \
                                 frame.Push(str_obj); \
                                 break; \
@@ -169,7 +169,7 @@ namespace javm::core {
                         break;
                     }
                     case Instruction::ACONST_NULL: {
-                        frame.Push(ValuePointerHolder::CreateNull());
+                        frame.Push(CreateNullValue());
                         break;
                     }
                     case Instruction::ICONST_M1: {
@@ -688,7 +688,7 @@ namespace javm::core {
                         auto v2 = frame.Pop();
                         auto v1 = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if((v1.GetAddress() == v2.GetAddress()) && (v1.GetTypeHashCode() == v2.GetTypeHashCode()) && (v1.GetValueType() == v2.GetValueType())) {
+                        if((v1->GetAddress() == v2->GetAddress()) && (v1->GetTypeHashCode() == v2->GetTypeHashCode()) && (v1->GetValueType() == v2->GetValueType())) {
                             offset -= 3;
                             offset += branch;
                         }
@@ -698,7 +698,7 @@ namespace javm::core {
                         auto v2 = frame.Pop();
                         auto v1 = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if((v1.GetAddress() != v2.GetAddress()) || (v1.GetTypeHashCode() != v2.GetTypeHashCode()) || (v1.GetValueType() != v2.GetValueType())) {
+                        if((v1->GetAddress() != v2->GetAddress()) || (v1->GetTypeHashCode() != v2->GetTypeHashCode()) || (v1->GetValueType() != v2->GetValueType())) {
                             offset -= 3;
                             offset += branch;
                         }
@@ -719,12 +719,12 @@ namespace javm::core {
                     case Instruction::IRETURN: {
                         int ret = frame.PopValue<int>();
                         should_ret = true;
-                        return ValuePointerHolder::Create<int>(ret);
+                        return CreateNewValue<int>(ret);
                     }
                     case Instruction::LRETURN: {
                         long ret = frame.PopValue<long>();
                         should_ret = true;
-                        return ValuePointerHolder::Create<long>(ret);
+                        return CreateNewValue<long>(ret);
                     }
                     case Instruction::ARETURN: {
                         should_ret = true;
@@ -733,12 +733,12 @@ namespace javm::core {
                     case Instruction::DRETURN: {
                         double ret = frame.PopValue<double>();
                         should_ret = true;
-                        return ValuePointerHolder::Create<double>(ret);
+                        return CreateNewValue<double>(ret);
                     }
                     case Instruction::RETURN: {
                         should_ret = true;
                         // Return nothing - a void value
-                        return ValuePointerHolder::CreateVoid();    
+                        return CreateVoidValue();    
                     }
                     case Instruction::GETSTATIC: {
                         u16 index = BE(frame.Read<u16>());
@@ -751,7 +751,7 @@ namespace javm::core {
                             auto &class_ref = this->FindClass(class_name);
                             class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, "()V", frame);
                             auto obj = class_ref->GetStaticField(fld_nat_data.processed_name);
-                            if(obj.IsVoid()) {
+                            if(obj->IsVoid()) {
                                 this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
                             }
                             else {
@@ -793,7 +793,7 @@ namespace javm::core {
                         
                         auto clss = frame.PopReference<ClassObject>();
                         auto obj = clss->GetField(fld_nat_data.processed_name);
-                        if(obj.IsVoid()) {
+                        if(obj->IsVoid()) {
                             this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
                         }
                         else {
@@ -826,7 +826,7 @@ namespace javm::core {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
-                                    if(ret.IsVoid()) {
+                                    if(ret->IsVoid()) {
                                         this->ThrowRuntimeException("Invalid method return - " + fn_nat_data.processed_name);
                                     }
                                     else {
@@ -879,7 +879,7 @@ namespace javm::core {
                             if(class_ref->CanHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
-                                    if(ret.IsVoid()) {
+                                    if(ret->IsVoid()) {
                                         this->ThrowRuntimeException("Invalid static function return - " + fn_nat_data.processed_name);
                                     }
                                     else {
@@ -918,8 +918,8 @@ namespace javm::core {
                         u8 type = BE(frame.Read<u8>());
 
                         int len = frame.PopValue<int>();
-                        auto arr_holder = ValuePointerHolder::Create<Array>();
-                        auto arr_ref = arr_holder.GetReference<Array>();
+                        auto arr_holder = CreateNewValue<Array>();
+                        auto arr_ref = arr_holder->GetReference<Array>();
                         for(int i = 0; i < len; i++) {
                             arr_ref->emplace_back(); // Push empty (null) holders
                         }
@@ -930,8 +930,8 @@ namespace javm::core {
                         u16 idx = BE(frame.Read<u16>());
 
                         int len = frame.PopValue<int>();
-                        auto arr_holder = ValuePointerHolder::Create<Array>();
-                        auto arr_ref = arr_holder.GetReference<Array>();
+                        auto arr_holder = CreateNewValue<Array>();
+                        auto arr_ref = arr_holder->GetReference<Array>();
                         for(int i = 0; i < len; i++) {
                             arr_ref->emplace_back(); // Push empty (null) holders
                         }
@@ -965,7 +965,7 @@ namespace javm::core {
                     case Instruction::IFNULL: {
                         auto holder = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if(holder.IsNull()) {
+                        if(holder->IsNull()) {
                             offset -= 3;
                             offset += branch;
                         }
@@ -974,7 +974,7 @@ namespace javm::core {
                     case Instruction::IFNONNULL: {
                         auto holder = frame.Pop();
                         i16 branch = BE(frame.Read<i16>());
-                        if(!holder.IsNull()) {
+                        if(!holder->IsNull()) {
                             offset -= 3;
                             offset += branch;
                         }
@@ -991,7 +991,7 @@ namespace javm::core {
                         break;
                 }
 
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
 
         public:
@@ -1015,16 +1015,21 @@ namespace javm::core {
                 return this->thrown_info.info_valid;
             }
 
-            void ThrowExceptionWithInstance(Frame &frame, ValuePointerHolder holder) {
-                auto obj = holder.GetReference<ClassObject>();
+            void ThrowExceptionWithInstance(Frame &frame, Value holder) {
+                auto obj = holder->GetReference<ClassObject>();
                 auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
-                this->thrown_info = {};
-                this->thrown_info.info_valid = true;
-                this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
-                this->thrown_info.message = "<null message>";
-                if(str.IsValidCast<java::lang::String>()) {
-                    auto str_ref = str.GetReference<java::lang::String>();
-                    this->thrown_info.message = str_ref->GetString();
+                if(str->IsVoid()) {
+                    this->ThrowRuntimeException("Invalid exception type");
+                }
+                else {
+                    this->thrown_info = {};
+                    this->thrown_info.info_valid = true;
+                    this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
+                    this->thrown_info.message = "<null message>";
+                    if(str->IsValidCast<java::lang::String>()) {
+                        auto str_ref = str->GetReference<java::lang::String>();
+                        this->thrown_info.message = str_ref->GetString();
+                    }
                 }
             }
 
@@ -1033,7 +1038,7 @@ namespace javm::core {
                     auto &err_class = this->FindClass(class_name);
                     Frame frame(reinterpret_cast<void*>(this));
                     auto err_instance = err_class->CreateInstance(frame);
-                    auto err_ref = err_instance.GetReference<java::lang::Throwable>();
+                    auto err_ref = err_instance->GetReference<java::lang::Throwable>();
                     err_ref->SetMessage(message);
                     
                     this->ThrowExceptionWithInstance(frame, err_instance);
@@ -1136,10 +1141,10 @@ namespace javm::core {
                 return this->empty_class;
             }
 
-            ValuePointerHolder ExecuteCode(Frame &frame) {
+            Value ExecuteCode(Frame &frame) {
                 while(true) {
                     if(this->WasExceptionThrown()) {
-                        return ValuePointerHolder::CreateVoid();
+                        return CreateVoidValue();
                     }
 
                     auto inst = static_cast<Instruction>(frame.Read<u8>());
@@ -1157,13 +1162,13 @@ namespace javm::core {
                     }
                 }
                 
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
 
             template<typename ...Args>
-            ValuePointerHolder CallFunction(std::string class_name, std::string fn_name, Args &&...args) {
+            Value CallFunction(std::string class_name, std::string fn_name, Args &&...args) {
                 if(this->WasExceptionThrown()) {
-                    return ValuePointerHolder::CreateVoid();
+                    return CreateVoidValue();
                 }
                 
                 auto proper_class_name = ClassObject::ProcessClassName(class_name);
@@ -1220,12 +1225,11 @@ namespace javm::core {
                         }
                     }
                 }
-                return ValuePointerHolder::CreateVoid();
+                return CreateVoidValue();
             }
-
     };
 
-    ValuePointerHolder HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
+    Value HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
         for(auto &method: class_file->GetMethods()) {
             if(method.GetName() == name) {
                 if(method.GetDesc() == desc) {
@@ -1249,14 +1253,14 @@ namespace javm::core {
             }
         }
         auto super_class = class_file->GetSuperClassInstance();
-        if(!super_class.IsNull()) {
-            auto super_class_ref = super_class.GetReference<ClassObject>();
+        if(!super_class->IsNull()) {
+            auto super_class_ref = super_class->GetReference<ClassObject>();
             return super_class_ref->HandleMethod(name, desc, frame);
         }
-        return ValuePointerHolder::CreateNull();
+        return CreateNullValue();
     }
 
-    ValuePointerHolder HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
+    Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
         for(auto &method: class_file->GetMethods()) {
             if(method.GetName() == name) {
                 if(method.GetDesc() == desc) {
@@ -1279,11 +1283,11 @@ namespace javm::core {
             }
         }
         auto super_class = class_file->GetSuperClassInstance();
-        if(!super_class.IsNull()) {
-            auto super_class_ref = super_class.GetReference<ClassObject>();
+        if(!super_class->IsNull()) {
+            auto super_class_ref = super_class->GetReference<ClassObject>();
             return super_class_ref->HandleStaticFunction(name, desc, frame);
         }
-        return ValuePointerHolder::CreateNull();
+        return CreateNullValue();
     }
 
     std::shared_ptr<ClassObject> &FindClassByNameEx(void *machine, std::string name) {

@@ -27,12 +27,12 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_REGISTER_METHOD(getMessage)
             }
 
-            core::ValuePointerHolder constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
                 switch(parameters.size()) {
                     case 1: {
-                        if(parameters[0].value.IsValidCast<String>()) {
-                            auto val_str = parameters[0].value.GetReference<String>();
+                        if(parameters[0].value->IsValidCast<String>()) {
+                            auto val_str = parameters[0].value->GetReference<String>();
                             auto msg_str = val_str->GetString();
                             this_ref->SetMessage(msg_str);
                         }
@@ -43,12 +43,12 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::ValuePointerHolder getMessage(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value getMessage(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
                 auto msg = this_ref->GetMessage();
 
-                auto str_obj = core::ValuePointerHolder::Create<String>();
-                auto str_ref = str_obj.GetReference<String>();
+                auto str_obj = core::CreateNewValue<String>();
+                auto str_ref = str_obj->GetReference<String>();
                 str_ref->SetString(msg);
                 return str_obj;
             }

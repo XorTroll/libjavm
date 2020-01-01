@@ -56,7 +56,7 @@ int main() {
     }
     else {
         // Everything went fine, let's check the returned value.
-        auto value_type = ret_value.GetValueType();
+        auto value_type = ret_value->GetValueType();
 
         auto value_name = core::ClassObject::GetValueTypeName(value_type);
         printf("Returned value type: %s\n", value_name.c_str());
@@ -70,6 +70,8 @@ int main() {
     return 0;
 }
 ```
+
+### For a more deep explanation and/or documentation, go [here](docs/Start.md)!
 
 ## TO-DO list
 

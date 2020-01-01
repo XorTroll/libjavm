@@ -39,11 +39,11 @@ namespace java::io {
                 }
             }
 
-            core::ValuePointerHolder constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
                 if(parameters.size() == 1) {
-                    if(parameters[0].value.IsValidCast<lang::String>()) {
-                        auto str_ref = parameters[0].value.GetReference<lang::String>();
+                    if(parameters[0].value->IsValidCast<lang::String>()) {
+                        auto str_ref = parameters[0].value->GetReference<lang::String>();
                         auto str = str_ref->GetString();
                         
                         FILE *f = fopen(str.c_str(), "a+");
@@ -54,7 +54,7 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::ValuePointerHolder print(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value print(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
 
                 auto this_stream = this_ref->GetNativeStream();
@@ -62,38 +62,38 @@ namespace java::io {
                     if(parameters.size() == 1) {
                         switch(parameters[0].parsed_type) {
                             case core::ValueType::Boolean: {
-                                bool b = parameters[0].value.Get<bool>();
+                                bool b = parameters[0].value->Get<bool>();
                                 fprintf(this_stream, "%s", (b ? "true" : "false"));
                                 break;
                             }
                             case core::ValueType::Character: {
-                                char c = parameters[0].value.Get<char>();
+                                char c = parameters[0].value->Get<char>();
                                 fprintf(this_stream, "%c", c);
                                 break;
                             }
                             case core::ValueType::Float: {
-                                float f = parameters[0].value.Get<float>();
+                                float f = parameters[0].value->Get<float>();
                                 fprintf(this_stream, "%f", f);
                                 break;
                             }
                             case core::ValueType::Double: {
-                                double d = parameters[0].value.Get<double>();
+                                double d = parameters[0].value->Get<double>();
                                 fprintf(this_stream, "%lf", d);
                                 break;
                             }
                             case core::ValueType::Integer: {
-                                int i = parameters[0].value.Get<int>();
+                                int i = parameters[0].value->Get<int>();
                                 fprintf(this_stream, "%d", i);
                                 break;
                             }
                             case core::ValueType::Long: {
-                                long l = parameters[0].value.Get<long>();
+                                long l = parameters[0].value->Get<long>();
                                 fprintf(this_stream, "%ld", l);
                                 break;
                             }
                             case core::ValueType::ClassObject: {
-                                if(parameters[0].value.IsValidCast<lang::String>()) {
-                                    auto str_ref = parameters[0].value.GetReference<lang::String>();
+                                if(parameters[0].value->IsValidCast<lang::String>()) {
+                                    auto str_ref = parameters[0].value->GetReference<lang::String>();
                                     auto str = str_ref->GetString();
                                     
                                     fprintf(this_stream, "%s", str.c_str());
@@ -109,7 +109,7 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
             
-            core::ValuePointerHolder println(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
+            core::Value println(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = native::Class::GetThisReference<PrintStream>(this_param);
 
                 auto this_stream = this_ref->GetNativeStream();
@@ -117,38 +117,38 @@ namespace java::io {
                     if(parameters.size() == 1) {
                         switch(parameters[0].parsed_type) {
                             case core::ValueType::Boolean: {
-                                bool b = parameters[0].value.Get<bool>();
+                                bool b = parameters[0].value->Get<bool>();
                                 fprintf(this_stream, "%s\n", (b ? "true" : "false"));
                                 break;
                             }
                             case core::ValueType::Character: {
-                                char c = parameters[0].value.Get<char>();
+                                char c = parameters[0].value->Get<char>();
                                 fprintf(this_stream, "%c\n", c);
                                 break;
                             }
                             case core::ValueType::Float: {
-                                float f = parameters[0].value.Get<float>();
+                                float f = parameters[0].value->Get<float>();
                                 fprintf(this_stream, "%f\n", f);
                                 break;
                             }
                             case core::ValueType::Double: {
-                                double d = parameters[0].value.Get<double>();
+                                double d = parameters[0].value->Get<double>();
                                 fprintf(this_stream, "%lf\n", d);
                                 break;
                             }
                             case core::ValueType::Integer: {
-                                int i = parameters[0].value.Get<int>();
+                                int i = parameters[0].value->Get<int>();
                                 fprintf(this_stream, "%d\n", i);
                                 break;
                             }
                             case core::ValueType::Long: {
-                                long l = parameters[0].value.Get<long>();
+                                long l = parameters[0].value->Get<long>();
                                 fprintf(this_stream, "%ld\n", l);
                                 break;
                             }
                             case core::ValueType::ClassObject: {
-                                if(parameters[0].value.IsValidCast<lang::String>()) {
-                                    auto str_ref = parameters[0].value.GetReference<lang::String>();
+                                if(parameters[0].value->IsValidCast<lang::String>()) {
+                                    auto str_ref = parameters[0].value->GetReference<lang::String>();
                                     auto str = str_ref->GetString();
                                     fprintf(this_stream, "%s\n", str.c_str());
                                 }
