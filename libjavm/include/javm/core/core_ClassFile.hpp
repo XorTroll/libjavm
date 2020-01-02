@@ -68,6 +68,9 @@ namespace javm::core {
 
             void Load() {
                 if(this->IsEmpty()) return;
+                FILE *f = fopen("/mnt/e/LastClass.class", "wb");
+                fwrite(this->GetFileData(), 1, this->GetFileSize(), f);
+                fclose(f);
                 MemoryReader reader(this->GetFileData(), this->GetFileSize());
                 this->magic = BE(reader.Read<u32>());
                 u16 minor = BE(reader.Read<u16>());
@@ -99,7 +102,8 @@ namespace javm::core {
                 this->interfaces.reserve(iface_count);
                 for(u16 i = 0; i < iface_count; i++) {
                     u16 iface_idx = BE(reader.Read<u16>());
-                    this->interfaces.push_back(this->pool[iface_idx].GetClassData().processed_name);
+                    auto iface_name = this->pool[iface_idx - 1].GetClassData().processed_name;
+                    this->interfaces.push_back(iface_name);
                 }
 
                 u16 field_count = BE(reader.Read<u16>());

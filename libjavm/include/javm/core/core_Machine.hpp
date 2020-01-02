@@ -62,10 +62,6 @@ namespace javm::core {
                 return ValueType::Void;
             }
 
-            Value CreateValueTypeValue(ValueType type) {
-                return std::make_shared<ValuePointerHolder>(nullptr, 0, type);
-            }
-
             template<typename Arg>
             void HandlePushArgument(Frame &frame, u32 &index, Arg &arg) {
                 static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, Value>, "Arguments must be pointers to variables or core::Value");
@@ -80,6 +76,7 @@ namespace javm::core {
 
             Value HandleInstruction(Frame &frame, bool &should_ret, Instruction inst) {
                 auto &offset = frame.GetOffset();
+                // printf("Instruction: 0x%X\n", (u32)inst);
 
                 #define _JAVM_LOAD_INSTRUCTION(instr, idx, type) \
                 case Instruction::instr: { \
@@ -114,6 +111,7 @@ namespace javm::core {
                         auto index = idx; \
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool(); \
                         auto &constant = constant_pool[index - 1]; \
+                        printf("CPTag: %d\n", (u32)constant.GetTag()); \
                         switch(constant.GetTag()) { \
                             case CPTag::Integer: { \
                                 int value = constant.GetIntegerData().integer; \
@@ -121,11 +119,25 @@ namespace javm::core {
                                 break; \
                             } \
                             case CPTag::String: { \
-                                std::string value = constant.GetStringData().processed_string; \
+                                auto value = constant.GetStringData().processed_string; \
                                 auto str_obj = CreateNewValue<java::lang::String>(); \
                                 auto str_ref = str_obj->GetReference<java::lang::String>(); \
                                 str_ref->SetString(value); \
                                 frame.Push(str_obj); \
+                                break; \
+                            } \
+                            case CPTag::Class: { \
+                                auto class_name = constant.GetClassData().processed_name; \
+                                if(this->HasClass(class_name)) { \
+                                    auto class_def = this->FindClass(class_name); \
+                                    auto class_value = CreateNewValue<java::lang::Class>(); \
+                                    auto class_ref = class_value->GetReference<java::lang::Class>(); \
+                                    class_ref->SetClassDefinition(class_def); \
+                                    frame.Push(class_value); \
+                                } \
+                                else { \
+                                    this->ThrowClassNotFound(class_name); \
+                                } \
                                 break; \
                             } \
                             default: \
@@ -144,9 +156,8 @@ namespace javm::core {
                             auto value = frame.Pop(); \
                             if(value->IsArray()) { \
                                 auto array = value->GetReference<Array>(); \
-                                auto arr_sz = array->size() - 1; \
-                                if(index < arr_sz) { \
-                                    auto val = array->at(index); \
+                                if(array->CheckIndex(index)) { \
+                                    auto val = array->GetAt(index); \
                                     frame.Push(val); \
                                 } \
                                 else { \
@@ -163,25 +174,24 @@ namespace javm::core {
                 #define _JAVM_ASTORE_INSTRUCTION(instr) \
                 case Instruction::instr: { \
                         auto value = frame.Pop(); \
-                        int idx = frame.PopValue<int>(); \
-                        if(idx < 0) { \
+                        int index = frame.PopValue<int>(); \
+                        if(index < 0) { \
                             this->ThrowRuntimeException("Invalid array index"); \
                         } \
                         else { \
                             auto arr_value = frame.Pop(); \
                             if(arr_value->IsArray()) { \
                                 auto array = arr_value->GetReference<Array>(); \
-                                if(array->at(0)->GetValueType() == value->GetValueType()) { \
-                                    auto arr_sz = array->size() - 1; \
-                                    if(idx < arr_sz) { \
-                                        array->at(idx) = value; \
+                                if(array->GetValueType() == value->GetValueType()) { \
+                                    if(array->CheckIndex(index)) { \
+                                        array->SetAt(index, value); \
                                     } \
                                     else { \
                                         this->ThrowRuntimeException("Invalid array index"); \
                                     } \
                                 }  \
                                 else { \
-                                    this->ThrowRuntimeException("Value and array type mismatch: " + std::to_string((u32)array->at(0)->GetValueType()) + " and " + std::to_string((u32)value->GetValueType())); \
+                                    this->ThrowRuntimeException("Value and array type mismatch"); \
                                 } \
                             } \
                             else { \
@@ -863,19 +873,19 @@ namespace javm::core {
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
                         auto value = frame.Pop();
-                        if(!value) {
-                            this->ThrowRuntimeException("WTF");
-                        }
-                        
-                        auto clss = value->GetReference<ClassObject>();
-                        if(clss->HasField(fld_nat_data.processed_name)) {
-                            auto obj = clss->GetField(fld_nat_data.processed_name);
-                            frame.Push(obj);
+                        if(value->IsClassObject()) {
+                            auto clss = value->GetReference<ClassObject>();
+                            if(clss->HasField(fld_nat_data.processed_name)) {
+                                auto obj = clss->GetField(fld_nat_data.processed_name);
+                                frame.Push(obj);
+                            }
+                            else {
+                                this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+                            }
                         }
                         else {
-                            this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+                            this->ThrowRuntimeException("Invalid variable, expected object");
                         }
-                        
                         break;
                     }
                     case Instruction::PUTFIELD: {
@@ -885,17 +895,26 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
-                        auto obj = frame.Pop();
-                        auto clss = frame.PopReference<ClassObject>();
-                        clss->SetField(fld_nat_data.processed_name, obj);
+                        auto value = frame.Pop();
+                        auto cls_value = frame.Pop();
+                        if(cls_value->IsClassObject()) {
+                            auto clss = cls_value->GetReference<ClassObject>();
+                            clss->SetField(fld_nat_data.processed_name, value);
+                        }
+                        else {
+                            this->ThrowRuntimeException("Invalid variable, expected object");
+                        }
                         break;
                     }
-                    case Instruction::INVOKEVIRTUAL: {
+                    case Instruction::INVOKEVIRTUAL:
+                    case Instruction::INVOKEINTERFACE: {
                         u16 index = BE(frame.Read<u16>());
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
+
+                        printf("Invoke virtual/interface - %s - %s\n", class_name.c_str(), fn_nat_data.processed_name.c_str());
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
@@ -927,6 +946,8 @@ namespace javm::core {
                         auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
+
+                        printf("Invoke special - %s - %s\n", class_name.c_str(), fn_nat_data.processed_name.c_str());
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
@@ -980,6 +1001,8 @@ namespace javm::core {
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto class_name = constant_pool[index - 1].GetClassData().processed_name;
 
+                        printf("New %s...\n", class_name.c_str());
+
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
                             auto obj = class_ref->CreateInstance(frame);
@@ -1003,13 +1026,7 @@ namespace javm::core {
                                 this->ThrowRuntimeException("Array size cannot be negative");
                             }
                             else {
-                                auto arr_value = CreateNewValue<Array>();
-                                auto arr_ref = arr_value->GetReference<Array>();
-                                // We treat arrays in a special way: an array of N elements is a C++ vector of N+1 elements, being the [0] element ValueType value of the type of the array.
-                                arr_ref->push_back(this->CreateValueTypeValue(vtype));
-                                for(int i = 0; i < len; i++) {
-                                    arr_ref->emplace_back(); // Push empty (null) values
-                                }
+                                auto arr_value = CreateNewValue<Array>(vtype, len);
                                 frame.Push(arr_value);
                             }
                         }
@@ -1022,13 +1039,7 @@ namespace javm::core {
                             this->ThrowRuntimeException("Array size cannot be negative");
                         }
                         else {
-                            auto arr_value = CreateNewValue<Array>();
-                            auto arr_ref = arr_value->GetReference<Array>();
-                            // We treat arrays in a special way: an array of N elements is a C++ vector of N+1 elements, being the [0] element ValueType value of the type of the array.
-                            arr_ref->push_back(this->CreateValueTypeValue(ValueType::ClassObject));
-                            for(int i = 0; i < len; i++) {
-                                arr_ref->emplace_back(); // Push empty (null) values
-                            }
+                            auto arr_value = CreateNewValue<Array>(ValueType::ClassObject, len);
                             frame.Push(arr_value);
                         }
                         break;
@@ -1037,7 +1048,7 @@ namespace javm::core {
                         auto value = frame.Pop();
                         if(value->IsArray()) {
                             auto arr = value->GetReference<Array>();
-                            frame.CreatePush<int>((int)(arr->size() - 1));
+                            frame.CreatePush<int>((int)arr->GetLength());
                         }
                         else {
                             this->ThrowRuntimeException("Invalid input variable (not an array)");
@@ -1102,7 +1113,7 @@ namespace javm::core {
                     }
                     
                     default:
-                        printf("Unimplemented or unknown instruction!\n");
+                        printf("Unimplemented or unknown instruction - 0x%X!\n", static_cast<u32>(inst));
                         break;
                 }
 
@@ -1191,6 +1202,7 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::Object>();
                 this->LoadNativeClass<java::lang::String>();
                 this->LoadNativeClass<java::lang::StringBuilder>();
+                this->LoadNativeClass<java::lang::Class>();
                 this->LoadNativeClass<java::io::PrintStream>();
                 this->LoadNativeClass<java::lang::System>();
                 this->LoadNativeClass<java::lang::Throwable>();

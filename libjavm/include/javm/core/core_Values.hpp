@@ -41,11 +41,8 @@ namespace javm::core {
 
     // Used to create void values - anyway, any value not matching the list above will be considered as void :P
     struct VoidValue {};
-
-    class ValuePointerHolder;
-
-    using Value = std::shared_ptr<ValuePointerHolder>;
-    using Array = std::vector<Value>;
+    
+    class Array;
 
     class ValuePointerHolder {
 
@@ -71,7 +68,7 @@ namespace javm::core {
             }
 
             template<typename T>
-            static ValueType DetectValueType() {
+            static constexpr ValueType DetectValueType() {
                 if constexpr(std::is_same_v<T, int>) {
                     return ValueType::Integer;
                 }
@@ -93,13 +90,18 @@ namespace javm::core {
                 if constexpr(std::is_same_v<T, nullptr_t>) {
                     return ValueType::Null;
                 }
-                if constexpr(std::is_same_v<T, std::vector<Value>>) {
+                if constexpr(std::is_same_v<T, Array>) {
                     return ValueType::Array;
                 }
                 if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
                     return ValueType::ClassObject;
                 }
                 return ValueType::Void;
+            }
+
+            template<typename T>
+            static constexpr bool IsValidValueType() {
+                return DetectValueType<T>() != ValueType::Void;
             }
 
             template<typename T>
@@ -165,6 +167,8 @@ namespace javm::core {
             }
     };
 
+    using Value = std::shared_ptr<ValuePointerHolder>;
+
     template<typename T, typename ...Args>
     static inline Value CreateNewValue(Args &&...args) {
         T *t_ptr = new T(args...);
@@ -176,6 +180,10 @@ namespace javm::core {
         return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>());
     }
 
+    static inline Value CreateValueTypeValue(ValueType type) {
+        return std::make_shared<ValuePointerHolder>(nullptr, 0, type);
+    }
+
     static inline Value CreateVoidValue() {
         return CreateNewValue<VoidValue>();
     }
@@ -184,11 +192,64 @@ namespace javm::core {
         return std::make_shared<ValuePointerHolder>();
     }
 
+    class Array {
+
+        private:
+            ValueType type;
+            u32 array_length;
+            std::vector<Value> value_list;
+
+        public:
+            Array(ValueType value_type, u32 length) : type(value_type), array_length(length) {
+                for(u32 i = 0; i < length; i++) {
+                    value_list.emplace_back();
+                }
+            }
+
+            u32 GetLength() {
+                return this->array_length;
+            }
+
+            ValueType GetValueType() {
+                return this->type;
+            }
+
+            bool CheckIndex(u32 index) {
+                return index < this->GetLength();
+            }
+
+            Value GetAt(u32 index) {
+                if(this->CheckIndex(index)) {
+                    return this->value_list.at(index);
+                }
+                return CreateVoidValue();
+            }
+
+            void SetAt(u32 index, Value val) {
+                if(this->CheckIndex(index)) {
+                    this->value_list.at(index) = val;
+                }
+            }
+    };
+    
+    template<typename T>
+    Array CreateArray(u32 length) {
+        static_assert(ValuePointerHolder::IsValidValueType<T>(), "Invalid value type");
+        Array array(ValuePointerHolder::DetectValueType<T>(), length);
+        return array;
+    }
+    
     template<typename T>
     Array CreateArray(std::initializer_list<T> list) {
-        Array array;
+        static_assert(ValuePointerHolder::IsValidValueType<T>(), "Invalid value type");
+        Array array(ValuePointerHolder::DetectValueType<T>(), list.size());
+        u32 i = 0;
         for(auto &item: list) {
-            array.push_back(CreateNewValue<T>(item));
+            if(!array.CheckIndex(i)) {
+                break;
+            }
+            array.SetAt(i, CreateNewValue<T>(item));
+            i++;
         }
         return array;
     }

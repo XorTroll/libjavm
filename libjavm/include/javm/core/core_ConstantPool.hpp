@@ -14,6 +14,7 @@ namespace javm::core {
         String = 8,
         FieldRef = 9,
         MethodRef = 10,
+        InterfaceMethodRef = 11,
         NameAndType = 12
 
     };
@@ -80,10 +81,15 @@ namespace javm::core {
                 switch(tag) {
                     case CPTag::UTF8: {
                         this->utf8.length = BE(reader.Read<u16>());
-                        char *strbuf = new char[this->utf8.length + 1]();
-                        reader.ReadPointer(strbuf, this->utf8.length * sizeof(char));
-                        this->utf8.str.assign(strbuf, this->utf8.length);
-                        delete[] strbuf;
+                        if(this->utf8.length > 0) {
+                            char *strbuf = new char[this->utf8.length + 1]();
+                            reader.ReadPointer(strbuf, this->utf8.length * sizeof(char));
+                            this->utf8.str.assign(strbuf, this->utf8.length);
+                            delete[] strbuf;
+                        }
+                        else {
+                            this->utf8.str = "";
+                        }
                         break;
                     }
                     case CPTag::Integer: {
@@ -107,7 +113,8 @@ namespace javm::core {
                         break;
                     }
                     case CPTag::FieldRef:
-                    case CPTag::MethodRef: {
+                    case CPTag::MethodRef:
+                    case CPTag::InterfaceMethodRef: {
                         this->field_method.class_index = BE(reader.Read<u16>());
                         this->field_method.name_and_type_index = BE(reader.Read<u16>());
                         break;

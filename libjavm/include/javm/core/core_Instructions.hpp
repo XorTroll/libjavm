@@ -190,7 +190,7 @@ namespace javm::core {
         INVOKEVIRTUAL = 0xB6,
         INVOKESPECIAL = 0xB7,
         INVOKESTATIC = 0xB8,
-        INVOKEINTERFACE = 0xB9, // TODO
+        INVOKEINTERFACE = 0xB9,
         INVOKEDYNAMIC = 0xBA, // TODO
         NEW = 0xBB,
         NEWARRAY = 0xBC,
