@@ -44,7 +44,7 @@ namespace java::io {
                 if(parameters.size() == 1) {
                     if(parameters[0].value->IsValidCast<lang::String>()) {
                         auto str_ref = parameters[0].value->GetReference<lang::String>();
-                        auto str = str_ref->GetString();
+                        auto str = str_ref->GetNativeString();
                         
                         FILE *f = fopen(str.c_str(), "a+");
                         this_ref->SetNativeStream(f);
@@ -94,7 +94,7 @@ namespace java::io {
                             case core::ValueType::ClassObject: {
                                 if(parameters[0].value->IsValidCast<lang::String>()) {
                                     auto str_ref = parameters[0].value->GetReference<lang::String>();
-                                    auto str = str_ref->GetString();
+                                    auto str = str_ref->GetNativeString();
                                     
                                     fprintf(this_stream, "%s", str.c_str());
                                 }
@@ -149,7 +149,7 @@ namespace java::io {
                             case core::ValueType::ClassObject: {
                                 if(parameters[0].value->IsValidCast<lang::String>()) {
                                     auto str_ref = parameters[0].value->GetReference<lang::String>();
-                                    auto str = str_ref->GetString();
+                                    auto str = str_ref->GetNativeString();
                                     fprintf(this_stream, "%s\n", str.c_str());
                                 }
                                 break;

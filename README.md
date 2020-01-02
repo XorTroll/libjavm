@@ -38,9 +38,9 @@ int main() {
 
     // Create input arguments for function call - for main(...) we create a string array:
     java::lang::String arg1;
-    arg1.SetString("hello");
+    arg1.SetNativeString("hello");
     java::lang::String arg2;
-    arg2.SetString("java");
+    arg2.SetNativeString("java");
     // Javm arrays are vectors of value holders, so this simple function simplifies their creation
     auto args = core::CreateArray<java::lang::String>({ arg1, arg2 });
 

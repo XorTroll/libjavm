@@ -184,6 +184,14 @@ namespace javm::core {
                 return MachineCreateNewClass<CallCtor>(this->machine, name, args...);
             }
 
+            template<bool CallCtor, typename C, typename ...Args>
+            Value CreateNewClassWith(std::string name, std::function<void(C*)> ref_fn, Args &&...args) {
+                auto class_val = this->CreateNewClass<CallCtor>(name, args...);
+                auto class_ref = class_val->template GetReference<C>();
+                ref_fn(class_ref);
+                return class_val;
+            }
+
             void *GetMachinePointer() {
                 return this->machine;
             }

@@ -10,11 +10,11 @@ namespace java::lang {
             std::string value;
 
         public:
-            std::string GetString() {
+            std::string GetNativeString() {
                 return this->value;
             }
 
-            void SetString(std::string str) {
+            void SetNativeString(std::string str) {
                 this->value = str;
             }
 
@@ -31,7 +31,7 @@ namespace java::lang {
             core::Value length(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = this->GetThisReference<String>(this_param);
 
-                auto len = this_ref->GetString().length();
+                auto len = this_ref->GetNativeString().length();
                 return core::CreateNewValue<int>(len);
             }
 
@@ -39,7 +39,7 @@ namespace java::lang {
                 auto this_ref = this->GetThisReference<String>(this_param);
                 
                 auto index = parameters[0].value->Get<int>();
-                auto char_at = this_ref->GetString()[index];
+                auto char_at = this_ref->GetNativeString()[index];
                 return core::CreateNewValue<char>(char_at);
             }
             

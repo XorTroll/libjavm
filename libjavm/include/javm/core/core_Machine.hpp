@@ -70,13 +70,8 @@ namespace javm::core {
 
             template<typename Arg>
             void HandlePushArgument(Frame &frame, u32 &index, Arg &arg) {
-                static_assert(std::is_pointer_v<Arg> || std::is_same_v<Arg, Value>, "Arguments must be pointers to variables or core::Value");
-                if constexpr(std::is_pointer_v<Arg>) {
-                    frame.SetLocalReference(index, arg);
-                }
-                else if constexpr(std::is_same_v<Arg, Value>) {
-                    frame.SetLocal(index, arg);
-                }
+                static_assert(std::is_same_v<Arg, Value>, "Arguments must be core::Value!");
+                frame.SetLocal(index, arg);
                 index++;
             }
 
@@ -132,7 +127,7 @@ namespace javm::core {
                         auto value = constant.GetStringData().processed_string; \
                         auto str_obj = CreateNewValue<java::lang::String>(); \
                         auto str_ref = str_obj->GetReference<java::lang::String>(); \
-                        str_ref->SetString(value); \
+                        str_ref->SetNativeString(value); \
                         frame.Push(str_obj); \
                         break; \
                     } \
@@ -1117,20 +1112,27 @@ namespace javm::core {
                     this->thrown_info.message = "<null message>";
                     if(str->IsValidCast<java::lang::String>()) {
                         auto str_ref = str->GetReference<java::lang::String>();
-                        this->thrown_info.message = str_ref->GetString();
+                        this->thrown_info.message = str_ref->GetNativeString();
                     }
                 }
             }
 
             void ThrowExceptionWithType(std::string class_name, std::string message) {
                 if(this->HasClass(class_name)) {
-                    auto &err_class = this->FindClass(class_name);
+
+                    /* Java pseudocode:
+                        String str = message;
+                        <class_name> t = new <class_name>(str);
+                        _inner_throw_exception(t);
+                    */
+
+                    auto str_obj = this->CreateNewClassWith<true, java::lang::String>("java.lang.String", [&](java::lang::String *ref) {
+                        ref->SetNativeString(message);
+                    });
+
+                    auto throwable_val = this->CreateNewClass<true>(class_name, str_obj);
                     Frame frame(reinterpret_cast<void*>(this));
-                    auto err_instance = err_class->CreateInstance(frame);
-                    auto err_ref = err_instance->GetReference<java::lang::Throwable>();
-                    err_ref->SetMessage(message);
-                    
-                    this->ThrowExceptionWithInstance(frame, err_instance);
+                    this->ThrowExceptionWithInstance(frame, throwable_val);
                 }
                 else {
                     this->ThrowClassNotFound(class_name);
@@ -1243,6 +1245,14 @@ namespace javm::core {
                     return class_val;
                 }
                 return CreateVoidValue();
+            }
+
+            template<bool CallCtor, typename C, typename ...Args>
+            Value CreateNewClassWith(std::string name, std::function<void(C*)> ref_fn, Args &&...args) {
+                auto class_val = this->CreateNewClass<CallCtor>(name, args...);
+                auto class_ref = class_val->template GetReference<C>();
+                ref_fn(class_ref);
+                return class_val;
             }
 
             Value ExecuteCode(Frame &frame) {

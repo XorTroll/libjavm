@@ -32,9 +32,10 @@ namespace java::lang {
                 auto class_def = this_ref->GetClassDefinition();
                 auto class_name = class_def->GetName();
 
-                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
-                auto str_ref = str_obj->GetReference<String>();
-                str_ref->SetString(core::ClassObject::GetPresentableClassName(class_name));
+                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
+                    ref->SetNativeString(core::ClassObject::GetPresentableClassName(class_name));
+                });
+
                 return str_obj;
             }
 

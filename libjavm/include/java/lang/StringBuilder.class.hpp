@@ -10,11 +10,11 @@ namespace java::lang {
             std::string value;
 
         public:
-            std::string GetString() {
+            std::string GetNativeString() {
                 return this->value;
             }
 
-            void SetString(std::string str) {
+            void SetNativeString(std::string str) {
                 this->value = str;
             }
 
@@ -37,13 +37,13 @@ namespace java::lang {
                         if(initial_arg->IsValidCast<String>()) {
                             // Initial string
                             auto str_ref = initial_arg->GetReference<String>();
-                            this_ref->SetString(str_ref->GetString());
+                            this_ref->SetNativeString(str_ref->GetNativeString());
                         }
                         else if(initial_arg->IsValidCast<int>()) {
                             // Initial capacity
                             std::string str;
                             str.reserve(initial_arg->Get<int>());
-                            this_ref->SetString(str);
+                            this_ref->SetNativeString(str);
                         }
                         break;
                     }
@@ -57,21 +57,26 @@ namespace java::lang {
                 if(parameters[0].value->IsValidCast<String>()) {
                     auto str_ref = parameters[0].value->GetReference<String>();
                     
-                    auto cur_str = this_ref->GetString();
-                    this_ref->SetString(cur_str + str_ref->GetString());
+                    auto cur_str = this_ref->GetNativeString();
+                    this_ref->SetNativeString(cur_str + str_ref->GetNativeString());
                 }
                 else if(parameters[0].value->IsValidCast<int>()) {
+                    int i_val = parameters[0].value->Get<int>();
                     if(parameters[0].parsed_type == core::ValueType::Character) {
-                        auto chr = (char)parameters[0].value->Get<int>();
+                        auto chr = (char)i_val;
 
-                        auto cur_str = this_ref->GetString();
-                        this_ref->SetString(cur_str + chr);
+                        auto cur_str = this_ref->GetNativeString();
+                        this_ref->SetNativeString(cur_str + chr);
+                    }
+                    else if(parameters[0].parsed_type == core::ValueType::Boolean) {
+                        auto boolean = (bool)i_val;
+
+                        auto cur_str = this_ref->GetNativeString();
+                        this_ref->SetNativeString(cur_str + (boolean ? "true" : "false"));
                     }
                     else {
-                        auto intg = parameters[0].value->Get<int>();
-
-                        auto cur_str = this_ref->GetString();
-                        this_ref->SetString(cur_str + std::to_string(intg));
+                        auto cur_str = this_ref->GetNativeString();
+                        this_ref->SetNativeString(cur_str + std::to_string(i_val));
                     }
                 }
                 else {
@@ -83,11 +88,12 @@ namespace java::lang {
 
             core::Value toString(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
                 auto this_ref = this->GetThisReference<StringBuilder>(this_param);
-                auto str = this_ref->GetString();
+                auto str = this_ref->GetNativeString();
 
-                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
-                auto str_ref = str_obj->GetReference<String>();
-                str_ref->SetString(str);
+                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
+                    ref->SetNativeString(str);
+                });
+
                 return str_obj;
             }
 

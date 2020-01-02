@@ -33,7 +33,7 @@ namespace java::lang {
                     case 1: {
                         if(parameters[0].value->IsValidCast<String>()) {
                             auto val_str = parameters[0].value->GetReference<String>();
-                            auto msg_str = val_str->GetString();
+                            auto msg_str = val_str->GetNativeString();
                             this_ref->SetMessage(msg_str);
                         }
                         break;
@@ -47,9 +47,10 @@ namespace java::lang {
                 auto this_ref = this->GetThisReference<Throwable>(this_param);
                 auto msg = this_ref->GetMessage();
 
-                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
-                auto str_ref = str_obj->GetReference<String>();
-                str_ref->SetString(msg);
+                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
+                    ref->SetNativeString(msg);
+                });
+
                 return str_obj;
             }
 
