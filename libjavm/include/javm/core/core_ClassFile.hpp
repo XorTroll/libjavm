@@ -69,9 +69,6 @@ namespace javm::core {
 
             void Load() {
                 if(this->IsEmpty()) return;
-                FILE *f = fopen("/mnt/e/LastClass.class", "wb");
-                fwrite(this->GetFileData(), 1, this->GetFileSize(), f);
-                fclose(f);
                 MemoryReader reader(this->GetFileData(), this->GetFileSize());
                 this->magic = BE(reader.Read<u32>());
                 u16 minor = BE(reader.Read<u16>());
