@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class StringBuilder : public Object {
+    class StringBuilder final : public native::Class {
 
         private:
             std::string value;
@@ -29,8 +29,8 @@ namespace java::lang {
 
             }
 
-            core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
+            core::Value constructor(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<StringBuilder>(this_v);
                 switch(parameters.size()) {
                     case 1: {
                         auto initial_arg = parameters[0].value;
@@ -52,8 +52,8 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::Value append(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
+            core::Value append(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<StringBuilder>(this_v);
                 if(parameters[0].value->IsValidCast<String>()) {
                     auto str_ref = parameters[0].value->GetReference<String>();
                     
@@ -83,11 +83,11 @@ namespace java::lang {
                     // TODO: more...?
                 }
 
-                return this_param.value;
+                return this_v.invoker;
             }
 
-            core::Value toString(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
+            core::Value toString(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<StringBuilder>(this_v);
                 auto str = this_ref->GetNativeString();
 
                 auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {

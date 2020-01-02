@@ -5,17 +5,19 @@
 
 namespace javm::native {
 
-    using NativeMethodFunction = std::function<core::Value(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters)>;
+    using NativeMethodFunction = std::function<core::Value(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters)>;
     using NativeStaticFunction = std::function<core::Value(core::Frame &frame, std::vector<core::FunctionParameter> parameters)>;
 
     #define JAVM_NATIVE_DEFINITION_CTOR(clss) \
     static std::shared_ptr<clss> CreateDefinitionInstance(void *machine_ptr) { \
         auto class_ref = std::make_shared<clss>(); \
         auto super_class_name = class_ref->GetSuperClassName(); \
-        auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
-        if(super_class_ref) { \
-            auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
-            class_ref->SetSuperClassInstance(super_class_instance); \
+        if(class_ref->GetName() != "java/lang/Object") { \
+            auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
+            if(super_class_ref) { \
+                auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
+                class_ref->SetSuperClassInstance(super_class_instance); \
+            } \
         } \
         return class_ref; \
     }
@@ -25,10 +27,12 @@ namespace javm::native {
         auto class_holder = javm::core::CreateNewValue<clss>(); \
         auto class_ref = class_holder->GetReference<clss>(); \
         auto super_class_name = class_ref->GetSuperClassName(); \
-        auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
-        if(super_class_ref) { \
-            auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
-            class_ref->SetSuperClassInstance(super_class_instance); \
+        if(class_ref->GetName() != "java/lang/Object") { \
+            auto super_class_ref = javm::core::FindClassByNameEx(machine_ptr, super_class_name); \
+            if(super_class_ref) { \
+                auto super_class_instance = super_class_ref->CreateInstanceEx(machine_ptr); \
+                class_ref->SetSuperClassInstance(super_class_instance); \
+            } \
         } \
         return class_holder; \
     }
@@ -152,35 +156,31 @@ namespace javm::native {
                     }
                     // This is the class definition, so it has the class name of the 'this' object to pass to the method
                     auto method_class_name = core::ClassObject::ProcessClassName(this->GetName());
-                    core::Value this_holder = frame.Pop();
-                    auto orig_this = this_holder;
-                    // Auto-detect whether the function is accessible by the class, and if not, loop until a super class does implement it, to send the correct 'this' object :P
-                    // Basically, the name of the class requested by the invoking instruction (this definition's class name) must be the same name/type of the 'this' object we send to the native function.
-                    while(method_class_name != core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
-                        auto super_holder = this_holder->GetReference<core::ClassObject>()->GetSuperClassInstance();
+
+                    core::ThisValues this_v = {};
+                    this_v.invoker = frame.Pop();
+
+                    this_v.instance = this_v.invoker;
+                    
+                    // Iterate through the 'this' invoker's superclasses until we find the 'this' instance we need.
+                    // When inheritance isn't involved (calling the methods of the same type, not inherited ones) both will be the same.
+                    while(method_class_name != core::ClassObject::ProcessClassName(this_v.instance->GetReference<core::ClassObject>()->GetName())) {
+                        auto super_holder = this_v.instance->GetReference<core::ClassObject>()->GetSuperClassInstance();
                         if(!super_holder) {
-                            this_holder = orig_this;
+                            this_v.instance = this_v.invoker;
                             break;
                         }
                         if(!super_holder->IsClassObject()) {
-                            this_holder = orig_this;
+                            this_v.instance = this_v.invoker;
                             break;
                         }
-                        this_holder = super_holder;
+                        this_v.instance = super_holder;
                     }
-                    if(method_class_name == core::ClassObject::ProcessClassName(this_holder->GetReference<core::ClassObject>()->GetName())) {
-                        if(this_holder->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
-                            core::FunctionParameter this_fparam = {};
-                            this_fparam.desc = this->GetName();
-                            this_fparam.value = this_holder;
-                            this_fparam.parsed_type = ClassObject::ParseValueType(this_fparam.desc);
-                            return it->second(frame, this_fparam, fn_params);
+                    if(method_class_name == core::ClassObject::ProcessClassName(this_v.instance->GetReference<core::ClassObject>()->GetName())) {
+                        if(this_v.instance->GetReference<core::ClassObject>()->CanHandleMethod(name, desc, frame)) {
+                            return it->second(frame, this_v, fn_params);
                         }
                     }
-                }
-                else if(name == JAVM_CTOR_METHOD_NAME) {
-                    // Constructors always exist, just that they are empty by default, so return nothing (void) as if an empty method was called.
-                    return core::CreateVoidValue();
                 }
                 auto super_class = this->GetSuperClassInstance();
                 if(super_class) {
@@ -188,6 +188,11 @@ namespace javm::native {
                         auto super_class_ref = super_class->GetReference<core::ClassObject>();
                         return super_class_ref->HandleMethod(name, desc, frame);
                     }
+                }
+                if(name == JAVM_CTOR_METHOD_NAME) {
+                    // Constructors always exist, just that they are empty by default, so return nothing (void) as if an empty method was called.
+                    // Anyway, keep this as a last resource
+                    return core::CreateVoidValue();
                 }
                 frame.ThrowExceptionWithType("java.lang.RuntimeException", "Invalid method call");
                 return core::CreateVoidValue();
@@ -228,8 +233,13 @@ namespace javm::native {
             }
 
             template<typename C>
-            C *GetThisReference(core::FunctionParameter this_param) {
-                return this_param.value->template GetReference<C>();
+            C *GetThisInvokerInstance(core::ThisValues this_v) {
+                return this_v.invoker->template GetReference<C>();
+            }
+
+            template<typename C>
+            C *GetThisInstance(core::ThisValues this_v) {
+                return this_v.instance->template GetReference<C>();
             }
     };
 

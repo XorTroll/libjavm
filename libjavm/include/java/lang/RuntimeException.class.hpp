@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class RuntimeException : public Exception {
+    class RuntimeException final : public native::Class {
 
         public:
             JAVM_NATIVE_CLASS_CTOR(RuntimeException) {

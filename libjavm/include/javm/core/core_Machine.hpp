@@ -125,9 +125,9 @@ namespace javm::core {
                     } \
                     case CPTag::String: { \
                         auto value = constant.GetStringData().processed_string; \
-                        auto str_obj = CreateNewValue<java::lang::String>(); \
-                        auto str_ref = str_obj->GetReference<java::lang::String>(); \
-                        str_ref->SetNativeString(value); \
+                        auto str_obj = this->CreateNewClassWith<true, java::lang::String>("java.lang.String", [&](java::lang::String *ref) { \
+                            ref->SetNativeString(value); \
+                        }); \
                         frame.Push(str_obj); \
                         break; \
                     } \
@@ -789,11 +789,11 @@ namespace javm::core {
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
-                                class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                            auto class_def = this->FindClass(class_name);
+                            if(class_def->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
+                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
                             }
-                            auto obj = class_ref->GetStaticField(fld_nat_data.processed_name);
+                            auto obj = class_def->GetStaticField(fld_nat_data.processed_name);
                             if(obj->IsVoid()) {
                                 this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
                             }
@@ -816,12 +816,12 @@ namespace javm::core {
                         
                         
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
-                                class_ref->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                            auto class_def = this->FindClass(class_name);
+                            if(class_def->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
+                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
                             }
                             auto obj = frame.Pop();
-                            class_ref->SetStaticField(fld_nat_data.processed_name, obj);
+                            class_def->SetStaticField(fld_nat_data.processed_name, obj);
                         }
                         else {
                             this->ThrowClassNotFound(class_name);
@@ -879,10 +879,10 @@ namespace javm::core {
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                            auto class_def = this->FindClass(class_name);
+                            if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
-                                auto ret = class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                auto ret = class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
                                     if(ret->IsVoid()) {
                                         this->ThrowRuntimeException("Invalid method return - " + fn_nat_data.processed_name);
@@ -910,9 +910,9 @@ namespace javm::core {
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
-                            if(class_ref->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                class_ref->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                            auto class_def = this->FindClass(class_name);
+                            if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                                class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
                                 this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name + " - " + class_name);
@@ -932,10 +932,10 @@ namespace javm::core {
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
+                            auto class_def = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
-                            if(class_ref->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto ret = class_ref->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                            if(class_def->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                                auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                                 if(should_ret) {
                                     if(ret->IsVoid()) {
                                         this->ThrowRuntimeException("Invalid static function return - " + fn_nat_data.processed_name);
@@ -962,8 +962,8 @@ namespace javm::core {
                         auto class_name = constant_pool[index - 1].GetClassData().processed_name;
 
                         if(this->HasClass(class_name)) {
-                            auto &class_ref = this->FindClass(class_name);
-                            auto obj = class_ref->CreateInstance(frame);
+                            auto class_def = this->FindClass(class_name);
+                            auto obj = class_def->CreateInstance(frame);
                             frame.Push(obj);
                         }
                         else {
@@ -1157,7 +1157,7 @@ namespace javm::core {
 
             template<typename C, typename ...Args>
             void LoadNativeClass(Args &&...args) {
-                static_assert(std::is_same_v<java::lang::Object, C> || std::is_base_of_v<java::lang::Object, C>, "Native classes must be or inherit from from java::lang::Object");
+                static_assert(std::is_base_of_v<java::native::Class, C>, "Native classes must inherit from from java::native::Class!");
 
                 std::shared_ptr<native::Class> classptr = C::CreateDefinitionInstance(reinterpret_cast<void*>(this));
                 this->native_classes.push_back(std::move(classptr));
@@ -1209,7 +1209,7 @@ namespace javm::core {
                 return false;
             }
             
-            std::shared_ptr<ClassObject> &FindClass(std::string name) {
+            std::shared_ptr<ClassObject> FindClass(std::string name) {
                 auto cls_name = ClassObject::ProcessClassName(name);
                 for(auto &native: this->native_classes) {
                     if(native->GetName() == cls_name) {
@@ -1295,8 +1295,8 @@ namespace javm::core {
                 }
                 // Then, loaded JARs
                 for(auto &archive: this->loaded_archives) {
-                    for(auto &class_ref: archive->GetLoadedClasses()) {
-                        auto class_file = std::dynamic_pointer_cast<ClassFile>(class_ref);
+                    for(auto class_def: archive->GetLoadedClasses()) {
+                        auto class_file = std::dynamic_pointer_cast<ClassFile>(class_def);
                         if(class_file->GetName() == proper_class_name) {
                             for(auto &method: class_file->GetMethods()) {
                                 if(method.GetName() == fn_name) {
@@ -1318,8 +1318,8 @@ namespace javm::core {
                     }
                 }
                 // Finally, plain .class files
-                for(auto &class_ref: this->class_files) {
-                    auto class_file = std::dynamic_pointer_cast<ClassFile>(class_ref);
+                for(auto class_def: this->class_files) {
+                    auto class_file = std::dynamic_pointer_cast<ClassFile>(class_def);
                     if(class_file->GetName() == proper_class_name) {
                         for(auto &method: class_file->GetMethods()) {
                             if(method.GetName() == fn_name) {
@@ -1408,12 +1408,12 @@ namespace javm::core {
         return CreateNullValue();
     }
 
-    std::shared_ptr<ClassObject> &FindClassByNameEx(void *machine, std::string name) {
+    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name) {
         auto mach = reinterpret_cast<Machine*>(machine);
         return mach->FindClass(name);
     }
 
-    std::shared_ptr<ClassObject> &FindClassByName(Frame &frame, std::string name) {
+    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, std::string name) {
         return FindClassByNameEx(frame.GetMachinePointer(), name);
     }
 

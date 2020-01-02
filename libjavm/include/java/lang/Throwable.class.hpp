@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class Throwable : public Object {
+    class Throwable final : public native::Class {
 
         private:
             std::string msg;
@@ -27,8 +27,8 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_REGISTER_METHOD(getMessage)
             }
 
-            core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<Throwable>(this_param);
+            core::Value constructor(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<Throwable>(this_v);
                 switch(parameters.size()) {
                     case 1: {
                         if(parameters[0].value->IsValidCast<String>()) {
@@ -43,8 +43,8 @@ namespace java::lang {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::Value getMessage(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<Throwable>(this_param);
+            core::Value getMessage(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<Throwable>(this_v);
                 auto msg = this_ref->GetMessage();
 
                 auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {

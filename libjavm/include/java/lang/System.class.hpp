@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class System : public Object {
+    class System final : public native::Class {
 
         public:
             JAVM_NATIVE_CLASS_CTOR(System) {

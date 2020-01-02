@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class Class : public Object {
+    class Class final : public native::Class {
 
         private:
             std::shared_ptr<core::ClassObject> class_def;
@@ -27,8 +27,8 @@ namespace java::lang {
 
             }
 
-            core::Value getName(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<Class>(this_param);
+            core::Value getName(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<Class>(this_v);
                 auto class_def = this_ref->GetClassDefinition();
                 auto class_name = class_def->GetName();
 
@@ -40,4 +40,11 @@ namespace java::lang {
             }
 
     };
+
+    // Defined in Object's header
+    core::Value CreateClassInstanceFromClassDefinition(core::Frame &frame, std::shared_ptr<core::ClassObject> def) {
+        return frame.CreateNewClassWith<true, Class>("java.lang.Class", [&](Class *ref) {
+            ref->SetClassDefinition(def);
+        });
+    }
 }

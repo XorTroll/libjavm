@@ -4,7 +4,7 @@
 
 namespace java::io {
 
-    class PrintStream : public lang::Object {
+    class PrintStream final : public native::Class {
 
         private:
             FILE *stream;
@@ -39,8 +39,8 @@ namespace java::io {
                 }
             }
 
-            core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<PrintStream>(this_param);
+            core::Value constructor(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<PrintStream>(this_v);
                 if(parameters.size() == 1) {
                     if(parameters[0].value->IsValidCast<lang::String>()) {
                         auto str_ref = parameters[0].value->GetReference<lang::String>();
@@ -54,8 +54,8 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
 
-            core::Value print(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<PrintStream>(this_param);
+            core::Value print(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<PrintStream>(this_v);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
@@ -109,8 +109,8 @@ namespace java::io {
                 JAVM_NATIVE_CLASS_NO_RETURN
             }
             
-            core::Value println(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = this->GetThisReference<PrintStream>(this_param);
+            core::Value println(core::Frame &frame, core::ThisValues this_v, std::vector<core::FunctionParameter> parameters) {
+                auto this_ref = this->GetThisInstance<PrintStream>(this_v);
 
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {

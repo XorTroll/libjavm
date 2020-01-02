@@ -19,6 +19,28 @@ namespace javm::core {
 
     /*
     
+    'this' values for invoking native methods:
+
+    Invoker is the object calling the function, the reference pushed to the stack in the code.
+    Instance is the actual instance containing the method, always a native class.
+
+    In a normal method both are the same, but when this involves inheritance, both are different.
+    For instance, in this case:
+
+    > String str = "hello";
+    > str.getClass();
+
+    Inside getClass() native function, the 'invoker' will be a String variable, and the 'instance' will be a Object variable, since the function itself is Object.getClass().
+    Normally accessing the 'instance' this would be enough, but for certain cases (getClass is one of them) the 'invoker' this is necessary. Hence, both are accessible.
+
+    */
+    struct ThisValues {
+        Value invoker;
+        Value instance;
+    };
+
+    /*
+    
     ClassObject is the base type for a class in this VM. Two types of classes inherit from this:
 
     - core::ClassFile -> Bytecode class loaded from a .class file
@@ -358,7 +380,7 @@ namespace javm::core {
     };
 
     // Defined later in machine code
-    std::shared_ptr<ClassObject> &FindClassByName(Frame &frame, std::string name);
+    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, std::string name);
 
-    std::shared_ptr<ClassObject> &FindClassByNameEx(void *machine, std::string name);
+    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name);
 }

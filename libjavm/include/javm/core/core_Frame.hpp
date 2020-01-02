@@ -103,7 +103,6 @@ namespace javm::core {
 
             Value Pop() { // In this case we don't dispose the value, since Pop is used for holders which will be used again
                 auto copy = this->stack.back();
-                // printf("Popping pointer: %p\n", copy->GetAddress());
                 this->stack.pop_back();
                 return copy;
             }
@@ -122,7 +121,6 @@ namespace javm::core {
                 if(ptr != nullptr) {
                     memcpy(&copy, ptr, sizeof(copy));
                 }
-                // value.Dispose(); // Dispose the value (free the pointer it holds) manually
                 return copy;
             }
 

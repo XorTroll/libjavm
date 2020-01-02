@@ -20,6 +20,7 @@ namespace javm::core {
         private:
             u32 magic;
             bool static_done;
+            u16 access_flags;
             std::vector<CPInfo> pool;
             std::string class_name;
             std::string super_class_name;
@@ -90,7 +91,7 @@ namespace javm::core {
 
                 this->ProcessCPInfoArray(this->pool);
 
-                u16 access_flags = BE(reader.Read<u16>());
+                this->access_flags = BE(reader.Read<u16>());
                 u16 this_class_index = BE(reader.Read<u16>());
                 auto &this_class_data = this->pool[this_class_index - 1].GetClassData();
                 this->class_name = this_class_data.processed_name;
@@ -134,17 +135,15 @@ namespace javm::core {
         public:
             using File::File;
 
-            ClassFile(std::string path) : File(path) {
+            ClassFile(std::string path) : File(path), static_done(false) {
                 this->Load();
             }
             
-            ClassFile(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns) {
+            ClassFile(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns), static_done(false) {
                 this->Load();
             }
 
-            ClassFile(ClassFile *other) : File(nullptr, 0), pool(other->GetConstantPool()), class_name(other->GetName()), super_class_name(other->GetSuperClassName()), fields(other->GetFields()), interfaces(other->GetInterfaces()), attributes(other->GetAttributes()), methods(other->GetMethods()) {
-                this->Load();
-            }
+            ClassFile(ClassFile *other) : File(nullptr, 0), static_done(false), magic(other->magic), access_flags(other->access_flags), pool(other->pool), class_name(other->class_name), super_class_name(other->super_class_name), fields(other->fields), interfaces(other->interfaces), attributes(other->attributes), methods(other->methods) {}
 
             bool IsEmpty() {
                 return !this->IsValid();

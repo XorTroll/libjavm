@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class Exception : public Throwable {
+    class Exception final : public native::Class {
 
         public:
             JAVM_NATIVE_CLASS_CTOR(Exception) {

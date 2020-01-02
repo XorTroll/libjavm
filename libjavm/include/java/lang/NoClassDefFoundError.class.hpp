@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class NoClassDefFoundError : public LinkageError {
+    class NoClassDefFoundError final : public native::Class {
 
         public:
             JAVM_NATIVE_CLASS_CTOR(NoClassDefFoundError) {

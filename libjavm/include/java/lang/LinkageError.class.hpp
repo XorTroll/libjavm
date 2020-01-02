@@ -4,7 +4,7 @@
 
 namespace java::lang {
 
-    class LinkageError : public Error {
+    class LinkageError final : public native::Class {
 
         public:
             JAVM_NATIVE_CLASS_CTOR(LinkageError) {
