@@ -30,7 +30,7 @@ namespace java::lang {
             }
 
             core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
+                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
                 switch(parameters.size()) {
                     case 1: {
                         auto initial_arg = parameters[0].value;
@@ -53,7 +53,7 @@ namespace java::lang {
             }
 
             core::Value append(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
+                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
                 if(parameters[0].value->IsValidCast<String>()) {
                     auto str_ref = parameters[0].value->GetReference<String>();
                     
@@ -82,10 +82,10 @@ namespace java::lang {
             }
 
             core::Value toString(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<StringBuilder>(this_param);
+                auto this_ref = this->GetThisReference<StringBuilder>(this_param);
                 auto str = this_ref->GetString();
 
-                auto str_obj = core::CreateNewValue<String>();
+                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
                 auto str_ref = str_obj->GetReference<String>();
                 str_ref->SetString(str);
                 return str_obj;

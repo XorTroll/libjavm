@@ -8,16 +8,31 @@
 namespace javm::core {
 
     using DtorFunction = std::function<void(void*)>;
+    using CloneFunction = std::function<void*(void*)>;
 
     void EmptyPointerDestructor(void*) {
     }
 
     template<typename T>
-    void TypeDeletePointerDestructor(void *ptr) {
+    void TypedPointerDestructor(void *ptr) {
         if(ptr != nullptr) {
             T *t_ptr = reinterpret_cast<T*>(ptr);
             delete t_ptr;
         }
+    }
+
+    void *EmptyPointerClone(void*) {
+        return nullptr;
+    }
+
+    template<typename T>
+    void *TypedPointerClone(void *ptr) {
+        if(ptr != nullptr) {
+            T *t_ptr = reinterpret_cast<T*>(ptr);
+            T *clone_ptr = new T(*t_ptr);
+            return reinterpret_cast<void*>(clone_ptr);
+        }
+        return nullptr;
     }
 
     enum class ValueType {
@@ -50,11 +65,12 @@ namespace javm::core {
             void *inner_ptr;
             size_t type_hash_code;
             DtorFunction dtor;
+            CloneFunction clone;
             ValueType type;
 
         public:
-            ValuePointerHolder(void *t, size_t type_hash, ValueType vtype, DtorFunction dtor_fn = EmptyPointerDestructor) : inner_ptr(t), type_hash_code(type_hash), type(vtype), dtor(dtor_fn) {}
-            ValuePointerHolder() : inner_ptr(nullptr), type_hash_code(0), type(ValueType::Null), dtor(EmptyPointerDestructor) {}
+            ValuePointerHolder(void *t, size_t type_hash, ValueType vtype, CloneFunction clone_fn = EmptyPointerClone, DtorFunction dtor_fn = EmptyPointerDestructor) : inner_ptr(t), type_hash_code(type_hash), dtor(dtor_fn), clone(clone_fn), type(vtype) {}
+            ValuePointerHolder() : inner_ptr(nullptr), type_hash_code(0), type(ValueType::Null),  dtor(EmptyPointerDestructor), clone(EmptyPointerClone) {}
 
             ~ValuePointerHolder() {
                 this->Dispose();
@@ -137,6 +153,15 @@ namespace javm::core {
                 return this->dtor;
             }
 
+            CloneFunction GetCloneFunction() {
+                return this->clone;
+            }
+
+            ValuePointerHolder Clone() {
+                auto cloned_ptr = this->clone(this->inner_ptr);
+                return ValuePointerHolder(cloned_ptr, this->type_hash_code, this->type, this->clone, this->dtor);
+            }
+
             void *GetAddress() {
                 return this->inner_ptr;
             }
@@ -172,16 +197,12 @@ namespace javm::core {
     template<typename T, typename ...Args>
     static inline Value CreateNewValue(Args &&...args) {
         T *t_ptr = new T(args...);
-        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t_ptr), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>(), TypeDeletePointerDestructor<T>);
+        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t_ptr), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>(), TypedPointerClone<T>, TypedPointerDestructor<T>);
     }
 
     template<typename T>
     static inline Value CreateExistingValue(T *t) {
-        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>());
-    }
-
-    static inline Value CreateValueTypeValue(ValueType type) {
-        return std::make_shared<ValuePointerHolder>(nullptr, 0, type);
+        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>(), TypedPointerClone<T>);
     }
 
     static inline Value CreateVoidValue() {
@@ -190,6 +211,10 @@ namespace javm::core {
 
     static inline Value CreateNullValue() {
         return std::make_shared<ValuePointerHolder>();
+    }
+
+    static inline Value CloneValue(Value val) {
+        return std::make_shared<ValuePointerHolder>(val->Clone());
     }
 
     class Array {
@@ -233,24 +258,24 @@ namespace javm::core {
     };
     
     template<typename T>
-    Array CreateArray(u32 length) {
+    Value CreateArray(u32 length) {
         static_assert(ValuePointerHolder::IsValidValueType<T>(), "Invalid value type");
-        Array array(ValuePointerHolder::DetectValueType<T>(), length);
-        return array;
+        return CreateNewValue<Array>(ValuePointerHolder::DetectValueType<T>(), length);
     }
     
     template<typename T>
-    Array CreateArray(std::initializer_list<T> list) {
+    Value CreateArray(std::initializer_list<T> list) {
         static_assert(ValuePointerHolder::IsValidValueType<T>(), "Invalid value type");
-        Array array(ValuePointerHolder::DetectValueType<T>(), list.size());
+        auto array_val = CreateNewValue<Array>(ValuePointerHolder::DetectValueType<T>(), list.size());
+        auto array_ref = array_val->template GetReference<Array>();
         u32 i = 0;
         for(auto &item: list) {
-            if(!array.CheckIndex(i)) {
+            if(!array_ref->CheckIndex(i)) {
                 break;
             }
-            array.SetAt(i, CreateNewValue<T>(item));
+            array_ref->SetAt(i, CreateNewValue<T>(item));
             i++;
         }
-        return array;
+        return array_val;
     }
 }

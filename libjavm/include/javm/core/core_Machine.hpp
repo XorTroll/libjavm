@@ -38,6 +38,12 @@ namespace javm::core {
                 this->ThrowExceptionWithType("java.lang.RuntimeException", message);
             }
 
+            template<typename ...Args>
+            void CallClassCtor(Frame &frame, Value class_val, Args &&...args) {
+                auto class_ref = class_val->GetReference<ClassObject>();
+                class_ref->CallMethod(frame, JAVM_CTOR_METHOD_NAME, args...);
+            }
+
             ValueType GetValueTypeFromNewArrayType(NewArrayType type) {
                 switch(type) {
                     case NewArrayType::Boolean:
@@ -78,71 +84,80 @@ namespace javm::core {
                 auto &offset = frame.GetOffset();
                 // printf("Instruction: 0x%X\n", (u32)inst);
 
-                #define _JAVM_LOAD_INSTRUCTION(instr, idx, type) \
+                #define _JAVM_LOAD_INSTRUCTION(instr, idx) \
                 case Instruction::instr: { \
                         u8 index = idx; \
-                        auto ref = frame.GetLocalReference<type>((u32)index); \
-                        frame.PushReference(ref); \
+                        auto ref = frame.GetLocal((u32)index); \
+                        frame.Push(ref); \
                         break; \
                     }
 
-                #define _JAVM_LOAD_INSTRUCTION_INDEX_READ(instr, type) _JAVM_LOAD_INSTRUCTION(instr, frame.Read<u8>(), type)
+                #define _JAVM_LOAD_INSTRUCTION_INDEX_READ(instr) _JAVM_LOAD_INSTRUCTION(instr, frame.Read<u8>())
                 
-                #define _JAVM_STORE_INSTRUCTION(idx, instr, type) \
+                #define _JAVM_STORE_INSTRUCTION(instr, idx) \
                 case Instruction::instr: { \
                         u8 index = idx; \
-                        auto val = frame.PopValue<type>(); \
-                        frame.CreateSetLocal<type>((u32)index, val); \
-                        break; \
-                    }
-
-                #define _JAVM_ASTORE_N_INSTRUCTION(idx) \
-                case Instruction::ASTORE_##idx: { \
-                        u8 index = idx; \
-                        auto value = frame.Pop(); \
-                        frame.SetLocal((u32)index, value); \
+                        auto val = frame.Pop(); \
+                        frame.SetLocal((u32)index, val); \
                         break; \
                     }
                 
-                #define _JAVM_STORE_INSTRUCTION_INDEX_READ(instr, type) _JAVM_STORE_INSTRUCTION(frame.Read<u8>(), instr, type)
+                #define _JAVM_STORE_INSTRUCTION_INDEX_READ(instr) _JAVM_STORE_INSTRUCTION(instr, frame.Read<u8>())
+
+                #define _JAVM_LDC_BASE(idx) \
+                auto &constant_pool = frame.GetCurrentClass()->GetConstantPool(); \
+                auto &constant = constant_pool[index - 1]; \
+                switch(constant.GetTag()) { \
+                    case CPTag::Integer: { \
+                        int value = constant.GetIntegerData().integer; \
+                        frame.CreatePush<int>(value); \
+                        break; \
+                    } \
+                    case CPTag::Float: { \
+                        float value = constant.GetFloatData().flt; \
+                        frame.CreatePush<float>(value); \
+                        break; \
+                    } \
+                    case CPTag::Long: { \
+                        long value = constant.GetLongData().lng; \
+                        frame.CreatePush<long>(value); \
+                        break; \
+                    } \
+                    case CPTag::Double: { \
+                        double value = constant.GetDoubleData().dbl; \
+                        frame.CreatePush<double>(value); \
+                        break; \
+                    } \
+                    case CPTag::String: { \
+                        auto value = constant.GetStringData().processed_string; \
+                        auto str_obj = CreateNewValue<java::lang::String>(); \
+                        auto str_ref = str_obj->GetReference<java::lang::String>(); \
+                        str_ref->SetString(value); \
+                        frame.Push(str_obj); \
+                        break; \
+                    } \
+                    case CPTag::Class: { \
+                        auto class_name = constant.GetClassData().processed_name; \
+                        if(this->HasClass(class_name)) { \
+                            auto class_def = this->FindClass(class_name); \
+                            auto class_value = CreateNewValue<java::lang::Class>(); \
+                            auto class_ref = class_value->GetReference<java::lang::Class>(); \
+                            class_ref->SetClassDefinition(class_def); \
+                            frame.Push(class_value); \
+                        } \
+                        else { \
+                            this->ThrowClassNotFound(class_name); \
+                        } \
+                        break; \
+                    } \
+                    default: \
+                        break; \
+                }
 
                 #define _JAVM_LDC_INSTRUCTION(instr, idx) \
                 case Instruction::instr: { \
                         auto index = idx; \
-                        auto &constant_pool = frame.GetCurrentClass()->GetConstantPool(); \
-                        auto &constant = constant_pool[index - 1]; \
-                        printf("CPTag: %d\n", (u32)constant.GetTag()); \
-                        switch(constant.GetTag()) { \
-                            case CPTag::Integer: { \
-                                int value = constant.GetIntegerData().integer; \
-                                frame.CreatePush<int>(value); \
-                                break; \
-                            } \
-                            case CPTag::String: { \
-                                auto value = constant.GetStringData().processed_string; \
-                                auto str_obj = CreateNewValue<java::lang::String>(); \
-                                auto str_ref = str_obj->GetReference<java::lang::String>(); \
-                                str_ref->SetString(value); \
-                                frame.Push(str_obj); \
-                                break; \
-                            } \
-                            case CPTag::Class: { \
-                                auto class_name = constant.GetClassData().processed_name; \
-                                if(this->HasClass(class_name)) { \
-                                    auto class_def = this->FindClass(class_name); \
-                                    auto class_value = CreateNewValue<java::lang::Class>(); \
-                                    auto class_ref = class_value->GetReference<java::lang::Class>(); \
-                                    class_ref->SetClassDefinition(class_def); \
-                                    frame.Push(class_value); \
-                                } \
-                                else { \
-                                    this->ThrowClassNotFound(class_name); \
-                                } \
-                                break; \
-                            } \
-                            default: \
-                                break; \
-                        } \
+                        _JAVM_LDC_BASE(index) \
                         break; \
                     }
 
@@ -239,7 +254,6 @@ namespace javm::core {
                         break; \
                     }
 
-                // printf(" -- Read instruction: 0x%X\n", (u32)inst);
                 switch(inst) {
                     case Instruction::NOP: {
                         // Do nothing :P
@@ -316,73 +330,33 @@ namespace javm::core {
                         break;
                     }
                     _JAVM_LDC_INSTRUCTION(LDC, frame.Read<u8>())
-                    _JAVM_LDC_INSTRUCTION(LDC_W, frame.Read<u16>())
-                    case Instruction::LDC2_W: {
-                        u16 index = BE(frame.Read<u16>());
-                        auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
-                        auto &constant = constant_pool[index - 1];
-                        switch(constant.GetTag()) {
-                            case CPTag::Long: {
-                                long value = constant.GetLongData().lng;
-                                frame.CreatePush<long>(value);
-                                break;
-                            }
-                            case CPTag::Double: {
-                                double value = constant.GetDoubleData().dbl;
-                                frame.CreatePush<double>(value);
-                                break;
-                            }
-                            default:
-                                break;
-                        }
-                        break;
-                    }
-                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(ILOAD, int)
-                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(LLOAD, long)
-                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(FLOAD, float)
-                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(DLOAD, double)
-                    case Instruction::ALOAD: {
-                        u8 index = frame.Read<u8>();
-                        auto value = frame.GetLocal((u32)index);
-                        frame.Push(value);
-                        break;
-                    }
-                    _JAVM_LOAD_INSTRUCTION(ILOAD_0, 0, int)
-                    _JAVM_LOAD_INSTRUCTION(LLOAD_0, 0, long)
-                    _JAVM_LOAD_INSTRUCTION(FLOAD_0, 0, float)
-                    _JAVM_LOAD_INSTRUCTION(DLOAD_0, 0, double)
-                    case Instruction::ALOAD_0: {
-                        auto value = frame.GetLocal(0);
-                        frame.Push(value);
-                        break;
-                    }
-                    _JAVM_LOAD_INSTRUCTION(ILOAD_1, 1, int)
-                    _JAVM_LOAD_INSTRUCTION(LLOAD_1, 1, long)
-                    _JAVM_LOAD_INSTRUCTION(FLOAD_1, 1, float)
-                    _JAVM_LOAD_INSTRUCTION(DLOAD_1, 1, double)
-                    case Instruction::ALOAD_1: {
-                        auto value = frame.GetLocal(1);
-                        frame.Push(value);
-                        break;
-                    }
-                    _JAVM_LOAD_INSTRUCTION(ILOAD_2, 2, int)
-                    _JAVM_LOAD_INSTRUCTION(LLOAD_2, 2, long)
-                    _JAVM_LOAD_INSTRUCTION(FLOAD_2, 2, float)
-                    _JAVM_LOAD_INSTRUCTION(DLOAD_2, 2, double)
-                    case Instruction::ALOAD_2: {
-                        auto value = frame.GetLocal(2);
-                        frame.Push(value);
-                        break;
-                    }
-                    _JAVM_LOAD_INSTRUCTION(ILOAD_3, 3, int)
-                    _JAVM_LOAD_INSTRUCTION(LLOAD_3, 3, long)
-                    _JAVM_LOAD_INSTRUCTION(FLOAD_3, 3, float)
-                    _JAVM_LOAD_INSTRUCTION(DLOAD_3, 3, double)
-                    case Instruction::ALOAD_3: {
-                        auto value = frame.GetLocal(3);
-                        frame.Push(value);
-                        break;
-                    }
+                    _JAVM_LDC_INSTRUCTION(LDC_W, BE(frame.Read<u16>()))
+                    _JAVM_LDC_INSTRUCTION(LDC2_W, BE(frame.Read<u16>()))
+                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(ILOAD)
+                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(LLOAD)
+                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(FLOAD)
+                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(DLOAD)
+                    _JAVM_LOAD_INSTRUCTION_INDEX_READ(ALOAD)
+                    _JAVM_LOAD_INSTRUCTION(ILOAD_0, 0)
+                    _JAVM_LOAD_INSTRUCTION(FLOAD_0, 0)
+                    _JAVM_LOAD_INSTRUCTION(LLOAD_0, 0)
+                    _JAVM_LOAD_INSTRUCTION(DLOAD_0, 0)
+                    _JAVM_LOAD_INSTRUCTION(ALOAD_0, 0)
+                    _JAVM_LOAD_INSTRUCTION(ILOAD_1, 1)
+                    _JAVM_LOAD_INSTRUCTION(FLOAD_1, 1)
+                    _JAVM_LOAD_INSTRUCTION(LLOAD_1, 1)
+                    _JAVM_LOAD_INSTRUCTION(DLOAD_1, 1)
+                    _JAVM_LOAD_INSTRUCTION(ALOAD_1, 1)
+                    _JAVM_LOAD_INSTRUCTION(ILOAD_2, 2)
+                    _JAVM_LOAD_INSTRUCTION(FLOAD_2, 2)
+                    _JAVM_LOAD_INSTRUCTION(LLOAD_2, 2)
+                    _JAVM_LOAD_INSTRUCTION(DLOAD_2, 2)
+                    _JAVM_LOAD_INSTRUCTION(ALOAD_2, 2)
+                    _JAVM_LOAD_INSTRUCTION(ILOAD_3, 3)
+                    _JAVM_LOAD_INSTRUCTION(FLOAD_3, 3)
+                    _JAVM_LOAD_INSTRUCTION(LLOAD_3, 3)
+                    _JAVM_LOAD_INSTRUCTION(DLOAD_3, 3)
+                    _JAVM_LOAD_INSTRUCTION(ALOAD_3, 3)
                     _JAVM_ALOAD_INSTRUCTION(IALOAD)
                     _JAVM_ALOAD_INSTRUCTION(LALOAD)
                     _JAVM_ALOAD_INSTRUCTION(FALOAD)
@@ -391,36 +365,31 @@ namespace javm::core {
                     _JAVM_ALOAD_INSTRUCTION(BALOAD)
                     _JAVM_ALOAD_INSTRUCTION(CALOAD)
                     _JAVM_ALOAD_INSTRUCTION(SALOAD)
-                    _JAVM_STORE_INSTRUCTION_INDEX_READ(ISTORE, int)
-                    _JAVM_STORE_INSTRUCTION_INDEX_READ(LSTORE, long)
-                    _JAVM_STORE_INSTRUCTION_INDEX_READ(FSTORE, float)
-                    _JAVM_STORE_INSTRUCTION_INDEX_READ(DSTORE, double)
-                    case Instruction::ASTORE: {
-                        u8 index = frame.Read<u8>();
-                        auto value = frame.Pop();
-                        frame.SetLocal((u32)index, value);
-                        break;
-                    }
-                    _JAVM_STORE_INSTRUCTION(0, ISTORE_0, int)
-                    _JAVM_STORE_INSTRUCTION(0, LSTORE_0, long)
-                    _JAVM_STORE_INSTRUCTION(0, FSTORE_0, float)
-                    _JAVM_STORE_INSTRUCTION(0, DSTORE_0, double)
-                    _JAVM_ASTORE_N_INSTRUCTION(0)
-                    _JAVM_STORE_INSTRUCTION(1, ISTORE_1, int)
-                    _JAVM_STORE_INSTRUCTION(1, LSTORE_1, long)
-                    _JAVM_STORE_INSTRUCTION(1, FSTORE_1, float)
-                    _JAVM_STORE_INSTRUCTION(1, DSTORE_1, double)
-                    _JAVM_ASTORE_N_INSTRUCTION(1)
-                    _JAVM_STORE_INSTRUCTION(2, ISTORE_2, int)
-                    _JAVM_STORE_INSTRUCTION(2, LSTORE_2, long)
-                    _JAVM_STORE_INSTRUCTION(2, FSTORE_2, float)
-                    _JAVM_STORE_INSTRUCTION(2, DSTORE_2, double)
-                    _JAVM_ASTORE_N_INSTRUCTION(2)
-                    _JAVM_STORE_INSTRUCTION(3, ISTORE_3, int)
-                    _JAVM_STORE_INSTRUCTION(3, LSTORE_3, long)
-                    _JAVM_STORE_INSTRUCTION(3, FSTORE_3, float)
-                    _JAVM_STORE_INSTRUCTION(3, DSTORE_3, double)
-                    _JAVM_ASTORE_N_INSTRUCTION(3)
+                    _JAVM_STORE_INSTRUCTION_INDEX_READ(ISTORE)
+                    _JAVM_STORE_INSTRUCTION_INDEX_READ(LSTORE)
+                    _JAVM_STORE_INSTRUCTION_INDEX_READ(FSTORE)
+                    _JAVM_STORE_INSTRUCTION_INDEX_READ(DSTORE)
+                    _JAVM_STORE_INSTRUCTION_INDEX_READ(ASTORE)
+                    _JAVM_STORE_INSTRUCTION(ISTORE_0, 0)
+                    _JAVM_STORE_INSTRUCTION(FSTORE_0, 0)
+                    _JAVM_STORE_INSTRUCTION(LSTORE_0, 0)
+                    _JAVM_STORE_INSTRUCTION(DSTORE_0, 0)
+                    _JAVM_STORE_INSTRUCTION(ASTORE_0, 0)
+                    _JAVM_STORE_INSTRUCTION(ISTORE_1, 1)
+                    _JAVM_STORE_INSTRUCTION(FSTORE_1, 1)
+                    _JAVM_STORE_INSTRUCTION(LSTORE_1, 1)
+                    _JAVM_STORE_INSTRUCTION(DSTORE_1, 1)
+                    _JAVM_STORE_INSTRUCTION(ASTORE_1, 1)
+                    _JAVM_STORE_INSTRUCTION(ISTORE_2, 2)
+                    _JAVM_STORE_INSTRUCTION(FSTORE_2, 2)
+                    _JAVM_STORE_INSTRUCTION(LSTORE_2, 2)
+                    _JAVM_STORE_INSTRUCTION(DSTORE_2, 2)
+                    _JAVM_STORE_INSTRUCTION(ASTORE_2, 2)
+                    _JAVM_STORE_INSTRUCTION(ISTORE_3, 3)
+                    _JAVM_STORE_INSTRUCTION(FSTORE_3, 3)
+                    _JAVM_STORE_INSTRUCTION(LSTORE_3, 3)
+                    _JAVM_STORE_INSTRUCTION(DSTORE_3, 3)
+                    _JAVM_STORE_INSTRUCTION(ASTORE_3, 3)
                     _JAVM_ASTORE_INSTRUCTION(IASTORE)
                     _JAVM_ASTORE_INSTRUCTION(LASTORE)
                     _JAVM_ASTORE_INSTRUCTION(FASTORE)
@@ -914,8 +883,6 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
-                        printf("Invoke virtual/interface - %s - %s\n", class_name.c_str(), fn_nat_data.processed_name.c_str());
-
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
                             if(class_ref->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
@@ -946,8 +913,6 @@ namespace javm::core {
                         auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
-
-                        printf("Invoke special - %s - %s\n", class_name.c_str(), fn_nat_data.processed_name.c_str());
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
@@ -1000,8 +965,6 @@ namespace javm::core {
                         u16 index = BE(frame.Read<u16>());
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto class_name = constant_pool[index - 1].GetClassData().processed_name;
-
-                        printf("New %s...\n", class_name.c_str());
 
                         if(this->HasClass(class_name)) {
                             auto &class_ref = this->FindClass(class_name);
@@ -1268,6 +1231,20 @@ namespace javm::core {
                 return this->empty_class;
             }
 
+            template<bool CallCtor, typename ...Args>
+            Value CreateNewClass(std::string name, Args &&...args) {
+                if(this->HasClass(name)) {
+                    auto class_ref = this->FindClass(name);
+                    Frame frame(reinterpret_cast<void*>(this));
+                    auto class_val = class_ref->CreateInstance(frame);
+                    if(CallCtor) {
+                        this->CallClassCtor(frame, class_val, args...);
+                    }
+                    return class_val;
+                }
+                return CreateVoidValue();
+            }
+
             Value ExecuteCode(Frame &frame) {
                 while(true) {
                     if(this->WasExceptionThrown()) {
@@ -1302,7 +1279,7 @@ namespace javm::core {
                 // Native classes have preference
                 for(auto &native: this->native_classes) {
                     if(native->GetName() == proper_class_name) {
-                        Frame frame(native.get(), reinterpret_cast<void*>(this));
+                        Frame frame(native->CreateFromExistingInstance(), reinterpret_cast<void*>(this));
                         return native->HandleStaticFunction(fn_name, "", frame);
                     }
                 }
@@ -1317,7 +1294,7 @@ namespace javm::core {
                                         if(attr.GetName() == JAVM_CODE_ATTRIBUTE_NAME) {
                                             MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                                             CodeAttribute code_attr(code_reader);
-                                            Frame frame(&code_attr, class_file.get(), reinterpret_cast<void*>(this));
+                                            Frame frame(&code_attr, class_file->CreateFromExistingInstance(), reinterpret_cast<void*>(this));
                                             u32 index = 0;
                                             ((this->HandlePushArgument(frame, index, args)), ...);
                                             auto ret = this->ExecuteCode(frame);
@@ -1340,7 +1317,7 @@ namespace javm::core {
                                     if(attr.GetName() == JAVM_CODE_ATTRIBUTE_NAME) {
                                         MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                                         CodeAttribute code_attr(code_reader);
-                                        Frame frame(&code_attr, class_file.get(), reinterpret_cast<void*>(this));
+                                        Frame frame(&code_attr, class_file->CreateFromExistingInstance(), reinterpret_cast<void*>(this));
                                         u32 index = 0;
                                         ((this->HandlePushArgument(frame, index, args)), ...);
                                         auto ret = this->ExecuteCode(frame);
@@ -1364,7 +1341,7 @@ namespace javm::core {
                         if(attr.GetName() == JAVM_CODE_ATTRIBUTE_NAME) {
                             MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                             CodeAttribute code_attr(code_reader);
-                            Frame new_frame(&code_attr, class_file, frame.GetMachinePointer());
+                            Frame new_frame(&code_attr, class_file->CreateFromExistingInstance(), frame.GetMachinePointer());
                             for(u32 i = ClassObject::GetFunctionParameterCount(desc); i > 0; i--) {
                                 new_frame.SetLocal(i, frame.Pop());
                             }
@@ -1397,7 +1374,7 @@ namespace javm::core {
                         if(attr.GetName() == JAVM_CODE_ATTRIBUTE_NAME) {
                             MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                             CodeAttribute code_attr(code_reader);
-                            Frame new_frame(&code_attr, class_file, frame.GetMachinePointer());
+                            Frame new_frame(&code_attr, class_file->CreateFromExistingInstance(), frame.GetMachinePointer());
                             for(u32 i = 0; i < ClassObject::GetFunctionParameterCount(desc); i++) {
                                 new_frame.SetLocal(i, frame.Pop());
                             }
@@ -1441,5 +1418,10 @@ namespace javm::core {
     void MachineThrowExceptionWithInstance(void *machine, Value value) {
         Frame frame(machine);
         return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, value);
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args) {
+        return reinterpret_cast<Machine*>(machine)->CreateNewClass<CallCtor>(name, args...);
     }
 }

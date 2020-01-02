@@ -28,11 +28,11 @@ namespace java::lang {
             }
 
             core::Value getName(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<Class>(this_param);
+                auto this_ref = this->GetThisReference<Class>(this_param);
                 auto class_def = this_ref->GetClassDefinition();
                 auto class_name = class_def->GetName();
 
-                auto str_obj = core::CreateNewValue<String>();
+                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
                 auto str_ref = str_obj->GetReference<String>();
                 str_ref->SetString(core::ClassObject::GetPresentableClassName(class_name));
                 return str_obj;

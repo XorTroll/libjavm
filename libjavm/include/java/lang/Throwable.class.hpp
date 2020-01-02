@@ -28,7 +28,7 @@ namespace java::lang {
             }
 
             core::Value constructor(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
+                auto this_ref = this->GetThisReference<Throwable>(this_param);
                 switch(parameters.size()) {
                     case 1: {
                         if(parameters[0].value->IsValidCast<String>()) {
@@ -44,10 +44,10 @@ namespace java::lang {
             }
 
             core::Value getMessage(core::Frame &frame, core::FunctionParameter this_param, std::vector<core::FunctionParameter> parameters) {
-                auto this_ref = native::Class::GetThisReference<Throwable>(this_param);
+                auto this_ref = this->GetThisReference<Throwable>(this_param);
                 auto msg = this_ref->GetMessage();
 
-                auto str_obj = core::CreateNewValue<String>();
+                auto str_obj = frame.CreateNewClass<true>("java.lang.String");
                 auto str_ref = str_obj->GetReference<String>();
                 str_ref->SetString(msg);
                 return str_obj;

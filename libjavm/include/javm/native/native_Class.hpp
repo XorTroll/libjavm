@@ -33,9 +33,15 @@ namespace javm::native {
         return class_holder; \
     }
 
+    #define JAVM_NATIVE_EXISTING_INSTANCE_CTOR(clss) \
+    virtual javm::core::Value CreateFromExistingInstance() override { \
+        return javm::core::CreateExistingValue<clss>(this); \
+    }
+
     #define JAVM_NATIVE_CLASS_CTOR(clss) \
     JAVM_NATIVE_DEFINITION_CTOR(clss) \
     JAVM_NATIVE_INSTANCE_CTOR(clss) \
+    JAVM_NATIVE_EXISTING_INSTANCE_CTOR(clss) \
     clss()
 
     class Class : public core::ClassObject {
@@ -222,7 +228,7 @@ namespace javm::native {
             }
 
             template<typename C>
-            static C *GetThisReference(core::FunctionParameter this_param) {
+            C *GetThisReference(core::FunctionParameter this_param) {
                 return this_param.value->template GetReference<C>();
             }
     };

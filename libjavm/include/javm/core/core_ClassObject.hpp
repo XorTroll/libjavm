@@ -32,9 +32,9 @@ namespace javm::core {
             Value super_class_instance;
 
             template<typename T>
-            void HandlePushArgument(Frame &frame, T &t) {
-                static_assert(std::is_pointer_v<T>, "Arguments must be pointers to variables");
-                frame.Push(CreateExistingValue(t));
+            void HandlePushArgument(Frame &frame, T t) {
+                static_assert(std::is_same_v<T, Value>, "Arguments must be core::Value!");
+                frame.Push(t);
             }
 
         public:
@@ -211,46 +211,47 @@ namespace javm::core {
                 return "<unknown>";
             }
 
-            template<typename T>
-            static std::string MakeDescriptorParameter(T &t) {
-                static_assert(!std::is_pointer_v<T>, "PPP");
-                if constexpr(std::is_same_v<T, u8>) {
-                    return "B";
-                }
-                if constexpr(std::is_same_v<T, bool>) {
-                    return "Z";
-                }
-                if constexpr(std::is_same_v<T, short>) {
-                    return "S";
-                }
-                if constexpr(std::is_same_v<T, char>) {
-                    return "C";
-                }
-                if constexpr(std::is_same_v<T, int>) {
-                    return "I";
-                }
-                if constexpr(std::is_same_v<T, long>) {
-                    return "J";
-                }
-                if constexpr(std::is_same_v<T, float>) {
-                    return "F";
-                }
-                if constexpr(std::is_same_v<T, double>) {
-                    return "D";
-                }
-                if constexpr(std::is_same_v<T, std::vector<Value>>) {
-                    return "[I";
-                }
-                if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
-                    return "L" + t.GetName() + ";";
+            static std::string MakeDescriptorParameter(Value val) {
+                switch(val->GetValueType()) {
+                    case ValueType::Byte:  {
+                        return "B";
+                    }
+                    case ValueType::Boolean:  {
+                        return "Z";
+                    }
+                    case ValueType::Short:  {
+                        return "S";
+                    }
+                    case ValueType::Character:  {
+                        return "C";
+                    }
+                    case ValueType::Integer:  {
+                        return "I";
+                    }
+                    case ValueType::Long:  {
+                        return "J";
+                    }
+                    case ValueType::Float:  {
+                        return "F";
+                    }
+                    case ValueType::Double:  {
+                        return "D";
+                    }
+                    case ValueType::Array:  {
+                        return "[I";
+                    }
+                    case ValueType::ClassObject:  {
+                        return "L" + val->GetReference<ClassObject>()->GetName() + ";";
+                    }
                 }
                 return "";
             }
 
             template<typename ...Args>
             static std::string BuildFunctionDescriptor(Args &&...args) {
-                std::string desc;
-                ((desc += MakeDescriptorParameter(*args)), ...);
+                std::string desc = "(";
+                ((desc += MakeDescriptorParameter(args)), ...);
+                desc += ")";
                 return desc;
             }
 
@@ -262,6 +263,7 @@ namespace javm::core {
             virtual std::string GetSuperClassName() = 0;
             virtual std::vector<CPInfo> &GetConstantPool() = 0;
             virtual Value CreateInstanceEx(void *machine_ptr) = 0;
+            virtual Value CreateFromExistingInstance() = 0;
             virtual bool HasField(std::string name) = 0;
             virtual bool HasStaticField(std::string name) = 0;
             virtual Value GetField(std::string name) = 0;
@@ -345,7 +347,7 @@ namespace javm::core {
             // Meant to be used from native code
             template<typename ...Args>
             Value CallMethod(Frame &frame, std::string name, Args &&...args) {
-                frame.PushReference(this);
+                frame.Push(this->CreateFromExistingInstance());
                 (this->HandlePushArgument(frame, args), ...);
                 auto desc = BuildFunctionDescriptor(args...);
                 if(this->CanAllHandleMethod(name, desc, frame)) {

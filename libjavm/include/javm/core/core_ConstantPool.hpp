@@ -8,6 +8,7 @@ namespace javm::core {
 
         UTF8 = 1,
         Integer = 3,
+        Float = 4,
         Long = 5,
         Double = 6,
         Class = 7,
@@ -28,6 +29,10 @@ namespace javm::core {
         int integer;
     };
 
+    struct FloatData {
+        float flt;
+    };
+    
     struct LongData {
         long lng;
     };
@@ -66,6 +71,7 @@ namespace javm::core {
             
             UTF8Data utf8;
             IntegerData integer;
+            FloatData flt;
             LongData lng;
             DoubleData dbl;
             ClassData clss;
@@ -94,6 +100,10 @@ namespace javm::core {
                     }
                     case CPTag::Integer: {
                         this->integer.integer = BE(reader.Read<int>());
+                        break;
+                    }
+                    case CPTag::Float: {
+                        this->flt.flt = BE(reader.Read<float>());
                         break;
                     }
                     case CPTag::Long: {
@@ -139,6 +149,10 @@ namespace javm::core {
                 return this->integer;
             }
 
+            FloatData &GetFloatData() {
+                return this->flt;
+            }
+            
             LongData &GetLongData() {
                 return this->lng;
             }

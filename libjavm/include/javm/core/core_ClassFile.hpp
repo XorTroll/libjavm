@@ -166,6 +166,10 @@ namespace javm::core {
                 return class_holder;
             }
 
+            virtual Value CreateFromExistingInstance() override {
+                return CreateExistingValue<ClassFile>(this);
+            }
+
             template<typename ...Args>
             static std::shared_ptr<ClassFile> CreateDefinitionInstance(void *machine_ptr, Args ...args) {
                 auto class_ref = std::make_shared<ClassFile>(args...);

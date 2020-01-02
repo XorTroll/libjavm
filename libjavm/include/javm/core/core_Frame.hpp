@@ -13,23 +13,26 @@ namespace javm::core {
     void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message);
     void MachineThrowExceptionWithInstance(void *machine, Value value);
 
+    template<bool CallCtor, typename ...Args>
+    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args);
+
     class Frame {
 
         private:
             std::vector<Value> stack;
             std::vector<Value> locals;
             CodeAttribute *code_attr;
-            ClassObject *cur_class_obj;
+            Value cur_class_obj;
             size_t offset;
             void *machine;
 
         public:
             Frame(void *mach) : code_attr(nullptr), cur_class_obj(nullptr), offset(0), machine(mach) {}
             
-            Frame(ClassObject *cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {}
+            Frame(Value cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {}
             
-            Frame(CodeAttribute *code, ClassObject *cur_class, void *mach) : code_attr(code), cur_class_obj(cur_class), offset(0), machine(mach) {
-                this->locals.push_back(CreateExistingValue(this->cur_class_obj));
+            Frame(CodeAttribute *code, Value cur_class, void *mach) : code_attr(code), cur_class_obj(cur_class), offset(0), machine(mach) {
+                this->locals.push_back(this->cur_class_obj);
                 this->locals.reserve(code->GetMaxLocals());
                 for(u16 i = 0; i < code->GetMaxLocals(); i++) {
                     this->locals.push_back(CreateNullValue());
@@ -95,7 +98,7 @@ namespace javm::core {
             }
 
             ClassObject *GetCurrentClass() {
-                return this->cur_class_obj;
+                return this->cur_class_obj->GetReference<ClassObject>();
             }
 
             Value Pop() { // In this case we don't dispose the value, since Pop is used for holders which will be used again
@@ -174,6 +177,11 @@ namespace javm::core {
 
             void ThrowExceptionWithInstance(Value value) {
                 MachineThrowExceptionWithInstance(this->machine, value);
+            }
+
+            template<bool CallCtor, typename ...Args>
+            Value CreateNewClass(std::string name, Args &&...args) {
+                return MachineCreateNewClass<CallCtor>(this->machine, name, args...);
             }
 
             void *GetMachinePointer() {
