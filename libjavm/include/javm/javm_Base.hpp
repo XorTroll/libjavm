@@ -2,6 +2,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <sstream>
 #include <vector>
 
 namespace javm {
@@ -27,6 +28,13 @@ namespace javm {
             return __builtin_bswap64(n);
         }
         return n;
+    }
+
+    template<typename N>
+    inline std::string ToHexString(N n) {
+        std::stringstream strm;
+        strm << std::hex << n;
+        return strm.str();
     }
 
     template<typename T>

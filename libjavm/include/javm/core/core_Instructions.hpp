@@ -196,13 +196,13 @@ namespace javm::core {
         NEWARRAY = 0xBC,
         ANEWARRAY = 0xBD,
         ARRAYLENGTH = 0xBE,
-        ATHROW = 0xBF, // TODO
+        ATHROW = 0xBF,
         CHECKCAST = 0xC0,
         INSTANCEOF = 0xC1,
         MULTIANEWARRAY = 0xC2,
         // The others aren't really worth it to be implemented for now :P
-        IFNULL = 0xC6, // TODO
-        IFNONNULL = 0xC7, // TODO
+        IFNULL = 0xC6,
+        IFNONNULL = 0xC7,
         GOTO_W = 0xC8, // Again, old opcode
         JSR_W = 0xC9, // Same as JSR above, not implementing it
 

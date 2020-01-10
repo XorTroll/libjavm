@@ -37,6 +37,7 @@ namespace javm::core {
 
     enum class ValueType {
 
+        Invalid,
         Void,
         Null,
         Byte,
@@ -56,6 +57,9 @@ namespace javm::core {
 
     // Used to create void values - anyway, any value not matching the list above will be considered as void :P
     struct VoidValue {};
+
+    // Invalid values are the values returned in any unexpected case (bad calls, invalid types/variables/classes...)
+    struct InvalidValue {};
     
     class Array;
 
@@ -109,10 +113,13 @@ namespace javm::core {
                 if constexpr(std::is_same_v<T, Array>) {
                     return ValueType::Array;
                 }
+                if constexpr(std::is_same_v<T, VoidValue>) {
+                    return ValueType::Void;
+                }
                 if constexpr(std::is_same_v<T, ClassObject> || std::is_base_of_v<ClassObject, T>) {
                     return ValueType::ClassObject;
                 }
-                return ValueType::Void;
+                return ValueType::Invalid;
             }
 
             template<typename T>
@@ -127,6 +134,14 @@ namespace javm::core {
 
             size_t GetTypeHashCode() {
                 return this->type_hash_code;
+            }
+
+            bool IsValid() {
+                return this->type != ValueType::Invalid;
+            }
+
+            bool IsInvalid() {
+                return !this->IsValid();
             }
 
             bool IsNull() {
@@ -209,6 +224,10 @@ namespace javm::core {
         return CreateNewValue<VoidValue>();
     }
 
+    static inline Value CreateInvalidValue() {
+        return CreateNewValue<InvalidValue>();
+    }
+
     static inline Value CreateNullValue() {
         return std::make_shared<ValuePointerHolder>();
     }
@@ -216,6 +235,17 @@ namespace javm::core {
     static inline Value CloneValue(Value val) {
         return std::make_shared<ValuePointerHolder>(val->Clone());
     }
+
+    #define JAVM_ASSERT_VALID_VALUE(ptr, val, what, ...) { \
+        if(val->IsInvalid()) { \
+            (ptr)->ThrowWithType("java.lang.RuntimeException", what); \
+        } \
+        else { \
+            __VA_ARGS__ \
+        } \
+    }
+
+    #define JAVM_ASSERT_VALID_VALUE_VAR(var, val, what, ...) JAVM_ASSERT_VALID_VALUE(&var, val, what, ##__VA_ARGS__)
 
     class Array {
 
@@ -247,7 +277,7 @@ namespace javm::core {
                 if(this->CheckIndex(index)) {
                     return this->value_list.at(index);
                 }
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
 
             void SetAt(u32 index, Value val) {

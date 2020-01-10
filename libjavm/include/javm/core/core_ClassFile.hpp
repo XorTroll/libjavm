@@ -208,7 +208,7 @@ namespace javm::core {
                         }
                     }
                 }
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
 
             virtual Value GetStaticField(std::string name) override {
@@ -219,7 +219,7 @@ namespace javm::core {
                         }
                     }
                 }
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
 
             virtual void SetField(std::string name, Value value) override {
@@ -285,6 +285,7 @@ namespace javm::core {
             virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
                 if(name == JAVM_STATIC_BLOCK_METHOD_NAME) {
                     if(this->static_done) {
+                        // Static block already done, just simulate an empty function returning a void value
                         return CreateVoidValue();
                     }
                     else {

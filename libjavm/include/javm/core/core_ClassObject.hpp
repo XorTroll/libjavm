@@ -195,7 +195,25 @@ namespace javm::core {
                     default:
                         return "void";
                 }
-                return "<unknown>";
+                return "<invalid>";
+            }
+
+            static std::string GetValueName(Value val) {
+                if(val) {
+                    if(val->IsClassObject()) {
+                        auto class_ref = val->GetReference<ClassObject>();
+                        return GetPresentableClassName(class_ref->GetName());
+                    }
+                    else if(val->IsArray()) {
+                        auto array_ref = val->GetReference<Array>();
+                        auto array_type = array_ref->GetValueType();
+                        return GetValueTypeName(array_type) + "[" + std::to_string(array_ref->GetLength()) + "]";
+                    }
+                    else {
+                        return GetValueTypeName(val->GetValueType());
+                    }
+                }
+                return "<invalid>";
             }
 
             static std::string GetParameterTypeName(FunctionParameter param) {
@@ -375,7 +393,7 @@ namespace javm::core {
                 if(this->CanAllHandleMethod(name, desc, frame)) {
                     return this->HandleMethod(name, desc, frame);
                 }
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
     };
 

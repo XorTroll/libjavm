@@ -9,9 +9,9 @@ namespace javm::core {
 
     class ClassObject;
 
-    void MachineThrowExceptionWithMessage(void *machine, std::string message);
-    void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message);
-    void MachineThrowExceptionWithInstance(void *machine, Value value);
+    void MachineThrowWithMessage(void *machine, std::string message);
+    void MachineThrowWithType(void *machine, std::string class_name, std::string message);
+    void MachineThrowWithInstance(void *machine, Value value);
 
     class Frame {
 
@@ -162,16 +162,16 @@ namespace javm::core {
                 return t;
             }
 
-            void ThrowExceptionWithMessage(std::string message) {
-                MachineThrowExceptionWithMessage(this->machine, message);
+            void ThrowWithMessage(std::string message) {
+                MachineThrowWithMessage(this->machine, message);
             }
 
-            void ThrowExceptionWithType(std::string class_name, std::string message) {
-                MachineThrowExceptionWithType(this->machine, class_name, message);
+            void ThrowWithType(std::string class_name, std::string message) {
+                MachineThrowWithType(this->machine, class_name, message);
             }
 
-            void ThrowExceptionWithInstance(Value value) {
-                MachineThrowExceptionWithInstance(this->machine, value);
+            void ThrowWithInstance(Value value) {
+                MachineThrowWithInstance(this->machine, value);
             }
 
             void *GetMachinePointer() {

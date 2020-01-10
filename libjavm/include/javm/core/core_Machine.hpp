@@ -35,11 +35,11 @@ namespace javm::core {
             ThrownInfo thrown_info;
 
             void ThrowClassNotFound(std::string class_name) {
-                this->ThrowExceptionWithType("java.lang.NoClassDefFoundError", ClassObject::ProcessClassName(class_name));
+                this->ThrowWithType("java.lang.NoClassDefFoundError", ClassObject::ProcessClassName(class_name));
             }
 
             void ThrowRuntimeException(std::string message) {
-                this->ThrowExceptionWithType("java.lang.RuntimeException", message);
+                this->ThrowWithType("java.lang.RuntimeException", message);
             }
 
             ValueType GetValueTypeFromNewArrayType(NewArrayType type) {
@@ -792,12 +792,14 @@ namespace javm::core {
                                 class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
                             }
                             auto obj = class_def->GetStaticField(fld_nat_data.processed_name);
-                            if(obj->IsVoid()) {
-                                this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
-                            }
-                            else {
-                                frame.Push(obj);
-                            }
+                            JAVM_ASSERT_VALID_VALUE(this, obj, "Invalid static field - " + fld_nat_data.processed_name, {
+                                if(obj->IsVoid()) {
+                                    this->ThrowRuntimeException("Invalid static field - " + fld_nat_data.processed_name);
+                                }
+                                else {
+                                    frame.Push(obj);
+                                }
+                            })
                         }
                         else {
                             this->ThrowClassNotFound(class_name);
@@ -812,14 +814,21 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
-                        
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
                                 class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
                             }
+
                             auto obj = frame.Pop();
-                            class_def->SetStaticField(fld_nat_data.processed_name, obj);
+                            JAVM_ASSERT_VALID_VALUE(this, obj, "Invalid value to be assigned to static field " + fld_nat_data.processed_name, {
+                                if(obj->IsVoid()) {
+                                    this->ThrowRuntimeException("Invalid value to be assigned to static field " + fld_nat_data.processed_name);
+                                }
+                                else {
+                                    class_def->SetStaticField(fld_nat_data.processed_name, obj);
+                                }
+                            })
                         }
                         else {
                             this->ThrowClassNotFound(class_name);
@@ -839,14 +848,21 @@ namespace javm::core {
                             auto clss = value->GetReference<ClassObject>();
                             if(clss->HasField(fld_nat_data.processed_name)) {
                                 auto obj = clss->GetField(fld_nat_data.processed_name);
-                                frame.Push(obj);
+                                JAVM_ASSERT_VALID_VALUE(this, obj, "Invalid value of field " + fld_nat_data.processed_name, {
+                                    if(obj->IsVoid()) {
+                                        this->ThrowRuntimeException("Invalid value of field " + fld_nat_data.processed_name);
+                                    }
+                                    else {
+                                        frame.Push(obj);
+                                    }
+                                })
                             }
                             else {
-                                this->ThrowRuntimeException("Invalid field - " + fld_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find field " + fld_nat_data.processed_name);
                             }
                         }
                         else {
-                            this->ThrowRuntimeException("Invalid variable, expected object");
+                            this->ThrowRuntimeException("Invalid variable, expected an object");
                         }
                         break;
                     }
@@ -858,14 +874,16 @@ namespace javm::core {
                         auto fld_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
                         
                         auto value = frame.Pop();
-                        auto cls_value = frame.Pop();
-                        if(cls_value->IsClassObject()) {
-                            auto clss = cls_value->GetReference<ClassObject>();
-                            clss->SetField(fld_nat_data.processed_name, value);
-                        }
-                        else {
-                            this->ThrowRuntimeException("Invalid variable, expected object");
-                        }
+                        JAVM_ASSERT_VALID_VALUE(this, value, "Invalid value to be assigned to field " + fld_nat_data.processed_name, {
+                            auto cls_value = frame.Pop();
+                            if(cls_value->IsClassObject()) {
+                                auto clss = cls_value->GetReference<ClassObject>();
+                                clss->SetField(fld_nat_data.processed_name, value);
+                            }
+                            else {
+                                this->ThrowRuntimeException("Invalid variable, expected an object");
+                            }
+                        })
                         break;
                     }
                     case Instruction::INVOKEVIRTUAL:
@@ -879,19 +897,21 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                 auto ret = class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
-                                if(should_ret) {
-                                    if(ret->IsVoid()) {
-                                        this->ThrowRuntimeException("Invalid method return - " + fn_nat_data.processed_name);
+                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of method " + fn_nat_data.processed_name, {
+                                    bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
+                                    if(should_ret) {
+                                        if(ret->IsVoid()) {
+                                            this->ThrowRuntimeException("Invalid return value of method " + fn_nat_data.processed_name);
+                                        }
+                                        else {
+                                            frame.Push(ret);
+                                        }
                                     }
-                                    else {
-                                        frame.Push(ret);
-                                    }
-                                }
+                                })
                             }
                             else {
-                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find or call method " + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -913,7 +933,7 @@ namespace javm::core {
                                 class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
-                                this->ThrowRuntimeException("Invalid method - " + fn_nat_data.processed_name + " - " + class_name);
+                                this->ThrowRuntimeException("Unable to find or call special method " + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -934,17 +954,20 @@ namespace javm::core {
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                             if(class_def->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
-                                if(should_ret) {
-                                    if(ret->IsVoid()) {
-                                        this->ThrowRuntimeException("Invalid static function return - " + fn_nat_data.processed_name);
+                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of static function " + fn_nat_data.processed_name, {
+                                    bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
+                                    if(should_ret) {
+                                        if(ret->IsVoid()) {
+                                            this->ThrowRuntimeException("Invalid return value of static function " + fn_nat_data.processed_name);
+                                        }
+                                        else {
+                                            frame.Push(ret);
+                                        }
                                     }
-                                    else {
-                                        frame.Push(ret);
-                                    }
-                                }
+                                })
                             }
                             else {
-                                this->ThrowRuntimeException("Invalid static function - " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find or call static function " + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -953,7 +976,7 @@ namespace javm::core {
 
                         break;
                     }
-                    // TODO: INVOKEINTERFACE, INVOKEDYNAMIC
+                    // TODO: INVOKEDYNAMIC
                     case Instruction::NEW: {
                         u16 index = BE(frame.Read<u16>());
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
@@ -1012,7 +1035,7 @@ namespace javm::core {
                         break;
                     }
                     case Instruction::ATHROW: {
-                        this->ThrowExceptionWithInstance(frame, frame.Pop());
+                        this->ThrowWithInstance(frame, frame.Pop());
                         should_ret = true;
                         break;
                     }
@@ -1069,11 +1092,11 @@ namespace javm::core {
                     }
                     
                     default:
-                        printf("Unimplemented or unknown instruction - 0x%X!\n", static_cast<u32>(inst));
+                        this->ThrowRuntimeException("Unknown or unimplemented opcode/instruction: 0x" + ToHexString(static_cast<u32>(inst)));
                         break;
                 }
 
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
 
         public:
@@ -1098,25 +1121,30 @@ namespace javm::core {
                 return this->thrown_info.info_valid;
             }
 
-            void ThrowExceptionWithInstance(Frame &frame, Value value) {
+            void ThrowWithInstance(Frame &frame, Value value) {
                 auto obj = value->GetReference<ClassObject>();
                 auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
-                if(str->IsVoid()) {
-                    this->ThrowRuntimeException("Invalid exception type");
-                }
-                else {
-                    this->thrown_info = {};
-                    this->thrown_info.info_valid = true;
-                    this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
-                    this->thrown_info.message = "<null message>";
-                    if(str->IsValidCast<java::lang::String>()) {
-                        auto str_ref = str->GetReference<java::lang::String>();
-                        this->thrown_info.message = str_ref->GetNativeString();
+                JAVM_ASSERT_VALID_VALUE(this, str, "Invalid exception message type", {
+                    if(str->IsVoid()) {
+                        this->ThrowRuntimeException("Invalid exception message type");
                     }
-                }
+                    else {
+                        this->thrown_info = {};
+                        this->thrown_info.info_valid = true;
+                        this->thrown_info.class_type = ClassObject::GetPresentableClassName(obj->GetName());
+                        this->thrown_info.message = "<no message>";
+                        if(str->IsValidCast<java::lang::String>()) {
+                            auto str_ref = str->GetReference<java::lang::String>();
+                            this->thrown_info.message = str_ref->GetNativeString();
+                        }
+                        else {
+                            // We just don't care if the message isn't a String, just ignore it and throw without a custom message :P
+                        }
+                    }
+                })
             }
 
-            void ThrowExceptionWithType(std::string class_name, std::string message) {
+            void ThrowWithType(std::string class_name, std::string message) {
                 if(this->HasClass(class_name)) {
 
                     /* Java pseudocode:
@@ -1131,15 +1159,15 @@ namespace javm::core {
 
                     auto throwable_val = CreateNewClass<true>(this, class_name, str_obj);
                     Frame frame(reinterpret_cast<void*>(this));
-                    this->ThrowExceptionWithInstance(frame, throwable_val);
+                    this->ThrowWithInstance(frame, throwable_val);
                 }
                 else {
                     this->ThrowClassNotFound(class_name);
                 }
             }
 
-            void ThrowExceptionWithMessage(std::string message) {
-                this->ThrowExceptionWithType("java.lang.Exception", message);
+            void ThrowWithMessage(std::string message) {
+                this->ThrowWithType("java.lang.Exception", message);
             }
 
             // Simplify getting the machine pointer from a frame
@@ -1295,7 +1323,7 @@ namespace javm::core {
             Value ExecuteCode(Frame &frame) {
                 while(true) {
                     if(this->WasExceptionThrown()) {
-                        return CreateVoidValue();
+                        return CreateInvalidValue();
                     }
 
                     auto inst = static_cast<Instruction>(frame.Read<u8>());
@@ -1313,13 +1341,13 @@ namespace javm::core {
                     }
                 }
                 
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
 
             template<typename ...Args>
             Value CallFunction(std::string class_name, std::string fn_name, Args &&...args) {
                 if(this->WasExceptionThrown()) {
-                    return CreateVoidValue();
+                    return CreateInvalidValue();
                 }
                 
                 auto proper_class_name = ClassObject::ProcessClassName(class_name);
@@ -1376,7 +1404,7 @@ namespace javm::core {
                         }
                     }
                 }
-                return CreateVoidValue();
+                return CreateInvalidValue();
             }
     };
 
@@ -1419,7 +1447,7 @@ namespace javm::core {
                 return super_class_ref->HandleMethod(name, desc, frame);
             }
         }
-        return CreateVoidValue();
+        return CreateInvalidValue();
     }
 
     Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
@@ -1460,7 +1488,7 @@ namespace javm::core {
                 return super_class_ref->HandleStaticFunction(name, desc, frame);
             }
         }
-        return CreateVoidValue();
+        return CreateInvalidValue();
     }
 
     std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name) {
@@ -1472,17 +1500,17 @@ namespace javm::core {
         return FindClassByNameEx(frame.GetMachinePointer(), name);
     }
 
-    void MachineThrowExceptionWithMessage(void *machine, std::string message) {
-        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithMessage(message);
+    void MachineThrowWithMessage(void *machine, std::string message) {
+        return reinterpret_cast<Machine*>(machine)->ThrowWithMessage(message);
     }
 
-    void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message) {
-        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithType(class_name, message);
+    void MachineThrowWithType(void *machine, std::string class_name, std::string message) {
+        return reinterpret_cast<Machine*>(machine)->ThrowWithType(class_name, message);
     }
 
-    void MachineThrowExceptionWithInstance(void *machine, Value value) {
+    void MachineThrowWithInstance(void *machine, Value value) {
         Frame frame(machine);
-        return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, value);
+        return reinterpret_cast<Machine*>(machine)->ThrowWithInstance(frame, value);
     }
 
     // Class-creating helpers
@@ -1505,7 +1533,7 @@ namespace javm::core {
             }
             return class_val;
         }
-        return CreateVoidValue();
+        return CreateInvalidValue();
     }
 
     template<bool CallCtor, typename ...Args>

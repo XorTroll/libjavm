@@ -96,14 +96,14 @@ namespace javm::native {
                 if(this->member_fields.find(name) != this->member_fields.end()) {
                     return this->member_fields[name];
                 }
-                return core::CreateVoidValue();
+                return core::CreateInvalidValue();
             }
 
             virtual core::Value GetStaticField(std::string name) override {
                 if(this->static_fields.find(name) != this->static_fields.end()) {
                     return this->static_fields[name];
                 }
-                return core::CreateVoidValue();
+                return core::CreateInvalidValue();
             }
 
             virtual void SetField(std::string name, core::Value value) override {
@@ -194,8 +194,8 @@ namespace javm::native {
                     // Anyway, keep this as a last resource
                     return core::CreateVoidValue();
                 }
-                frame.ThrowExceptionWithType("java.lang.RuntimeException", "Invalid method call");
-                return core::CreateVoidValue();
+                frame.ThrowWithType("java.lang.RuntimeException", "Invalid method call");
+                return core::CreateInvalidValue();
             }
 
             virtual core::Value HandleStaticFunction(std::string name, std::string desc, core::Frame &frame) override {
@@ -228,8 +228,8 @@ namespace javm::native {
                         return super_class_ref->HandleStaticFunction(name, desc, frame);
                     }
                 }
-                frame.ThrowExceptionWithType("java.lang.RuntimeException", "Invalid static function call - " + name + " - " + this->GetName());
-                return core::CreateVoidValue();
+                frame.ThrowWithType("java.lang.RuntimeException", "Invalid static function call - " + name + " - " + this->GetName());
+                return core::CreateInvalidValue();
             }
 
             template<typename C>
