@@ -21,6 +21,9 @@ namespace javm::core {
 
     };
 
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClassWith(void *machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args);
+
     class Machine {
 
         private:
@@ -28,6 +31,7 @@ namespace javm::core {
             std::vector<std::shared_ptr<Archive>> loaded_archives;
             std::vector<std::shared_ptr<ClassObject>> class_files;
             std::vector<std::shared_ptr<ClassObject>> native_classes;
+            std::vector<std::shared_ptr<ClassObject>> native_function_classes;
             ThrownInfo thrown_info;
 
             void ThrowClassNotFound(std::string class_name) {
@@ -36,12 +40,6 @@ namespace javm::core {
 
             void ThrowRuntimeException(std::string message) {
                 this->ThrowExceptionWithType("java.lang.RuntimeException", message);
-            }
-
-            template<typename ...Args>
-            void CallClassCtor(Frame &frame, Value class_val, Args &&...args) {
-                auto class_ref = class_val->GetReference<ClassObject>();
-                class_ref->CallMethod(frame, JAVM_CTOR_METHOD_NAME, args...);
             }
 
             ValueType GetValueTypeFromNewArrayType(NewArrayType type) {
@@ -125,8 +123,8 @@ namespace javm::core {
                     } \
                     case CPTag::String: { \
                         auto value = constant.GetStringData().processed_string; \
-                        auto str_obj = this->CreateNewClassWith<true, java::lang::String>("java.lang.String", [&](java::lang::String *ref) { \
-                            ref->SetNativeString(value); \
+                        auto str_obj = CreateNewClassWith<true>(this, "java.lang.String", [&](auto *ref) { \
+                            reinterpret_cast<java::lang::String*>(ref)->SetNativeString(value); \
                         }); \
                         frame.Push(str_obj); \
                         break; \
@@ -1087,6 +1085,7 @@ namespace javm::core {
                 this->loaded_archives.clear();
                 this->class_files.clear();
                 this->native_classes.clear();
+                this->native_function_classes.clear();
                 this->thrown_info = {};
                 this->thrown_info.info_valid = false;
             }
@@ -1126,11 +1125,11 @@ namespace javm::core {
                         _inner_throw_exception(t);
                     */
 
-                    auto str_obj = this->CreateNewClassWith<true, java::lang::String>("java.lang.String", [&](java::lang::String *ref) {
-                        ref->SetNativeString(message);
+                    auto str_obj = CreateNewClassWith<true>(this, "java.lang.String", [&](auto *ref) {
+                        reinterpret_cast<java::lang::String*>(ref)->SetNativeString(message);
                     });
 
-                    auto throwable_val = this->CreateNewClass<true>(class_name, str_obj);
+                    auto throwable_val = CreateNewClass<true>(this, class_name, str_obj);
                     Frame frame(reinterpret_cast<void*>(this));
                     this->ThrowExceptionWithInstance(frame, throwable_val);
                 }
@@ -1161,6 +1160,14 @@ namespace javm::core {
 
                 std::shared_ptr<native::Class> classptr = C::CreateDefinitionInstance(reinterpret_cast<void*>(this));
                 this->native_classes.push_back(std::move(classptr));
+            }
+
+            template<typename C, typename ...Args>
+            void LoadNativeFunctionClass(Args &&...args) {
+                static_assert(std::is_base_of_v<java::native::Class, C>, "Native function classes must inherit from from java::native::Class!");
+
+                std::shared_ptr<native::Class> classptr = C::CreateDefinitionInstance(reinterpret_cast<void*>(this));
+                this->native_function_classes.push_back(std::move(classptr));
             }
 
             void LoadBuiltinNativeClasses() {
@@ -1233,26 +1240,56 @@ namespace javm::core {
                 return this->empty_class;
             }
 
-            template<bool CallCtor, typename ...Args>
-            Value CreateNewClass(std::string name, Args &&...args) {
-                if(this->HasClass(name)) {
-                    auto class_ref = this->FindClass(name);
-                    Frame frame(reinterpret_cast<void*>(this));
-                    auto class_val = class_ref->CreateInstance(frame);
-                    if(CallCtor) {
-                        this->CallClassCtor(frame, class_val, args...);
+            bool HasNativeMethod(std::string class_name, std::string native_fn_name) {
+                auto cls_name = ClassObject::ProcessClassName(class_name);
+                for(auto &native: this->native_function_classes) {
+                    if(native->GetName() == cls_name) {
+                        Frame frame(reinterpret_cast<void*>(this));
+                        if(native->CanHandleMethod(native_fn_name, "", frame)) {
+                            return true;
+                        }
                     }
-                    return class_val;
                 }
-                return CreateVoidValue();
+                return false;
             }
 
-            template<bool CallCtor, typename C, typename ...Args>
-            Value CreateNewClassWith(std::string name, std::function<void(C*)> ref_fn, Args &&...args) {
-                auto class_val = this->CreateNewClass<CallCtor>(name, args...);
-                auto class_ref = class_val->template GetReference<C>();
-                ref_fn(class_ref);
-                return class_val;
+            bool HasNativeStaticFunction(std::string class_name, std::string native_fn_name) {
+                auto cls_name = ClassObject::ProcessClassName(class_name);
+                for(auto &native: this->native_function_classes) {
+                    if(native->GetName() == cls_name) {
+                        Frame frame(reinterpret_cast<void*>(this));
+                        if(native->CanHandleStaticFunction(native_fn_name, "", frame)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            std::shared_ptr<ClassObject> FindNativeMethodClass(std::string class_name, std::string native_fn_name) {
+                auto cls_name = ClassObject::ProcessClassName(class_name);
+                for(auto &native: this->native_function_classes) {
+                    if(native->GetName() == cls_name) {
+                        Frame frame(reinterpret_cast<void*>(this));
+                        if(native->CanHandleMethod(native_fn_name, "", frame)) {
+                            return native;
+                        }
+                    }
+                }
+                return this->empty_class;
+            }
+
+            std::shared_ptr<ClassObject> FindNativeStaticFunctionClass(std::string class_name, std::string native_fn_name) {
+                auto cls_name = ClassObject::ProcessClassName(class_name);
+                for(auto &native: this->native_function_classes) {
+                    if(native->GetName() == cls_name) {
+                        Frame frame(reinterpret_cast<void*>(this));
+                        if(native->CanHandleStaticFunction(native_fn_name, "", frame)) {
+                            return native;
+                        }
+                    }
+                }
+                return this->empty_class;
             }
 
             Value ExecuteCode(Frame &frame) {
@@ -1363,6 +1400,15 @@ namespace javm::core {
                             }
                         }
                     }
+                    if(method.Is<AccessFlags::Native>()) {
+                        auto class_name = class_file->GetName();
+                        // Try to locate and call the native method
+                        auto machine_ptr = Machine::GetFrameMachinePointer(frame);
+                        if(machine_ptr->HasNativeMethod(class_name, name)) {
+                            auto class_def = machine_ptr->FindNativeMethodClass(class_name, name);
+                            return class_def->HandleMethod(name, desc, frame);
+                        }
+                    }
                 }
             }
         }
@@ -1373,7 +1419,7 @@ namespace javm::core {
                 return super_class_ref->HandleMethod(name, desc, frame);
             }
         }
-        return CreateNullValue();
+        return CreateVoidValue();
     }
 
     Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
@@ -1395,6 +1441,15 @@ namespace javm::core {
                             }
                         }
                     }
+                    if(method.Is<AccessFlags::Native>()) {
+                        auto class_name = class_file->GetName();
+                        // Try to locate and call the native method
+                        auto machine_ptr = Machine::GetFrameMachinePointer(frame);
+                        if(machine_ptr->HasNativeStaticFunction(class_name, name)) {
+                            auto class_def = machine_ptr->FindNativeStaticFunctionClass(class_name, name);
+                            return class_def->HandleStaticFunction(name, desc, frame);
+                        }
+                    }
                 }
             }
         }
@@ -1405,7 +1460,7 @@ namespace javm::core {
                 return super_class_ref->HandleStaticFunction(name, desc, frame);
             }
         }
-        return CreateNullValue();
+        return CreateVoidValue();
     }
 
     std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name) {
@@ -1430,8 +1485,39 @@ namespace javm::core {
         return reinterpret_cast<Machine*>(machine)->ThrowExceptionWithInstance(frame, value);
     }
 
+    // Class-creating helpers
+
+    template<typename ...Args>
+    inline void CallClassCtor(Frame &frame, Value class_val, Args &&...args) {
+        auto class_ref = class_val->GetReference<ClassObject>();
+        class_ref->CallMethod(frame, JAVM_CTOR_METHOD_NAME, args...);
+    }
+
     template<bool CallCtor, typename ...Args>
     Value MachineCreateNewClass(void *machine, std::string name, Args &&...args) {
-        return reinterpret_cast<Machine*>(machine)->CreateNewClass<CallCtor>(name, args...);
+        auto machineptr = reinterpret_cast<Machine*>(machine);
+        if(machineptr->HasClass(name)) {
+            auto class_ref = machineptr->FindClass(name);
+            Frame frame(machine);
+            auto class_val = class_ref->CreateInstance(frame);
+            if(CallCtor) {
+                CallClassCtor(frame, class_val, args...);
+            }
+            return class_val;
+        }
+        return CreateVoidValue();
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClass(Machine &machine, std::string name, Args &&...args) {
+        return MachineCreateNewClass<CallCtor>(&machine, name, args...);
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClassWith(Machine &machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+        auto class_val = CreateNewClass<CallCtor>(machine, name, args...);
+        auto class_ref = class_val->template GetReference<ClassObject>();
+        ref_fn(class_ref);
+        return class_val;
     }
 }

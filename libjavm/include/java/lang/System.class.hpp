@@ -16,13 +16,13 @@ namespace java::lang {
             
             core::Value static_block(core::Frame &frame, std::vector<core::FunctionParameter> parameters) {
 
-                auto strm_out = frame.CreateNewClassWith<false, io::PrintStream>("java.io.PrintStream", [&](io::PrintStream *ref) {
-                    ref->SetNativeStream(stdout, true);
+                auto strm_out = core::CreateNewClassWith<false>(frame, "java.io.PrintStream", [&](auto *ref) {
+                    reinterpret_cast<io::PrintStream*>(ref)->SetNativeStream(stdout, true);
                 });
                 this->SetStaticField("out", strm_out);
 
-                auto strm_err = frame.CreateNewClassWith<false, io::PrintStream>("java.io.PrintStream", [&](io::PrintStream *ref) {
-                    ref->SetNativeStream(stderr, true);
+                auto strm_err = core::CreateNewClassWith<false>(frame, "java.io.PrintStream", [&](auto *ref) {
+                    reinterpret_cast<io::PrintStream*>(ref)->SetNativeStream(stderr, true);
                 });
                 this->SetStaticField("err", strm_err);
 

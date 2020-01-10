@@ -256,7 +256,7 @@ namespace javm::core {
                 for(auto &method: this->methods) {
                     if(method.GetName() == name) {
                         if(method.GetDesc() == desc) {
-                            if(!method.Is<AccessFlags::Static>()) {
+                            if(!method.Is<AccessFlags::Native>()) {
                                 return true;
                             }
                         }
@@ -266,10 +266,10 @@ namespace javm::core {
             }
 
             virtual bool CanHandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
-                for(auto &method: this->methods) {
-                    if(method.GetName() == name) {
-                        if(method.GetDesc() == desc) {
-                            if(method.Is<AccessFlags::Static>()) {
+                for(auto &static_fn: this->methods) {
+                    if(static_fn.GetName() == name) {
+                        if(static_fn.GetDesc() == desc) {
+                            if(static_fn.Is<AccessFlags::Static>()) {
                                 return true;
                             }
                         }

@@ -47,8 +47,8 @@ namespace java::lang {
                 auto this_ref = this->GetThisInstance<Throwable>(this_v);
                 auto msg = this_ref->GetMessage();
 
-                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
-                    ref->SetNativeString(msg);
+                auto str_obj = core::CreateNewClassWith<true>(frame, "java.lang.String", [&](auto *ref) {
+                    reinterpret_cast<String*>(ref)->SetNativeString(msg);
                 });
 
                 return str_obj;

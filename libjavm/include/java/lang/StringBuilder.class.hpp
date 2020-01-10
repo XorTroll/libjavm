@@ -90,8 +90,8 @@ namespace java::lang {
                 auto this_ref = this->GetThisInstance<StringBuilder>(this_v);
                 auto str = this_ref->GetNativeString();
 
-                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
-                    ref->SetNativeString(str);
+                auto str_obj = core::CreateNewClassWith<true>(frame, "java.lang.String", [&](auto *ref) {
+                    reinterpret_cast<String*>(ref)->SetNativeString(str);
                 });
 
                 return str_obj;

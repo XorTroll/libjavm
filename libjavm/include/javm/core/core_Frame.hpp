@@ -13,9 +13,6 @@ namespace javm::core {
     void MachineThrowExceptionWithType(void *machine, std::string class_name, std::string message);
     void MachineThrowExceptionWithInstance(void *machine, Value value);
 
-    template<bool CallCtor, typename ...Args>
-    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args);
-
     class Frame {
 
         private:
@@ -175,19 +172,6 @@ namespace javm::core {
 
             void ThrowExceptionWithInstance(Value value) {
                 MachineThrowExceptionWithInstance(this->machine, value);
-            }
-
-            template<bool CallCtor, typename ...Args>
-            Value CreateNewClass(std::string name, Args &&...args) {
-                return MachineCreateNewClass<CallCtor>(this->machine, name, args...);
-            }
-
-            template<bool CallCtor, typename C, typename ...Args>
-            Value CreateNewClassWith(std::string name, std::function<void(C*)> ref_fn, Args &&...args) {
-                auto class_val = this->CreateNewClass<CallCtor>(name, args...);
-                auto class_ref = class_val->template GetReference<C>();
-                ref_fn(class_ref);
-                return class_val;
             }
 
             void *GetMachinePointer() {

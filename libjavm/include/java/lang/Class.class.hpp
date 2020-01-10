@@ -32,8 +32,8 @@ namespace java::lang {
                 auto class_def = this_ref->GetClassDefinition();
                 auto class_name = class_def->GetName();
 
-                auto str_obj = frame.CreateNewClassWith<true, String>("java.lang.String", [&](String *ref) {
-                    ref->SetNativeString(core::ClassObject::GetPresentableClassName(class_name));
+                auto str_obj = core::CreateNewClassWith<true>(frame, "java.lang.String", [&](auto *ref) {
+                    reinterpret_cast<String*>(ref)->SetNativeString(core::ClassObject::GetPresentableClassName(class_name));
                 });
 
                 return str_obj;
@@ -43,8 +43,8 @@ namespace java::lang {
 
     // Defined in Object's header
     core::Value CreateClassInstanceFromClassDefinition(core::Frame &frame, std::shared_ptr<core::ClassObject> def) {
-        return frame.CreateNewClassWith<true, Class>("java.lang.Class", [&](Class *ref) {
-            ref->SetClassDefinition(def);
+        return core::CreateNewClassWith<true>(frame, "java.lang.Class", [&](auto *ref) {
+            reinterpret_cast<Class*>(ref)->SetClassDefinition(def);
         });
     }
 }

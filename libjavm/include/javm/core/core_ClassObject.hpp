@@ -383,4 +383,33 @@ namespace javm::core {
     std::shared_ptr<ClassObject> FindClassByName(Frame &frame, std::string name);
 
     std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name);
+
+    template<bool CallCtor, typename ...Args>
+    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args);
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClass(void *machine, std::string name, Args &&...args) {
+        return MachineCreateNewClass<CallCtor>(machine, name, args...);
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClass(Frame &frame, std::string name, Args &&...args) {
+        return MachineCreateNewClass<CallCtor>(frame.GetMachinePointer(), name, args...);
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClassWith(void *machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+        auto class_val = MachineCreateNewClass<CallCtor>(machine, name, args...);
+        auto class_ref = class_val->template GetReference<ClassObject>();
+        ref_fn(class_ref);
+        return class_val;
+    }
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClassWith(Frame &frame, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+        auto class_val = CreateNewClass<CallCtor>(frame, name, args...);
+        auto class_ref = class_val->template GetReference<ClassObject>();
+        ref_fn(class_ref);
+        return class_val;
+    }
 }
