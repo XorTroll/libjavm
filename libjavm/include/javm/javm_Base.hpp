@@ -17,17 +17,14 @@ namespace javm {
     _JAVM_DEFINE_INT_TYPE(64)
 
     template<typename N>
-    inline constexpr N BE(N n) {
-        if constexpr(sizeof(N) == 2) {
-            return __builtin_bswap16(n);
+    N BE(N n) {
+        N tmpn = n;
+        u8 *nbuf = (u8*)&n;
+        u8 *tmpbuf = (u8*)&tmpn;
+        for(auto i = 0; i < sizeof(N); i++) {
+            tmpbuf[i] = nbuf[sizeof(N) - (i + 1)];
         }
-        else if constexpr(sizeof(N) == 4) {
-            return __builtin_bswap32(n);
-        }
-        else if constexpr(sizeof(N) == 8) {
-            return __builtin_bswap64(n);
-        }
-        return n;
+        return tmpn;
     }
 
     template<typename N>

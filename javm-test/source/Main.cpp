@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
             args_array_ref->SetAt(i - 2, str_arg);
         }
 
-        auto ret = machine.CallFunction(jar_ref->GetMainClass(), "test1", args_array_value);
+        auto ret = machine.CallFunction(jar_ref->GetMainClass(), "main", args_array_value);
         printf("\n ------------------------------------\n\n");
 
         if(machine.WasExceptionThrown()) {

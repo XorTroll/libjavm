@@ -31,22 +31,29 @@ namespace javm::core {
 
             void ProcessCPInfoArray(std::vector<CPInfo> &array) {
                 for(auto &info: array) {
-                    if(info.GetTag() == CPTag::Class) {
-                        auto &data = info.GetClassData();
-                        auto &name_data = this->pool[data.name_index - 1].GetUTF8Data();
-                        data.processed_name = name_data.str;
-                    }
-                    else if(info.GetTag() == CPTag::NameAndType) {
-                        auto &data = info.GetNameAndTypeData();
-                        auto &name_data = this->pool[data.name_index - 1].GetUTF8Data();
-                        auto &desc_data = this->pool[data.desc_index - 1].GetUTF8Data();
-                        data.processed_name = name_data.str;
-                        data.processed_desc = desc_data.str;
-                    }
-                    else if(info.GetTag() == CPTag::String) {
-                        auto &data = info.GetStringData();
-                        auto &string_data = this->pool[data.string_index - 1].GetUTF8Data();
-                        data.processed_string = string_data.str;
+                    switch(info.GetTag()) {
+                        case CPTag::Class: {
+                            auto &data = info.GetClassData();
+                            auto &name_data = this->pool[data.name_index - 1].GetUTF8Data();
+                            data.processed_name = name_data.str;
+                            break;
+                        }
+                        case CPTag::NameAndType: {
+                            auto &data = info.GetNameAndTypeData();
+                            auto &name_data = this->pool[data.name_index - 1].GetUTF8Data();
+                            auto &desc_data = this->pool[data.desc_index - 1].GetUTF8Data();
+                            data.processed_name = name_data.str;
+                            data.processed_desc = desc_data.str;
+                            break;
+                        }
+                        case CPTag::String: {
+                            auto &data = info.GetStringData();
+                            auto &string_data = this->pool[data.string_index - 1].GetUTF8Data();
+                            data.processed_string = string_data.str;
+                            break;
+                        }
+                        default:
+                            break;
                     }
                 }
             }
@@ -79,8 +86,8 @@ namespace javm::core {
                 u16 i = 1;
                 while(i < const_count) {
                     auto &info_ref = this->pool.emplace_back(reader);
-                    if(info_ref.GetTag() == CPTag::Double) {
-                        this->pool.push_back(CPInfo());
+                    if((info_ref.GetTag() == CPTag::Long) || (info_ref.GetTag() == CPTag::Double)) {
+                        this->pool.emplace_back();
                         i++;
                     }
                     i++;
@@ -140,13 +147,13 @@ namespace javm::core {
                 this->Load();
             }
 
-            ClassFile(ClassFile *other) : File(nullptr, 0), static_done(false), magic(other->magic), access_flags(other->access_flags), pool(other->pool), class_name(other->class_name), super_class_name(other->super_class_name), fields(other->fields), interfaces(other->interfaces), attributes(other->attributes), methods(other->methods) {}
+            ClassFile(ClassFile *other) : File(nullptr, 0), magic(other->magic), static_done(false), access_flags(other->access_flags), pool(other->pool), class_name(other->class_name), super_class_name(other->super_class_name), interfaces(other->interfaces), fields(other->fields), methods(other->methods), attributes(other->attributes) {}
 
             bool IsEmpty() {
                 return !this->IsValid();
             }
 
-            std::vector<CPInfo> &GetConstantPool() override {
+            virtual std::vector<CPInfo> &GetConstantPool() override {
                 return this->pool;
             }
 

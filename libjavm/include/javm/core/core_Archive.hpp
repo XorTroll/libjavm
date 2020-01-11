@@ -21,34 +21,39 @@ namespace javm::core {
 
             void Load() {
                 if(this->IsValid()) {
-                    zipfile_reader reader(this->GetFileData(), this->GetFileData() + this->GetFileSize());
-                    auto files = reader.filenames();
-                    bool manifest_found = true;
-                    std::vector<std::string> class_files;
-                    for(auto &file: files) {
-                        if(file == JAVM_ARCHIVE_MANIFEST_FILE) {
-                            manifest_found = true;
-                        }
-                        else {
-                            if(file.length() > 6) {
-                                if(file.substr(file.length() - 6) == ".class") {
-                                    class_files.push_back(file);
+                    try {
+                        zipfile_reader reader(this->GetFileData(), this->GetFileData() + this->GetFileSize());
+                        auto files = reader.filenames();
+                        bool manifest_found = true;
+                        std::vector<std::string> class_files;
+                        for(auto &file: files) {
+                            if(file == JAVM_ARCHIVE_MANIFEST_FILE) {
+                                manifest_found = true;
+                            }
+                            else {
+                                if(file.length() > 6) {
+                                    if(file.substr(file.length() - 6) == ".class") {
+                                        class_files.push_back(file);
+                                    }
                                 }
                             }
                         }
-                    }
-                    if(manifest_found) {
-                        {
-                            auto u8v = reader.read(JAVM_ARCHIVE_MANIFEST_FILE);
-                            ManifestFile manifest(u8v.data(), u8v.size());
-                            auto main_class = manifest.FindAttribute(JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE);
-                            this->main_class_name = main_class;
-                        }
+                        if(manifest_found) {
+                            {
+                                auto u8v = reader.read(JAVM_ARCHIVE_MANIFEST_FILE);
+                                ManifestFile manifest(u8v.data(), u8v.size());
+                                auto main_class = manifest.FindAttribute(JAVM_ARCHIVE_MAIN_CLASS_ATTRIBUTE);
+                                this->main_class_name = main_class;
+                            }
 
-                        for(auto &class_file: class_files) {
-                            auto classv = reader.read(class_file);
-                            this->classes.push_back(std::make_shared<ClassFile>(classv.data(), classv.size()));
+                            for(auto &class_file: class_files) {
+                                auto classv = reader.read(class_file);
+                                this->classes.push_back(std::make_shared<ClassFile>(classv.data(), classv.size()));
+                            }
                         }
+                    }
+                    catch(std::exception&) {
+                        // Just do nothing, the JAR won't be valid
                     }
                 }
             }
