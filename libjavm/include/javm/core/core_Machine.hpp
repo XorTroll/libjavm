@@ -769,6 +769,11 @@ namespace javm::core {
                         should_ret = true;
                         return frame.Pop();
                     }
+                    case Instruction::FRETURN: {
+                        float ret = frame.PopValue<float>();
+                        should_ret = true;
+                        return CreateNewValue<float>(ret);
+                    }
                     case Instruction::DRETURN: {
                         double ret = frame.PopValue<double>();
                         should_ret = true;
@@ -902,7 +907,7 @@ namespace javm::core {
                                     bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                     if(should_ret) {
                                         if(ret->IsVoid()) {
-                                            this->ThrowRuntimeException("Invalid return value of method " + fn_nat_data.processed_name);
+                                            this->ThrowRuntimeException("Invalid return value of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
                                         }
                                         else {
                                             frame.Push(ret);
@@ -911,7 +916,7 @@ namespace javm::core {
                                 })
                             }
                             else {
-                                this->ThrowRuntimeException("Unable to find or call method " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find or call method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -933,7 +938,7 @@ namespace javm::core {
                                 class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
                             }
                             else {
-                                this->ThrowRuntimeException("Unable to find or call special method " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find or call special method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -954,11 +959,11 @@ namespace javm::core {
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                             if(class_def->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
                                 auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
-                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of static function " + fn_nat_data.processed_name, {
+                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of static function " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name, {
                                     bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                     if(should_ret) {
                                         if(ret->IsVoid()) {
-                                            this->ThrowRuntimeException("Invalid return value of static function " + fn_nat_data.processed_name);
+                                            this->ThrowRuntimeException("Invalid (void) return value of static function " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
                                         }
                                         else {
                                             frame.Push(ret);
@@ -967,7 +972,7 @@ namespace javm::core {
                                 })
                             }
                             else {
-                                this->ThrowRuntimeException("Unable to find or call static function " + fn_nat_data.processed_name);
+                                this->ThrowRuntimeException("Unable to find or call static function " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
                             }
                         }
                         else {
@@ -1340,7 +1345,6 @@ namespace javm::core {
                         return ret;
                     }
                 }
-                
                 return CreateInvalidValue();
             }
 
@@ -1423,9 +1427,7 @@ namespace javm::core {
                             new_frame.SetLocal(0, frame.Pop());
                             auto ret = Machine::GetFrameMachinePointer(frame)->ExecuteCode(new_frame);
                             code_attr.Dispose();
-                            if(ClassObject::ExpectsReturn(desc)) {
-                                return ret;
-                            }
+                            return ret;
                         }
                     }
                     if(method.Is<AccessFlags::Native>()) {
@@ -1464,9 +1466,7 @@ namespace javm::core {
                             }
                             auto ret = Machine::GetFrameMachinePointer(frame)->ExecuteCode(new_frame);
                             code_attr.Dispose();
-                            if(ClassObject::ExpectsReturn(desc)) {
-                                return ret;
-                            }
+                            return ret;
                         }
                     }
                     if(method.Is<AccessFlags::Native>()) {

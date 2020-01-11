@@ -99,6 +99,8 @@ namespace javm::core {
             }
 
             Value Pop() { // In this case we don't dispose the value, since Pop is used for holders which will be used again
+                if(this->stack.empty()) printf("Popping from empty stack!\n");
+                if(!this->stack.back()) printf("Invalid last value in stack!\n");
                 auto copy = this->stack.back();
                 this->stack.pop_back();
                 return copy;

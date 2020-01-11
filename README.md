@@ -77,9 +77,9 @@ int main() {
 
 - [ ] Implement all opcodes/instructions (very, very few missing)
 
-- [x] Add JAR support
+- [ ] Fix problems with polymorphism/inheritance/interfaces (specially broken with non-native code)
 
-- [ ] Implement standard library (barely started, this will take a long time)
+- [ ] Implement a basic standard library (barely started, this will take a long time)
 
 ## Standard library
 

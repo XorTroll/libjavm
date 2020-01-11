@@ -180,6 +180,7 @@ namespace javm::core {
         LOOKUPSWITCH = 0xAB, // TODO
         IRETURN = 0xAC,
         LRETURN = 0xAD,
+        FRETURN = 0xAE,
         DRETURN = 0xAF,
         ARETURN = 0xB0,
         RETURN = 0xB1,

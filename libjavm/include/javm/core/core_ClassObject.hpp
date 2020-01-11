@@ -89,6 +89,10 @@ namespace javm::core {
                 bool parsing_class = false;
                 u32 count = 0;
                 for(auto &ch: tmp) {
+                    if(ch == '[') {
+                        // Array, so not a new param
+                        continue;
+                    }
                     if(parsing_class) {
                         if(ch == ';') {
                             parsing_class = false;

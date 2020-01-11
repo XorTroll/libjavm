@@ -84,11 +84,9 @@ namespace javm::core {
 
             CPInfo(MemoryReader &reader) : empty(false) {
                 this->tag = static_cast<CPTag>(reader.Read<u8>());
-                printf("Got tag %d\n", (u32)this->tag);
                 switch(tag) {
                     case CPTag::UTF8: {
                         this->utf8.length = BE(reader.Read<u16>());
-                        printf("String length: %d\n", this->utf8.length);
                         if(this->utf8.length > 0) {
                             char *strbuf = new char[this->utf8.length + 1]();
                             reader.ReadPointer(strbuf, this->utf8.length * sizeof(char));
@@ -137,7 +135,8 @@ namespace javm::core {
                         break;
                     }
                     default:
-                        printf("Unknown CPTag: %d\n", (u32)this->tag);
+                        // Should never happen, bad tag then
+                        this->empty = true;
                         break;
                 }
             }
