@@ -1,4 +1,3 @@
-
 #include <javm/core/core_Machine.hpp>
 using namespace javm;
 
