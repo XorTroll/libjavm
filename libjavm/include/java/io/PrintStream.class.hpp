@@ -10,6 +10,54 @@ namespace java::io {
             FILE *stream;
             bool is_std; // Avoid fclosing stdout or stderr...
 
+            bool DoPrint(FILE *this_stream, core::FunctionParameter param) {
+                switch(param.parsed_type) {
+                    case core::ValueType::Boolean: {
+                        bool b = param.value->Get<bool>();
+                        fprintf(this_stream, "%s", (b ? "true" : "false"));
+                        return true;
+                    }
+                    case core::ValueType::Character: {
+                        char c = param.value->Get<char>();
+                        fprintf(this_stream, "%c", c);
+                        return true;
+                    }
+                    case core::ValueType::Float: {
+                        float f = param.value->Get<float>();
+                        fprintf(this_stream, "%f", f);
+                        return true;
+                    }
+                    case core::ValueType::Double: {
+                        double d = param.value->Get<double>();
+                        fprintf(this_stream, "%lf", d);
+                        return true;
+                    }
+                    case core::ValueType::Integer: {
+                        int i = param.value->Get<int>();
+                        fprintf(this_stream, "%d", i);
+                        return true;
+                    }
+                    case core::ValueType::Long: {
+                        long l = param.value->Get<long>();
+                        fprintf(this_stream, "%ld", l);
+                        return true;
+                    }
+                    case core::ValueType::ClassObject: {
+                        if(param.value->IsValidCast<lang::String>()) {
+                            auto str_ref = param.value->GetReference<lang::String>();
+                            auto str = str_ref->GetNativeString();
+                            
+                            fprintf(this_stream, "%s", str.c_str());
+                            return true;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
+                return false;
+            }
+
         public:
             FILE *GetNativeStream() {
                 return this->stream;
@@ -60,49 +108,7 @@ namespace java::io {
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
                     if(parameters.size() == 1) {
-                        switch(parameters[0].parsed_type) {
-                            case core::ValueType::Boolean: {
-                                bool b = parameters[0].value->Get<bool>();
-                                fprintf(this_stream, "%s", (b ? "true" : "false"));
-                                break;
-                            }
-                            case core::ValueType::Character: {
-                                char c = parameters[0].value->Get<char>();
-                                fprintf(this_stream, "%c", c);
-                                break;
-                            }
-                            case core::ValueType::Float: {
-                                float f = parameters[0].value->Get<float>();
-                                fprintf(this_stream, "%f", f);
-                                break;
-                            }
-                            case core::ValueType::Double: {
-                                double d = parameters[0].value->Get<double>();
-                                fprintf(this_stream, "%lf", d);
-                                break;
-                            }
-                            case core::ValueType::Integer: {
-                                int i = parameters[0].value->Get<int>();
-                                fprintf(this_stream, "%d", i);
-                                break;
-                            }
-                            case core::ValueType::Long: {
-                                long l = parameters[0].value->Get<long>();
-                                fprintf(this_stream, "%ld", l);
-                                break;
-                            }
-                            case core::ValueType::ClassObject: {
-                                if(parameters[0].value->IsValidCast<lang::String>()) {
-                                    auto str_ref = parameters[0].value->GetReference<lang::String>();
-                                    auto str = str_ref->GetNativeString();
-                                    
-                                    fprintf(this_stream, "%s", str.c_str());
-                                }
-                                break;
-                            }
-                            default:
-                                break;
-                        }
+                        this->DoPrint(this_stream, parameters[0]);
                     }
                 }
 
@@ -115,47 +121,10 @@ namespace java::io {
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
                     if(parameters.size() == 1) {
-                        switch(parameters[0].parsed_type) {
-                            case core::ValueType::Boolean: {
-                                bool b = parameters[0].value->Get<bool>();
-                                fprintf(this_stream, "%s\n", (b ? "true" : "false"));
-                                break;
-                            }
-                            case core::ValueType::Character: {
-                                char c = parameters[0].value->Get<char>();
-                                fprintf(this_stream, "%c\n", c);
-                                break;
-                            }
-                            case core::ValueType::Float: {
-                                float f = parameters[0].value->Get<float>();
-                                fprintf(this_stream, "%f\n", f);
-                                break;
-                            }
-                            case core::ValueType::Double: {
-                                double d = parameters[0].value->Get<double>();
-                                fprintf(this_stream, "%lf\n", d);
-                                break;
-                            }
-                            case core::ValueType::Integer: {
-                                int i = parameters[0].value->Get<int>();
-                                fprintf(this_stream, "%d\n", i);
-                                break;
-                            }
-                            case core::ValueType::Long: {
-                                long l = parameters[0].value->Get<long>();
-                                fprintf(this_stream, "%ld\n", l);
-                                break;
-                            }
-                            case core::ValueType::ClassObject: {
-                                if(parameters[0].value->IsValidCast<lang::String>()) {
-                                    auto str_ref = parameters[0].value->GetReference<lang::String>();
-                                    auto str = str_ref->GetNativeString();
-                                    fprintf(this_stream, "%s\n", str.c_str());
-                                }
-                                break;
-                            }
-                            default:
-                                break;
+                        auto printed = this->DoPrint(this_stream, parameters[0]);
+                        if(printed) {
+                            // Print the extra line
+                            fprintf(this_stream, "\n");
                         }
                     }
                 }
