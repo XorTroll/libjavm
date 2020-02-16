@@ -44,7 +44,7 @@ namespace javm::core {
                 return this->processed_name;
             }
 
-            void SetName(std::string name) {
+            void SetName(const std::string &name) {
                 this->processed_name = name;
             }
 

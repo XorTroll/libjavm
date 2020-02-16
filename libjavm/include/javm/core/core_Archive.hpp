@@ -61,7 +61,7 @@ namespace javm::core {
         public:
             using File::File;
 
-            Archive(std::string path) : File(path) {
+            Archive(const std::string &path) : File(path) {
                 this->Load();
             }
             

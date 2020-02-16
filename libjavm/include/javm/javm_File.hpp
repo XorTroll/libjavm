@@ -17,7 +17,7 @@ namespace javm {
         public:
             File() : file_ptr(nullptr), file_size(0), owns_ptr(false) {}
 
-            File(std::string path) : file_ptr(nullptr), file_size(0), file_path(path), owns_ptr(false) {
+            File(const std::string &path) : file_ptr(nullptr), file_size(0), file_path(path), owns_ptr(false) {
                 FILE *f = fopen(path.c_str(), "rb");
                 if(f) {
                     fseek(f, 0, SEEK_END);

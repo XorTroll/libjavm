@@ -81,7 +81,7 @@ namespace javm::core {
                 return this->val_holder;
             }
 
-            void SetName(std::string name) {
+            void SetName(const std::string &name) {
                 this->processed_name = name;
             }
 
@@ -89,7 +89,7 @@ namespace javm::core {
                 return this->processed_name;
             }
 
-            void SetDesc(std::string desc) {
+            void SetDesc(const std::string &desc) {
                 this->processed_desc = desc;
             }
 

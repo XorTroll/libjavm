@@ -14,7 +14,7 @@ namespace java::lang {
                 return this->msg;
             }
 
-            void SetMessage(std::string message) {
+            void SetMessage(const std::string &message) {
                 this->msg = message;
             }
 

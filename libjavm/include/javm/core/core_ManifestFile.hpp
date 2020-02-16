@@ -42,7 +42,7 @@ namespace javm::core {
         public:
             using File::File;
 
-            ManifestFile(std::string path) : File(path) {
+            ManifestFile(const std::string &path) : File(path) {
                 this->Load();
             }
             
@@ -50,7 +50,7 @@ namespace javm::core {
                 this->Load();
             }
 
-            std::string FindAttribute(std::string name) {
+            std::string FindAttribute(const std::string &name) {
                 auto it = this->attributes.find(name);
                 if(it != this->attributes.end()) {
                     return it->second;

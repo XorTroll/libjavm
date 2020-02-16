@@ -12,8 +12,8 @@ namespace javm::core {
 
     class ClassFile;
 
-    Value HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
-    Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame);
+    Value HandleClassFileMethod(ClassFile *class_file, const std::string &name, const std::string &desc, Value this_v, std::vector<Value> params, Frame &frame);
+    Value HandleClassFileStaticFunction(ClassFile *class_file, const std::string &name, const std::string &desc, std::vector<Value> params, Frame &frame);
 
     class ClassFile : public ClassObject, public File {
 
@@ -139,7 +139,7 @@ namespace javm::core {
         public:
             using File::File;
 
-            ClassFile(std::string path) : File(path), static_done(false) {
+            ClassFile(const std::string &path) : File(path), static_done(false) {
                 this->Load();
             }
             
@@ -185,7 +185,7 @@ namespace javm::core {
                 return class_ref;
             }
 
-            virtual bool HasField(std::string name) override {
+            virtual bool HasField(const std::string &name) override {
                 for(auto &field: this->fields) {
                     if(!field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -196,7 +196,7 @@ namespace javm::core {
                 return false;
             }
 
-            virtual bool HasStaticField(std::string name) override {
+            virtual bool HasStaticField(const std::string &name) override {
                 for(auto &field: this->fields) {
                     if(field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -207,7 +207,7 @@ namespace javm::core {
                 return false;
             }
 
-            virtual Value GetField(std::string name) override {
+            virtual Value GetField(const std::string &name) override {
                 for(auto &field: this->fields) {
                     if(!field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -218,7 +218,7 @@ namespace javm::core {
                 return CreateInvalidValue();
             }
 
-            virtual Value GetStaticField(std::string name) override {
+            virtual Value GetStaticField(const std::string &name) override {
                 for(auto &field: this->fields) {
                     if(field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -229,7 +229,7 @@ namespace javm::core {
                 return CreateInvalidValue();
             }
 
-            virtual void SetField(std::string name, Value value) override {
+            virtual void SetField(const std::string &name, Value value) override {
                 for(auto &field: this->fields) {
                     if(!field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -240,7 +240,7 @@ namespace javm::core {
                 }
             }
 
-            virtual void SetStaticField(std::string name, Value value) override {
+            virtual void SetStaticField(const std::string &name, Value value) override {
                 for(auto &field: this->fields) {
                     if(field.Is<AccessFlags::Static>()) {
                         if(field.GetName() == name) {
@@ -259,7 +259,11 @@ namespace javm::core {
                 return this->super_class_name;
             }
 
-            virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) override {
+            virtual std::vector<std::string> GetInterfaceNames() override {
+                return this->interfaces;
+            }
+
+            virtual bool CanHandleMethod(const std::string &name, const std::string &desc, Frame &frame) override {
                 for(auto &method: this->methods) {
                     if(method.GetName() == name) {
                         if(method.GetDesc() == desc) {
@@ -272,7 +276,7 @@ namespace javm::core {
                 return false;
             }
 
-            virtual bool CanHandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
+            virtual bool CanHandleStaticFunction(const std::string &name, const std::string &desc, Frame &frame) override {
                 for(auto &static_fn: this->methods) {
                     if(static_fn.GetName() == name) {
                         if(static_fn.GetDesc() == desc) {
@@ -285,11 +289,11 @@ namespace javm::core {
                 return false;
             }
 
-            virtual Value HandleMethod(std::string name, std::string desc, Frame &frame) override {
-                return HandleClassFileMethod(this, name, desc, frame);
+            virtual Value HandleMethod(const std::string &name, const std::string &desc, Value this_v, std::vector<Value> params, Frame &frame) override {
+                return HandleClassFileMethod(this, name, desc, this_v, params, frame);
             }
 
-            virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) override {
+            virtual Value HandleStaticFunction(const std::string &name, const std::string &desc, std::vector<Value> params, Frame &frame) override {
                 if(name == JAVM_STATIC_BLOCK_METHOD_NAME) {
                     if(this->static_done) {
                         // Static block already done, just simulate an empty function returning a void value
@@ -299,7 +303,7 @@ namespace javm::core {
                         this->static_done = true;
                     }
                 }
-                return HandleClassFileStaticFunction(this, name, desc, frame);
+                return HandleClassFileStaticFunction(this, name, desc, params, frame);
             }
 
             std::vector<FieldInfo> &GetMethods() {

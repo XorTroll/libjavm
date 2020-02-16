@@ -9,8 +9,8 @@ namespace javm::core {
 
     class ClassObject;
 
-    void MachineThrowWithMessage(void *machine, std::string message);
-    void MachineThrowWithType(void *machine, std::string class_name, std::string message);
+    void MachineThrowWithMessage(void *machine, const std::string &message);
+    void MachineThrowWithType(void *machine, const std::string &class_name, const std::string &message);
     void MachineThrowWithInstance(void *machine, Value value);
 
     class Frame {
@@ -29,9 +29,10 @@ namespace javm::core {
             Frame(Value cur_class, void *mach) : code_attr(nullptr), cur_class_obj(cur_class), offset(0), machine(mach) {}
             
             Frame(CodeAttribute *code, Value cur_class, void *mach) : code_attr(code), cur_class_obj(cur_class), offset(0), machine(mach) {
+                const u16 max_locals = code->GetMaxLocals();
+                this->locals.reserve(max_locals + 1);
                 this->locals.push_back(this->cur_class_obj);
-                this->locals.reserve(code->GetMaxLocals());
-                for(u16 i = 0; i < code->GetMaxLocals(); i++) {
+                for(u16 i = 0; i < max_locals; i++) {
                     this->locals.push_back(CreateNullValue());
                 }
             }
@@ -80,8 +81,7 @@ namespace javm::core {
             }
 
             void Push(Value var) {
-                stack.push_back(var);
-                // printf("Pushing pointer: %p\n", var->GetAddress());
+                this->stack.push_back(var);
             }
 
             template<typename T, typename ...Args>
@@ -164,11 +164,11 @@ namespace javm::core {
                 return t;
             }
 
-            void ThrowWithMessage(std::string message) {
+            void ThrowWithMessage(const std::string &message) {
                 MachineThrowWithMessage(this->machine, message);
             }
 
-            void ThrowWithType(std::string class_name, std::string message) {
+            void ThrowWithType(const std::string &class_name, const std::string &message) {
                 MachineThrowWithType(this->machine, class_name, message);
             }
 

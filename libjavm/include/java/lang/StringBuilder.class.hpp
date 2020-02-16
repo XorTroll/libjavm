@@ -14,7 +14,7 @@ namespace java::lang {
                 return this->value;
             }
 
-            void SetNativeString(std::string str) {
+            void SetNativeString(const std::string &str) {
                 this->value = str;
             }
 

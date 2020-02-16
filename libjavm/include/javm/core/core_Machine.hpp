@@ -22,7 +22,7 @@ namespace javm::core {
     };
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClassWith(void *machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args);
+    Value CreateNewClassWith(void *machine, const std::string &name, std::function<void(ClassObject*)> ref_fn, Args &&...args);
 
     class Machine {
 
@@ -34,11 +34,11 @@ namespace javm::core {
             std::vector<std::shared_ptr<ClassObject>> native_function_classes;
             ThrownInfo thrown_info;
 
-            void ThrowClassNotFound(std::string class_name) {
+            void ThrowClassNotFound(const std::string &class_name) {
                 this->ThrowWithType("java.lang.NoClassDefFoundError", ClassObject::ProcessClassName(class_name));
             }
 
-            void ThrowRuntimeException(std::string message) {
+            void ThrowRuntimeException(const std::string &message) {
                 this->ThrowWithType("java.lang.RuntimeException", message);
             }
 
@@ -794,7 +794,8 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
-                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                                auto params = ClassObject::LoadStaticFunctionParameters(frame, JAVM_EMPTY_METHOD_DESCRIPTOR);
+                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, params, frame);
                             }
                             auto obj = class_def->GetStaticField(fld_nat_data.processed_name);
                             JAVM_ASSERT_VALID_VALUE(this, obj, "Invalid static field - " + fld_nat_data.processed_name, {
@@ -822,7 +823,8 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanHandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame)) {
-                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, frame);
+                                auto params = ClassObject::LoadStaticFunctionParameters(frame, JAVM_EMPTY_METHOD_DESCRIPTOR);
+                                class_def->HandleStaticFunction(JAVM_STATIC_BLOCK_METHOD_NAME, JAVM_EMPTY_METHOD_DESCRIPTOR, params, frame);
                             }
 
                             auto obj = frame.Pop();
@@ -891,8 +893,7 @@ namespace javm::core {
                         })
                         break;
                     }
-                    case Instruction::INVOKEVIRTUAL:
-                    case Instruction::INVOKEINTERFACE: {
+                    case Instruction::INVOKEVIRTUAL: {
                         u16 index = BE(frame.Read<u16>());
                         auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
                         auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
@@ -902,8 +903,100 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto ret = class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
-                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of method " + fn_nat_data.processed_name, {
+                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                                bool valid_names = false;
+                                if(this_v->IsClassObject()) {
+                                    auto this_class_obj = this_v->GetReference<ClassObject>();
+                                    auto this_class_name = this_class_obj->GetName();
+
+                                    // Virtual invoke - only own class methods, thus check if they are the same
+                                    if(this_class_name == class_name) {
+                                        valid_names = true;
+                                    }
+                                }
+                                if(!valid_names) {
+                                    this->ThrowRuntimeException("Invalid input parameters of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
+                                }
+                                // Once we do know the class object we were sent can handle the method, execute it
+                                auto this_class_obj = this_v->GetReference<ClassObject>();
+                                auto ret = this_class_obj->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, this_v, params, frame);
+                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name, {
+                                    bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
+                                    if(should_ret) {
+                                        if(ret->IsVoid()) {
+                                            this->ThrowRuntimeException("Invalid return value of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
+                                        }
+                                        else {
+                                            frame.Push(ret);
+                                        }
+                                    }
+                                })
+                            }
+                            else {
+                                this->ThrowRuntimeException("Unable to find or call method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
+                            }
+                        }
+                        else {
+                            this->ThrowClassNotFound(class_name);
+                        }
+
+                        break;
+                    }
+                    case Instruction::INVOKEINTERFACE: {
+                        u16 index = BE(frame.Read<u16>());
+                        u8 count = frame.Read<u8>(); // Both unused...?
+                        u8 zero = frame.Read<u8>();
+                        auto &constant_pool = frame.GetCurrentClass()->GetConstantPool();
+                        auto fn_data = constant_pool[index - 1].GetFieldMethodRefData();
+                        auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
+                        auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
+
+                        if(this->HasClass(class_name)) {
+                            auto class_def = this->FindClass(class_name);
+                            if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
+                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                                bool valid_names = false;
+                                if(this_v->IsClassObject()) {
+                                    auto this_class_obj = this_v->GetReference<ClassObject>();
+                                    auto this_class_name = this_class_obj->GetName();
+
+                                    // Interface - thus it could be a interface of the class or subclasses
+                                    if(this_class_name == class_name) {
+                                        valid_names = true;
+                                    }
+                                    for(auto intf: this_class_obj->GetInterfaceNames()) {
+                                        if(intf == class_name) {
+                                            valid_names = true;
+                                            break;
+                                        }
+                                    }
+                                    auto super_class_v = this_class_obj->GetSuperClassInstance();
+                                    while(super_class_v) {
+                                        if(valid_names) {
+                                            break;
+                                        }
+                                        auto super_class_obj = super_class_v->GetReference<ClassObject>();
+                                        auto super_class_name = super_class_obj->GetName();
+                                        if(super_class_name == class_name) {
+                                            valid_names = true;
+                                            break;
+                                        }
+                                        for(auto intf: super_class_obj->GetInterfaceNames()) {
+                                            if(intf == class_name) {
+                                                valid_names = true;
+                                                break;
+                                            }
+                                        }
+                                        super_class_v = super_class_obj->GetSuperClassInstance();
+                                    }
+                                }
+                                if(!valid_names) {
+                                    this->ThrowRuntimeException("Invalid input parameters of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
+                                }
+                                // Once we do know the class object we were sent can handle the method, execute it
+                                auto this_class_obj = this_v->GetReference<ClassObject>();
+                                auto ret = this_class_obj->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, this_v, params, frame);
+                                JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name, {
                                     bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                     if(should_ret) {
                                         if(ret->IsVoid()) {
@@ -935,7 +1028,8 @@ namespace javm::core {
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                                class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, this_v, params, frame);
                             }
                             else {
                                 this->ThrowRuntimeException("Unable to find or call special method " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name);
@@ -958,7 +1052,8 @@ namespace javm::core {
                             auto class_def = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                             if(class_def->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame);
+                                auto params = ClassObject::LoadStaticFunctionParameters(frame, fn_nat_data.processed_desc);
+                                auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, params, frame);
                                 JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of static function " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name, {
                                     bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                                     if(should_ret) {
@@ -1127,6 +1222,10 @@ namespace javm::core {
             }
 
             void ThrowWithInstance(Frame &frame, Value value) {
+                if(this->WasExceptionThrown()) {
+                    // Another exception is already thrown
+                    return;
+                }
                 auto obj = value->GetReference<ClassObject>();
                 auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
                 JAVM_ASSERT_VALID_VALUE(this, str, "Invalid exception message type", {
@@ -1149,13 +1248,17 @@ namespace javm::core {
                 })
             }
 
-            void ThrowWithType(std::string class_name, std::string message) {
+            void ThrowWithType(const std::string &class_name, const std::string &message) {
+                if(this->WasExceptionThrown()) {
+                    // Another exception is already thrown
+                    return;
+                }
                 if(this->HasClass(class_name)) {
 
                     /* Java pseudocode:
                         String str = message;
                         <class_name> t = new <class_name>(str);
-                        _inner_throw_exception(t);
+                        <throw exception internally>(t);
                     */
 
                     auto str_obj = CreateNewClassWith<true>(this, "java.lang.String", [&](auto *ref) {
@@ -1171,7 +1274,7 @@ namespace javm::core {
                 }
             }
 
-            void ThrowWithMessage(std::string message) {
+            void ThrowWithMessage(const std::string &message) {
                 this->ThrowWithType("java.lang.Exception", message);
             }
 
@@ -1225,7 +1328,7 @@ namespace javm::core {
                 return this->loaded_archives.back();
             }
 
-            bool HasClass(std::string name) {
+            bool HasClass(const std::string &name) {
                 auto cls_name = ClassObject::ProcessClassName(name);
                 for(auto &native: this->native_classes) {
                     if(native->GetName() == cls_name) {
@@ -1249,7 +1352,7 @@ namespace javm::core {
                 return false;
             }
             
-            std::shared_ptr<ClassObject> FindClass(std::string name) {
+            std::shared_ptr<ClassObject> FindClass(const std::string &name) {
                 auto cls_name = ClassObject::ProcessClassName(name);
                 for(auto &native: this->native_classes) {
                     if(native->GetName() == cls_name) {
@@ -1273,7 +1376,7 @@ namespace javm::core {
                 return this->empty_class;
             }
 
-            bool HasNativeMethod(std::string class_name, std::string native_fn_name) {
+            bool HasNativeMethod(const std::string &class_name, const std::string &native_fn_name) {
                 auto cls_name = ClassObject::ProcessClassName(class_name);
                 for(auto &native: this->native_function_classes) {
                     if(native->GetName() == cls_name) {
@@ -1286,7 +1389,7 @@ namespace javm::core {
                 return false;
             }
 
-            bool HasNativeStaticFunction(std::string class_name, std::string native_fn_name) {
+            bool HasNativeStaticFunction(const std::string &class_name, const std::string &native_fn_name) {
                 auto cls_name = ClassObject::ProcessClassName(class_name);
                 for(auto &native: this->native_function_classes) {
                     if(native->GetName() == cls_name) {
@@ -1299,7 +1402,7 @@ namespace javm::core {
                 return false;
             }
 
-            std::shared_ptr<ClassObject> FindNativeMethodClass(std::string class_name, std::string native_fn_name) {
+            std::shared_ptr<ClassObject> FindNativeMethodClass(const std::string &class_name, const std::string &native_fn_name) {
                 auto cls_name = ClassObject::ProcessClassName(class_name);
                 for(auto &native: this->native_function_classes) {
                     if(native->GetName() == cls_name) {
@@ -1312,7 +1415,7 @@ namespace javm::core {
                 return this->empty_class;
             }
 
-            std::shared_ptr<ClassObject> FindNativeStaticFunctionClass(std::string class_name, std::string native_fn_name) {
+            std::shared_ptr<ClassObject> FindNativeStaticFunctionClass(const std::string &class_name, const std::string &native_fn_name) {
                 auto cls_name = ClassObject::ProcessClassName(class_name);
                 for(auto &native: this->native_function_classes) {
                     if(native->GetName() == cls_name) {
@@ -1334,7 +1437,7 @@ namespace javm::core {
                     auto inst = static_cast<Instruction>(frame.Read<u8>());
 
                     if(frame.StackMaximum()) {
-                        // (...)
+                        // WTF
                         // printf("Max stack!\n");
                         break;
                     }
@@ -1349,7 +1452,7 @@ namespace javm::core {
             }
 
             template<typename ...Args>
-            Value CallFunction(std::string class_name, std::string fn_name, Args &&...args) {
+            Value CallFunction(const std::string &class_name, const std::string &fn_name, Args &&...args) {
                 if(this->WasExceptionThrown()) {
                     return CreateInvalidValue();
                 }
@@ -1359,7 +1462,10 @@ namespace javm::core {
                 for(auto &native: this->native_classes) {
                     if(native->GetName() == proper_class_name) {
                         Frame frame(native->CreateFromExistingInstance(), reinterpret_cast<void*>(this));
-                        return native->HandleStaticFunction(fn_name, "", frame);
+                        ClassObject::PushParameters(frame, args...);
+                        auto desc = ClassObject::BuildFunctionDescriptor(args...);
+                        auto params = ClassObject::LoadStaticFunctionParameters(frame, desc);
+                        return native->HandleStaticFunction(fn_name, desc, params, frame);
                     }
                 }
                 // Then, loaded JARs
@@ -1412,7 +1518,7 @@ namespace javm::core {
             }
     };
 
-    Value HandleClassFileMethod(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
+    Value HandleClassFileMethod(ClassFile *class_file, const std::string &name, const std::string &desc, Value this_v, std::vector<Value> params, Frame &frame) {
         for(auto &method: class_file->GetMethods()) {
             if(method.GetName() == name) {
                 if(method.GetDesc() == desc) {
@@ -1421,10 +1527,10 @@ namespace javm::core {
                             MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                             CodeAttribute code_attr(code_reader);
                             Frame new_frame(&code_attr, class_file->CreateFromExistingInstance(), frame.GetMachinePointer());
-                            for(u32 i = ClassObject::GetFunctionParameterCount(desc); i > 0; i--) {
-                                new_frame.SetLocal(i, frame.Pop());
+                            new_frame.SetLocal(0, this_v);
+                            for(u32 i = 0; i < params.size(); i++) {
+                                new_frame.SetLocal(i + 1, params[i]);
                             }
-                            new_frame.SetLocal(0, frame.Pop());
                             auto ret = Machine::GetFrameMachinePointer(frame)->ExecuteCode(new_frame);
                             code_attr.Dispose();
                             return ret;
@@ -1436,7 +1542,7 @@ namespace javm::core {
                         auto machine_ptr = Machine::GetFrameMachinePointer(frame);
                         if(machine_ptr->HasNativeMethod(class_name, name)) {
                             auto class_def = machine_ptr->FindNativeMethodClass(class_name, name);
-                            return class_def->HandleMethod(name, desc, frame);
+                            return class_def->HandleMethod(name, desc, this_v, params, frame);
                         }
                     }
                 }
@@ -1446,13 +1552,13 @@ namespace javm::core {
         if(super_class) {
             if(super_class->IsClassObject()) {
                 auto super_class_ref = super_class->GetReference<ClassObject>();
-                return super_class_ref->HandleMethod(name, desc, frame);
+                return super_class_ref->HandleMethod(name, desc, this_v, params, frame);
             }
         }
         return CreateInvalidValue();
     }
 
-    Value HandleClassFileStaticFunction(ClassFile *class_file, std::string name, std::string desc, Frame &frame) {
+    Value HandleClassFileStaticFunction(ClassFile *class_file, const std::string &name, const std::string &desc, std::vector<Value> params, Frame &frame) {
         for(auto &method: class_file->GetMethods()) {
             if(method.GetName() == name) {
                 if(method.GetDesc() == desc) {
@@ -1461,8 +1567,8 @@ namespace javm::core {
                             MemoryReader code_reader(attr.GetInfo(), attr.GetInfoLength());
                             CodeAttribute code_attr(code_reader);
                             Frame new_frame(&code_attr, class_file->CreateFromExistingInstance(), frame.GetMachinePointer());
-                            for(u32 i = 0; i < ClassObject::GetFunctionParameterCount(desc); i++) {
-                                new_frame.SetLocal(i, frame.Pop());
+                            for(u32 i = 0; i < params.size(); i++) {
+                                new_frame.SetLocal(i, params[i]);
                             }
                             auto ret = Machine::GetFrameMachinePointer(frame)->ExecuteCode(new_frame);
                             code_attr.Dispose();
@@ -1475,7 +1581,7 @@ namespace javm::core {
                         auto machine_ptr = Machine::GetFrameMachinePointer(frame);
                         if(machine_ptr->HasNativeStaticFunction(class_name, name)) {
                             auto class_def = machine_ptr->FindNativeStaticFunctionClass(class_name, name);
-                            return class_def->HandleStaticFunction(name, desc, frame);
+                            return class_def->HandleStaticFunction(name, desc, params, frame);
                         }
                     }
                 }
@@ -1485,26 +1591,26 @@ namespace javm::core {
         if(super_class) {
             if(super_class->IsClassObject()) {
                 auto super_class_ref = super_class->GetReference<ClassObject>();
-                return super_class_ref->HandleStaticFunction(name, desc, frame);
+                return super_class_ref->HandleStaticFunction(name, desc, params, frame);
             }
         }
         return CreateInvalidValue();
     }
 
-    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name) {
+    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, const std::string &name) {
         auto mach = reinterpret_cast<Machine*>(machine);
         return mach->FindClass(name);
     }
 
-    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, std::string name) {
+    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, const std::string &name) {
         return FindClassByNameEx(frame.GetMachinePointer(), name);
     }
 
-    void MachineThrowWithMessage(void *machine, std::string message) {
+    void MachineThrowWithMessage(void *machine, const std::string &message) {
         return reinterpret_cast<Machine*>(machine)->ThrowWithMessage(message);
     }
 
-    void MachineThrowWithType(void *machine, std::string class_name, std::string message) {
+    void MachineThrowWithType(void *machine, const std::string &class_name, const std::string &message) {
         return reinterpret_cast<Machine*>(machine)->ThrowWithType(class_name, message);
     }
 
@@ -1522,7 +1628,7 @@ namespace javm::core {
     }
 
     template<bool CallCtor, typename ...Args>
-    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args) {
+    Value MachineCreateNewClass(void *machine, const std::string &name, Args &&...args) {
         auto machineptr = reinterpret_cast<Machine*>(machine);
         if(machineptr->HasClass(name)) {
             auto class_ref = machineptr->FindClass(name);
@@ -1537,12 +1643,12 @@ namespace javm::core {
     }
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClass(Machine &machine, std::string name, Args &&...args) {
+    Value CreateNewClass(Machine &machine, const std::string &name, Args &&...args) {
         return MachineCreateNewClass<CallCtor>(&machine, name, args...);
     }
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClassWith(Machine &machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+    Value CreateNewClassWith(Machine &machine, const std::string &name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
         auto class_val = CreateNewClass<CallCtor>(machine, name, args...);
         auto class_ref = class_val->template GetReference<ClassObject>();
         ref_fn(class_ref);

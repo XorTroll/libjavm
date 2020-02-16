@@ -4,6 +4,7 @@
 #include <javm/core/core_ConstantPool.hpp>
 #include <map>
 #include <memory>
+#include <algorithm>
 
 namespace javm::core {
 
@@ -53,17 +54,27 @@ namespace javm::core {
         private:
             Value super_class_instance;
 
+        public:
+
             template<typename T>
-            void HandlePushArgument(Frame &frame, T t) {
+            static void DoPushArgument(std::vector<Value> tmp_holder, T t) {
                 static_assert(std::is_same_v<T, Value>, "Arguments must be core::Value!");
-                frame.Push(t);
+                tmp_holder.push_back(t);
             }
 
-        public:
+            template<typename ...Args>
+            static void PushParameters(Frame &frame, Args &&...args) {
+                std::vector<Value> tmp_params_holder;
+                (DoPushArgument(tmp_params_holder, args), ...);
+                std::reverse(tmp_params_holder.begin(), tmp_params_holder.end());
+                for(auto param: tmp_params_holder) {
+                    frame.Push(param);
+                }
+            }
 
             // Some static helpers for Java classes and functions
 
-            static std::string ProcessClassName(std::string input_name) {
+            static std::string ProcessClassName(const std::string &input_name) {
                 std::string copy = input_name;
 
                 // Anything else to check?
@@ -74,7 +85,7 @@ namespace javm::core {
                 return copy;
             }
 
-            static std::string GetPresentableClassName(std::string input_name) {
+            static std::string GetPresentableClassName(const std::string &input_name) {
                 std::string copy = input_name;
 
                 // Opposite to the function above :P
@@ -83,7 +94,7 @@ namespace javm::core {
                 return copy;
             }
 
-            static u32 GetFunctionParameterCount(std::string desc) {
+            static u32 GetFunctionParameterCount(const std::string &desc) {
                 auto tmp = desc.substr(desc.find_first_of('(') + 1);
                 tmp = tmp.substr(0, tmp.find_last_of(')'));
                 bool parsing_class = false;
@@ -109,7 +120,7 @@ namespace javm::core {
                 return count;
             }
 
-            static std::vector<std::string> ParseFunctionDescriptorParameters(std::string desc) {
+            static std::vector<std::string> ParseFunctionDescriptorParameters(const std::string &desc) {
                 std::vector<std::string> params;
                 auto tmp = desc.substr(desc.find_first_of('(') + 1);
                 tmp = tmp.substr(0, tmp.find_last_of(')'));
@@ -140,7 +151,7 @@ namespace javm::core {
                 return params;
             }
 
-            static ValueType ParseValueType(std::string param) {
+            static ValueType ParseValueType(const std::string &param) {
                 if(param == "B") {
                     return ValueType::Byte;
                 }
@@ -299,27 +310,52 @@ namespace javm::core {
                 return desc;
             }
 
-            static bool ExpectsReturn(std::string desc) {
+            static bool ExpectsReturn(const std::string &desc) {
                 return desc.back() != 'V';
+            }
+
+            static std::vector<Value> LoadStaticFunctionParameters(Frame &frame, const std::string &fn_desc) {
+                std::vector<Value> params;
+                const u32 param_count = GetFunctionParameterCount(fn_desc);
+                for(u32 i = 0; i < param_count; i++) {
+                    params.push_back(frame.Pop());
+                }
+                // Params are read in inverse order!
+                std::reverse(params.begin(), params.end());
+                return params;
+            }
+
+            static std::pair<Value, std::vector<Value>> LoadMethodParameters(Frame &frame, const std::string &fn_desc) {
+                std::vector<Value> params;
+                const u32 param_count = GetFunctionParameterCount(fn_desc);
+                for(u32 i = 0; i < param_count; i++) {
+                    auto param = frame.Pop();
+                    params.push_back(param);
+                }
+                auto this_v = frame.Pop();
+                // Params are read in inverse order!
+                std::reverse(params.begin(), params.end());
+                return std::make_pair(this_v, params);
             }
 
             virtual std::string GetName() = 0;
             virtual std::string GetSuperClassName() = 0;
+            virtual std::vector<std::string> GetInterfaceNames() = 0;
             virtual std::vector<CPInfo> &GetConstantPool() = 0;
             virtual Value CreateInstanceEx(void *machine_ptr) = 0;
             virtual Value CreateFromExistingInstance() = 0;
-            virtual bool HasField(std::string name) = 0;
-            virtual bool HasStaticField(std::string name) = 0;
-            virtual Value GetField(std::string name) = 0;
-            virtual Value GetStaticField(std::string name) = 0;
-            virtual void SetField(std::string name, Value value) = 0;
-            virtual void SetStaticField(std::string name, Value value) = 0;
-            virtual bool CanHandleMethod(std::string name, std::string desc, Frame &frame) = 0;
-            virtual bool CanHandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
-            virtual Value HandleMethod(std::string name, std::string desc, Frame &frame) = 0;
-            virtual Value HandleStaticFunction(std::string name, std::string desc, Frame &frame) = 0;
+            virtual bool HasField(const std::string &name) = 0;
+            virtual bool HasStaticField(const std::string &name) = 0;
+            virtual Value GetField(const std::string &name) = 0;
+            virtual Value GetStaticField(const std::string &name) = 0;
+            virtual void SetField(const std::string &name, Value value) = 0;
+            virtual void SetStaticField(const std::string &name, Value value) = 0;
+            virtual bool CanHandleMethod(const std::string &name, const std::string &desc, Frame &frame) = 0;
+            virtual bool CanHandleStaticFunction(const std::string &name, const std::string &desc, Frame &frame) = 0;
+            virtual Value HandleMethod(const std::string &name, const std::string &desc, Value this_v, std::vector<Value> params, Frame &frame) = 0;
+            virtual Value HandleStaticFunction(const std::string &name, const std::string &desc, std::vector<Value> params, Frame &frame) = 0;
             
-            bool CanSuperClassHandleMethod(std::string name, std::string desc, Frame &frame) {
+            bool CanSuperClassHandleMethod(const std::string &name, const std::string &desc, Frame &frame) {
                 if(this->super_class_instance) {
                     if(this->GetSuperClassReference<ClassObject>()->CanHandleMethod(name, desc, frame)) {
                         return true;
@@ -329,7 +365,7 @@ namespace javm::core {
                 return false;
             }
 
-            bool CanSuperClassHandleStaticFunction(std::string name, std::string desc, Frame &frame) {
+            bool CanSuperClassHandleStaticFunction(const std::string &name, const std::string &desc, Frame &frame) {
                 if(this->super_class_instance) {
                     if(this->GetSuperClassReference<ClassObject>()->CanHandleStaticFunction(name, desc, frame)) {
                         return true;
@@ -339,7 +375,7 @@ namespace javm::core {
                 return false;
             }
 
-            bool CanAllHandleMethod(std::string name, std::string desc, Frame &frame) {
+            bool CanAllHandleMethod(const std::string &name, const std::string &desc, Frame &frame) {
                 if(this->CanHandleMethod(name, desc, frame)) {
                     return true;
                 }
@@ -349,7 +385,7 @@ namespace javm::core {
                 return false;
             }
 
-            bool CanAllHandleStaticFunction(std::string name, std::string desc, Frame &frame) {
+            bool CanAllHandleStaticFunction(const std::string &name, const std::string &desc, Frame &frame) {
                 if(this->CanHandleStaticFunction(name, desc, frame)) {
                     return true;
                 }
@@ -359,7 +395,7 @@ namespace javm::core {
                 return false;
             }
 
-            bool CanCastTo(std::string class_name) {
+            bool CanCastTo(const std::string &class_name) {
                 // Iterate through every superclass to see if the name matches
                 if(this->GetName() == class_name) {
                     return true;
@@ -388,39 +424,47 @@ namespace javm::core {
                 return this->super_class_instance->GetReference<C>();
             }
 
+            template<typename T>
+            void PrepareParameters(std::vector<Value> &params, T t) {
+                static_assert(std::is_same_v<T, Value>, "Derp");
+                params.push_back(t);
+            }
+
             // Meant to be used from native code
             template<typename ...Args>
-            Value CallMethod(Frame &frame, std::string name, Args &&...args) {
-                frame.Push(this->CreateFromExistingInstance());
-                (this->HandlePushArgument(frame, args), ...);
+            Value CallMethod(Frame &frame, const std::string &name, Args &&...args) {
+                auto this_v = this->CreateFromExistingInstance();
+                std::vector<Value> params;
+                (PrepareParameters(params, args), ...);
+                std::reverse(params.begin(), params.end());
                 auto desc = BuildFunctionDescriptor(args...);
                 if(this->CanAllHandleMethod(name, desc, frame)) {
-                    return this->HandleMethod(name, desc, frame);
+                    return this->HandleMethod(name, desc, this_v, params, frame);
                 }
                 return CreateInvalidValue();
             }
     };
 
     // Defined later in machine code
-    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, std::string name);
+    std::shared_ptr<ClassObject> FindClassByName(Frame &frame, const std::string &name);
 
-    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, std::string name);
-
-    template<bool CallCtor, typename ...Args>
-    Value MachineCreateNewClass(void *machine, std::string name, Args &&...args);
+    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, const std::string &name);
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClass(void *machine, std::string name, Args &&...args) {
+    Value MachineCreateNewClass(void *machine, const std::string &name, Args &&...args);
+
+    template<bool CallCtor, typename ...Args>
+    Value CreateNewClass(void *machine, const std::string &name, Args &&...args) {
         return MachineCreateNewClass<CallCtor>(machine, name, args...);
     }
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClass(Frame &frame, std::string name, Args &&...args) {
+    Value CreateNewClass(Frame &frame, const std::string &name, Args &&...args) {
         return MachineCreateNewClass<CallCtor>(frame.GetMachinePointer(), name, args...);
     }
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClassWith(void *machine, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+    Value CreateNewClassWith(void *machine, const std::string &name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
         auto class_val = MachineCreateNewClass<CallCtor>(machine, name, args...);
         auto class_ref = class_val->template GetReference<ClassObject>();
         ref_fn(class_ref);
@@ -428,7 +472,7 @@ namespace javm::core {
     }
 
     template<bool CallCtor, typename ...Args>
-    Value CreateNewClassWith(Frame &frame, std::string name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
+    Value CreateNewClassWith(Frame &frame, const std::string &name, std::function<void(ClassObject*)> ref_fn, Args &&...args) {
         auto class_val = CreateNewClass<CallCtor>(frame, name, args...);
         auto class_ref = class_val->template GetReference<ClassObject>();
         ref_fn(class_ref);
