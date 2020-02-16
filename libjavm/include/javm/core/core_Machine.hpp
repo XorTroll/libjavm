@@ -900,18 +900,36 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
+                        auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                        if(!this_v->IsClassObject()) {
+                            this->ThrowRuntimeException("Invalid input");
+                            break;
+                        }
+
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
                                 bool valid_names = false;
                                 if(this_v->IsClassObject()) {
                                     auto this_class_obj = this_v->GetReference<ClassObject>();
                                     auto this_class_name = this_class_obj->GetName();
 
-                                    // Virtual invoke - only own class methods, thus check if they are the same
+                                    // Virtual invoke - only own class or superclass methods
                                     if(this_class_name == class_name) {
                                         valid_names = true;
+                                    }
+                                    auto super_class_v = this_class_obj->GetSuperClassInstance();
+                                    while(super_class_v) {
+                                        if(valid_names) {
+                                            break;
+                                        }
+                                        auto super_class_obj = super_class_v->GetReference<ClassObject>();
+                                        auto super_class_name = super_class_obj->GetName();
+                                        if(super_class_name == class_name) {
+                                            valid_names = true;
+                                            break;
+                                        }
+                                        super_class_v = super_class_obj->GetSuperClassInstance();
                                     }
                                 }
                                 if(!valid_names) {
@@ -951,10 +969,16 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
+                        auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                        if(!this_v->IsClassObject()) {
+                            this->ThrowRuntimeException("Invalid input");
+                            break;
+                        }
+                        
+
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
                                 bool valid_names = false;
                                 if(this_v->IsClassObject()) {
                                     auto this_class_obj = this_v->GetReference<ClassObject>();
@@ -1025,10 +1049,15 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
+                        auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
+                        if(!this_v->IsClassObject()) {
+                            this->ThrowRuntimeException("Invalid input");
+                            break;
+                        }
+
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             if(class_def->CanAllHandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto [this_v, params] = ClassObject::LoadMethodParameters(frame, fn_nat_data.processed_desc);
                                 class_def->HandleMethod(fn_nat_data.processed_name, fn_nat_data.processed_desc, this_v, params, frame);
                             }
                             else {
@@ -1048,11 +1077,12 @@ namespace javm::core {
                         auto class_name = constant_pool[fn_data.class_index - 1].GetClassData().processed_name;
                         auto fn_nat_data = constant_pool[fn_data.name_and_type_index - 1].GetNameAndTypeData();
 
+                        auto params = ClassObject::LoadStaticFunctionParameters(frame, fn_nat_data.processed_desc);
+
                         if(this->HasClass(class_name)) {
                             auto class_def = this->FindClass(class_name);
                             bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
                             if(class_def->CanAllHandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, frame)) {
-                                auto params = ClassObject::LoadStaticFunctionParameters(frame, fn_nat_data.processed_desc);
                                 auto ret = class_def->HandleStaticFunction(fn_nat_data.processed_name, fn_nat_data.processed_desc, params, frame);
                                 JAVM_ASSERT_VALID_VALUE(this, ret, "Invalid return value of static function " + ClassObject::GetPresentableClassName(class_name) + "." + fn_nat_data.processed_name, {
                                     bool should_ret = ClassObject::ExpectsReturn(fn_nat_data.processed_desc);
@@ -1227,7 +1257,7 @@ namespace javm::core {
                     return;
                 }
                 auto obj = value->GetReference<ClassObject>();
-                auto str = obj->CallMethod(frame, "getMessage"); // Throwable will be a super class, so calls Throwable.getMessage()
+                auto str = obj->CallMethod(frame, "getMessage", TypeDefinitions::GetClassDefinition(reinterpret_cast<void*>(this), "java.lang.String")); // Throwable will be a super class, so calls Throwable.getMessage()
                 JAVM_ASSERT_VALID_VALUE(this, str, "Invalid exception message type", {
                     if(str->IsVoid()) {
                         this->ThrowRuntimeException("Invalid exception message type");
@@ -1311,6 +1341,7 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::String>();
                 this->LoadNativeClass<java::lang::StringBuilder>();
                 this->LoadNativeClass<java::lang::Class>();
+                this->LoadNativeClass<java::lang::Enum>();
                 this->LoadNativeClass<java::io::PrintStream>();
                 this->LoadNativeClass<java::lang::System>();
                 this->LoadNativeClass<java::lang::Throwable>();
@@ -1323,7 +1354,7 @@ namespace javm::core {
 
             template<typename ...Args>
             std::shared_ptr<Archive> &LoadJavaArchive(Args &&...args) {
-                auto archiveptr = std::make_shared<Archive>(args...);
+                auto archiveptr = std::make_shared<Archive>(reinterpret_cast<void*>(this), args...);
                 this->loaded_archives.push_back(std::move(archiveptr));
                 return this->loaded_archives.back();
             }
@@ -1624,7 +1655,7 @@ namespace javm::core {
     template<typename ...Args>
     inline void CallClassCtor(Frame &frame, Value class_val, Args &&...args) {
         auto class_ref = class_val->GetReference<ClassObject>();
-        class_ref->CallMethod(frame, JAVM_CTOR_METHOD_NAME, args...);
+        class_ref->CallMethod(frame, JAVM_CTOR_METHOD_NAME, CreateVoidValue(), args...);
     }
 
     template<bool CallCtor, typename ...Args>

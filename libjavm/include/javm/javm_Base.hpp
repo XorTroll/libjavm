@@ -17,7 +17,7 @@ namespace javm {
     _JAVM_DEFINE_INT_TYPE(64)
 
     template<typename N>
-    N BE(N n) {
+    inline constexpr N BE(N n) {
         N tmpn = n;
         u8 *nbuf = (u8*)&n;
         u8 *tmpbuf = (u8*)&tmpn;

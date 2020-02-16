@@ -13,6 +13,8 @@ namespace javm::core {
     void MachineThrowWithType(void *machine, const std::string &class_name, const std::string &message);
     void MachineThrowWithInstance(void *machine, Value value);
 
+    std::shared_ptr<ClassObject> FindClassByNameEx(void *machine, const std::string &name);
+
     class Frame {
 
         private:
@@ -179,6 +181,40 @@ namespace javm::core {
             void *GetMachinePointer() {
                 return this->machine;
             }
+    };
+
+    class TypeDefinitions {
+
+        public:
+            template<typename T>
+            static Value GetPrimitiveTypeDefinition() {
+                return CreateNewValue<T>();
+            }
+            
+            template<typename T>
+            static Value GetArrayDefinition() {
+                return CreateArray<T>(0);
+            }
+
+            static Value GetArrayDefinition(Value v) {
+                auto arr_v = CreateNewValue<Array>(v->GetValueType(), 1);
+                auto arr_ref = arr_v->GetReference<Array>();
+                arr_ref->SetAt(0, v);
+                return arr_v;
+            }
+
+            static Value GetClassDefinition(void *machine_ptr, const std::string &name) {
+                auto class_def = FindClassByNameEx(machine_ptr, name);
+                if(class_def) {
+                    return CreateExistingValueNoClone<ClassObject>(class_def.get());
+                }
+                return CreateInvalidValue();
+            }
+
+            static Value GetClassDefinition(Frame &frame, const std::string &name) {
+                return GetClassDefinition(frame.GetMachinePointer(), name);
+            }
+
     };
 
 }

@@ -18,6 +18,7 @@ namespace javm::core {
             bool jar_valid;
             std::string main_class_name;
             std::vector<std::shared_ptr<ClassObject>> classes;
+            void *machine_ptr;
 
             void Load() {
                 if(this->IsValid()) {
@@ -48,7 +49,8 @@ namespace javm::core {
 
                             for(auto &class_file: class_files) {
                                 auto classv = reader.read(class_file);
-                                this->classes.push_back(std::make_shared<ClassFile>(classv.data(), classv.size()));
+                                std::shared_ptr<ClassObject> class_ptr = ClassFile::CreateDefinitionInstance(this->machine_ptr, classv.data(), classv.size());
+                                this->classes.push_back(std::move(class_ptr));
                             }
                         }
                     }
@@ -61,11 +63,11 @@ namespace javm::core {
         public:
             using File::File;
 
-            Archive(const std::string &path) : File(path) {
+            Archive(void *machine, const std::string &path) : File(path), machine_ptr(machine) {
                 this->Load();
             }
             
-            Archive(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns) {
+            Archive(void *machine, u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns), machine_ptr(machine) {
                 this->Load();
             }
 

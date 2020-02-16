@@ -30,8 +30,6 @@ namespace javm::core {
         
     };
 
-    inline constexpr u16 mask = (u16)AccessFlags::Public | (u16)AccessFlags::Private;
-
     class FieldInfo {
 
         private:
@@ -97,9 +95,9 @@ namespace javm::core {
                 return this->processed_desc;
             }
 
-            template<AccessFlags flag>
+            template<AccessFlags Flag>
             bool Is() {
-                return this->access_flags & (u16)flag;
+                return this->access_flags & (u16)Flag;
             }
     };
 

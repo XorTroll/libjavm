@@ -220,6 +220,11 @@ namespace javm::core {
         return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>(), TypedPointerClone<T>);
     }
 
+    template<typename T>
+    static inline Value CreateExistingValueNoClone(T *t) {
+        return std::make_shared<ValuePointerHolder>(reinterpret_cast<void*>(t), typeid(T).hash_code(), ValuePointerHolder::DetectValueType<T>());
+    }
+
     static inline Value CreateVoidValue() {
         return CreateNewValue<VoidValue>();
     }

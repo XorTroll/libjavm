@@ -293,20 +293,22 @@ namespace javm::core {
                         return "D";
                     }
                     case ValueType::Array:  {
-                        return "[I";
+                        auto arr = val->GetReference<Array>();
+                        return "[" + MakeDescriptorParameter(arr->GetAt(0));
                     }
                     case ValueType::ClassObject:  {
                         return "L" + val->GetReference<ClassObject>()->GetName() + ";";
                     }
+                    default:
+                        return "V";
                 }
-                return "";
             }
 
             template<typename ...Args>
-            static std::string BuildFunctionDescriptor(Args &&...args) {
+            static std::string BuildFunctionDescriptor(Value return_type, Args &&...args) {
                 std::string desc = "(";
                 ((desc += MakeDescriptorParameter(args)), ...);
-                desc += ")";
+                desc += ")" + MakeDescriptorParameter(return_type);
                 return desc;
             }
 
@@ -329,8 +331,7 @@ namespace javm::core {
                 std::vector<Value> params;
                 const u32 param_count = GetFunctionParameterCount(fn_desc);
                 for(u32 i = 0; i < param_count; i++) {
-                    auto param = frame.Pop();
-                    params.push_back(param);
+                    params.push_back(frame.Pop());
                 }
                 auto this_v = frame.Pop();
                 // Params are read in inverse order!
@@ -421,6 +422,9 @@ namespace javm::core {
 
             template<typename C>
             C *GetSuperClassReference() {
+                if(!this->super_class_instance) {
+                    return nullptr;
+                }
                 return this->super_class_instance->GetReference<C>();
             }
 
@@ -432,14 +436,27 @@ namespace javm::core {
 
             // Meant to be used from native code
             template<typename ...Args>
-            Value CallMethod(Frame &frame, const std::string &name, Args &&...args) {
+            Value CallMethod(Frame &frame, const std::string &name, Value return_type, Args &&...args) {
                 auto this_v = this->CreateFromExistingInstance();
                 std::vector<Value> params;
                 (PrepareParameters(params, args), ...);
                 std::reverse(params.begin(), params.end());
-                auto desc = BuildFunctionDescriptor(args...);
+                auto desc = BuildFunctionDescriptor(return_type, args...);
                 if(this->CanAllHandleMethod(name, desc, frame)) {
                     return this->HandleMethod(name, desc, this_v, params, frame);
+                }
+                return CreateInvalidValue();
+            }
+
+            // Meant to be used from native code
+            template<typename ...Args>
+            Value CallStaticFunction(Frame &frame, const std::string &name, Value return_type, Args &&...args) {
+                std::vector<Value> params;
+                (PrepareParameters(params, args), ...);
+                std::reverse(params.begin(), params.end());
+                auto desc = BuildFunctionDescriptor(return_type, args...);
+                if(this->CanAllHandleStaticFunction(name, desc, frame)) {
+                    return this->HandleStaticFunction(name, desc, params, frame);
                 }
                 return CreateInvalidValue();
             }
