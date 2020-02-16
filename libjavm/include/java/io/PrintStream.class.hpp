@@ -10,7 +10,7 @@ namespace java::io {
             FILE *stream;
             bool is_std; // Avoid fclosing stdout or stderr...
 
-            bool DoPrint(FILE *this_stream, core::FunctionParameter param) {
+            bool DoPrint(core::Frame &frame, FILE *this_stream, core::FunctionParameter param) {
                 switch(param.parsed_type) {
                     case core::ValueType::Boolean: {
                         bool b = param.value->Get<bool>();
@@ -48,6 +48,15 @@ namespace java::io {
                             auto str = str_ref->GetNativeString();
                             
                             fprintf(this_stream, "%s", str.c_str());
+                            return true;
+                        }
+                        else {
+                            auto item_obj = param.value->GetReference<core::ClassObject>();
+                            auto item_str = item_obj->CallMethod(frame, "toString", core::TypeDefinitions::GetClassDefinition(frame, "java.lang.String"));
+                            auto item_str_obj = item_str->GetReference<lang::String>();
+                            auto item_str_value = item_str_obj->GetNativeString();
+
+                            fprintf(this_stream, "%s", item_str_value.c_str());
                             return true;
                         }
                         break;
@@ -108,7 +117,7 @@ namespace java::io {
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
                     if(parameters.size() == 1) {
-                        this->DoPrint(this_stream, parameters[0]);
+                        this->DoPrint(frame, this_stream, parameters[0]);
                     }
                 }
 
@@ -121,7 +130,7 @@ namespace java::io {
                 auto this_stream = this_ref->GetNativeStream();
                 if(this_stream != nullptr) {
                     if(parameters.size() == 1) {
-                        auto printed = this->DoPrint(this_stream, parameters[0]);
+                        auto printed = this->DoPrint(frame, this_stream, parameters[0]);
                         if(printed) {
                             // Print the extra line
                             fprintf(this_stream, "\n");

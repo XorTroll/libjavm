@@ -1347,6 +1347,8 @@ namespace javm::core {
                 this->LoadNativeClass<java::lang::Throwable>();
                 this->LoadNativeClass<java::lang::Exception>();
                 this->LoadNativeClass<java::lang::RuntimeException>();
+                this->LoadNativeClass<java::lang::IllegalArgumentException>();
+                this->LoadNativeClass<java::lang::CloneNotSupportedException>();
                 this->LoadNativeClass<java::lang::Error>();
                 this->LoadNativeClass<java::lang::LinkageError>();
                 this->LoadNativeClass<java::lang::NoClassDefFoundError>();

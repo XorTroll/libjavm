@@ -79,8 +79,14 @@ namespace java::lang {
                         this_ref->SetNativeString(cur_str + std::to_string(i_val));
                     }
                 }
-                else {
-                    // TODO: more...?
+                else if(parameters[0].value->IsClassObject()) {
+                    auto item_obj = parameters[0].value->GetReference<core::ClassObject>();
+                    auto item_str = item_obj->CallMethod(frame, "toString", core::TypeDefinitions::GetClassDefinition(frame, "java.lang.String"));
+                    auto item_str_obj = item_str->GetReference<lang::String>();
+                    auto item_str_value = item_str_obj->GetNativeString();
+
+                    auto cur_str = this_ref->GetNativeString();
+                    this_ref->SetNativeString(cur_str + item_str_value);
                 }
 
                 return this_v.invoker;
