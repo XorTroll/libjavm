@@ -1,0 +1,14 @@
+.vscode/
+test/
+other/
+*.jar
+build/
+target/
+.settings/
+.classpath
+.project
+*.elf
+*.nacp
+*.nro
+*.nso
+*.pfs0

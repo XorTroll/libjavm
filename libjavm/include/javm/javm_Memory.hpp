@@ -17,8 +17,7 @@ namespace javm {
 
             template<typename T>
             T Read(bool forward = true) {
-                T t = T();
-                memcpy(&t, &this->inner_ptr[this->offset], sizeof(T));
+                T t = *(T*)(&this->inner_ptr[this->offset]);
                 if(forward) {
                     this->offset += sizeof(T);
                 }
@@ -31,6 +30,10 @@ namespace javm {
                 if(forward) {
                     this->offset += size_bytes;
                 }
+            }
+
+            size_t GetOffset() {
+                return this->offset;
             }
 
     };

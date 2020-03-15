@@ -1,32 +1,12 @@
-# libjavm
 
-libjavm is a simple, header-only, zero-dependency C++17 Java Virtual Machine library.
+// Define this to enable debug logs (~300k lines of output, only useful for development!)
+// #define JAVM_DEBUG_LOG
 
-The only "dependency" it does require is standard C and C++17 libraries, plus the offial Java standard library (`rt.jar` file).
-
-It provides everything necessary to run Java (8 or lower...?) code in any kind of system.
-
-## Credits
-
-- [python-jvm-interpreter](https://github.com/gkbrk/python-jvm-interpreter), as the original base for the project.
-
-- [andyzip](https://github.com/andy-thomason/andyzip) library, since it's used for JAR loading as an easy-to-use and header-only ZIP file reading library.
-
-- [KiVM](https://github.com/imkiva/KiVM), since it's code was checked for a lot of aspects of the VM.
-
-## Usage
-
-This is a quick demo of how libjavm works:
-
-```cpp
 #include <javm/javm_VM.hpp>
 
-// We will use JAR archives
+// We will use JARs
 #include <javm/rt/rt_JavaArchiveSource.hpp>
 using namespace javm;
-
-// An implementation for threads and another one for synchronization need to be included
-// By default, libjavm provides implementations for pthread-threading and standard C++'s sync stuff
 
 // Use pthread for threading
 #include <javm/extras/extras_PthreadThread.hpp>
@@ -34,8 +14,55 @@ using namespace javm;
 // Use std C++ for locking
 #include <javm/extras/extras_CppSync.hpp>
 
+void PrintClassType(Ptr<vm::ClassType> class_type) {
+    printf("\n");
+    printf("    Java class { Name: '%s', Access: 0x%X } information:", class_type->GetClassName().c_str(), class_type->GetAccessFlags());
+    printf("\n");
+    if(class_type->HasSuperClass()) {
+        printf("\n");
+        printf("    - Super class: '%s'", class_type->GetSuperClassName().c_str());
+        printf("\n");
+    }
+    if(class_type->HasInterfaces()) {
+        printf("\n");
+        printf("    - Interface(s): ");
+        for(auto intf: class_type->GetInterfaceClassNames()) {
+            printf("'%s', ", intf.c_str());
+        }
+        printf("\n");
+    }
+    printf("\n");
+    printf("    - Functions and methods: {");
+    for(auto &invokable: class_type->GetInvokables()) {
+        printf("\n");
+        if(invokable.HasFlag<vm::AccessFlags::Static>()) {
+            printf("        Static function ");
+        }
+        else {
+            printf("        Method ");
+        }
+        printf("{ Name = '%s', Descriptor = '%s', Access = 0x%X }", invokable.GetName().c_str(), invokable.GetDescriptor().c_str(), invokable.GetAccessFlags());
+    }
+    printf("\n");
+    printf("    }");
+    printf("\n\n");
+    printf("    - Fields: {");
+    for(auto &field: class_type->GetFields()) {
+        printf("\n");
+        if(field.HasFlag<vm::AccessFlags::Static>()) {
+            printf("         Static field ");
+        }
+        else {
+            printf("         Field ");
+        }
+        printf("{ Name = '%s', Descriptor = '%s', Access = 0x%X }", field.GetName().c_str(), field.GetDescriptor().c_str(), field.GetAccessFlags());
+    }
+    printf("\n");
+    printf("    }");
+    printf("\n");
+}
+
 void CheckHandleException(vm::ExecutionResult ret) {
-    // If an exception is thrown, let's handle it and throw it
     if(ret.Is<vm::ExecutionStatus::ThrowableThrown>()) {
         auto throwable_obj = ret.ret_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField("detailMessage", "Ljava/lang/String;");
@@ -53,12 +80,10 @@ void CheckHandleException(vm::ExecutionResult ret) {
     }
 }
 
-// In this example, the program is called with Java's standard lib JAR (rt.jar) and another executable JAR to run it, plus optional arguments to be forwarded to the JAR
-
 int main(int argc, char **argv) {
 
     if(argc < 3) {
-        printf("Bad arguments - usage: test <rt-jar> <main-jar> [<args-to-be-passed-for-jar-main>]\n");
+        printf("Bad arguments - usage: javm-test <rt-jar> <main-jar> [<args-to-be-passed-for-jar-main>]\n");
         return 0;
     }
 
@@ -66,17 +91,16 @@ int main(int argc, char **argv) {
     auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[1]); // Java standard lib JAR (rt.jar)
     auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[2]); // Entrypoint JAR
 
-    // 2 - Initial VM preparation (called only ONCE)
+    // 2 - initial VM preparation (called ONCE)
     rt::InitializeVM();
 
-    // 3 - Prepare execution - must be called here (before executing anything else) and after having called ResetExecution()
+    // 3 - prepare execution - must be called here (before executing anything else) and after having called ResetExecution()
     auto ret = rt::PrepareExecution();
     CheckHandleException(ret);
 
     int args_off = 3;
     int args_len = argc - args_off;
 
-    // Create a String array (String[]) and populate it
     auto args_arr_v = vm::TypeUtils::NewArray(args_len, rt::LocateClassType("java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
     for(u32 i = 0; i < args_len; i++) {
@@ -84,30 +108,13 @@ int main(int argc, char **argv) {
     }
 
     if(main_jar->CanBeExecuted()) {
-        // Call the JAR's main(String[]) method
         auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
         auto res = main_class_type->CallClassMethod("main", "([Ljava/lang/String;)V", args_arr_v);
         CheckHandleException(res);
     }
     else {
-        // The JAR failed to load or it doesn't specify a main class (is a JAR library)
         printf("The JAR file can't be executed or is not an executable JAR.");
     }
 
     return 0;
 }
-```
-
-### For a more deep explanation and/or documentation, go [here](docs/Start.md)!
-
-## TO-DO list
-
-- Implement `invokedynamic`, `wide`, `tableswitch` opcodes
-
-- Implement not implemented native methods (only implemented basic ones to get past initialization, for now)
-
-- Use UTF-16 Strings both in Java and C++, currently using UTF-8 / std::string
-
-- Dynamic invoking stuff, related to `invokedynamic` opcode (method handle support, constant pool items related to this...)
-
-- Support or take into account annotations (currently only `CallerSensitive` is checked)

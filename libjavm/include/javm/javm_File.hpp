@@ -5,7 +5,8 @@
 
 namespace javm {
 
-    // Note: this class is a simple wrapper to read a binary file.
+    // Simple but useful wrapper to read a binary file
+
     class File {
 
         private:

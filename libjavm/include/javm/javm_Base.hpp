@@ -4,6 +4,17 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <memory>
+#include <map>
+#include <climits>
+
+#ifndef JAVM_LOG
+#ifdef JAVM_DEBUG_LOG
+#define JAVM_LOG(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+#else
+#define JAVM_LOG(fmt, ...)
+#endif
+#endif
 
 namespace javm {
 
@@ -15,6 +26,8 @@ namespace javm {
     _JAVM_DEFINE_INT_TYPE(16)
     _JAVM_DEFINE_INT_TYPE(32)
     _JAVM_DEFINE_INT_TYPE(64)
+
+    #undef _JAVM_DEFINE_INT_TYPE
 
     template<typename N>
     inline constexpr N BE(N n) {
@@ -52,4 +65,50 @@ namespace javm {
     ClassTypeDeduction<decltype(*this)>::Class / JAVM_THIS_CLASS_TYPE(this) / JAVA_CLASS_TYPE would equal T
     
     */
+
+    template<typename T>
+    using Ptr = std::shared_ptr<T>;
+
+    class PtrUtils {
+
+        public:
+            template<typename T, typename ...Args>
+            static inline Ptr<T> New(Args &&...args) {
+                return std::make_shared<T>(args...);
+            }
+
+            template<typename T>
+            static inline T GetValue(Ptr<T> ptr) {
+                return *ptr.get();
+            }
+
+            template<typename T>
+            static inline void SetValue(Ptr<T> ptr, T val) {
+                *ptr.get() = val;
+            }
+
+            template<typename T>
+            static inline bool IsValid(Ptr<T> ptr) {
+                return bool(ptr);
+            }
+
+            template<typename T>
+            static inline bool Equal(Ptr<T> ptr1, Ptr<T> ptr2) {
+                return ptr1.get() == ptr2.get();
+            }
+
+            template<typename T>
+            static inline void Destroy(Ptr<T> &ptr_ref) {
+                if(ptr_ref) {
+                    ptr_ref.reset();
+                    ptr_ref = nullptr;
+                }
+            }
+
+            template<typename T, typename U>
+            static inline Ptr<T> CastTo(Ptr<U> ptr) {
+                return std::dynamic_pointer_cast<T>(ptr);
+            }
+    };
+
 }
