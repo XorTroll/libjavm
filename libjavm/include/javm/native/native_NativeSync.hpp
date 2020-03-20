@@ -4,7 +4,7 @@
 
 namespace javm::native {
 
-    // Platform and lib-specific native synchronization functions
+    // These must be implemented, depending on the platform
 
     class RecursiveMutex {
 

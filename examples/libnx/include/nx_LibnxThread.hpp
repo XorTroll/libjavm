@@ -9,13 +9,11 @@
 
 namespace nx {
 
-    using NativeThread = ::Thread;
-
     class LibnxThread : public native::Thread {
 
         private:
             bool existing;
-            NativeThread thread;
+            ::Thread thread;
 
             inline constexpr vm::type::Long GetHandleImpl() {
                 return (vm::type::Long)thread.handle;
@@ -33,16 +31,12 @@ namespace nx {
                 this->thread.handle = (Handle)handle;
             }
 
-            virtual void DoStart(native::ThreadEntrypoint entry_fn) override {
+            virtual void Start(native::ThreadEntrypoint entry_fn) override {
                 if(existing) {
                     return;
                 }
                 R_TRY(threadCreate(&this->thread, entry_fn, reinterpret_cast<void*>(this), nullptr, StackSize, Priority, CpuId));
                 R_TRY(threadStart(&this->thread));
-            }
-
-            virtual native::ThreadId GetId() override {
-                return this->GetHandleImpl();
             }
 
             virtual native::ThreadHandle GetHandle() override {
@@ -52,16 +46,8 @@ namespace nx {
             virtual bool IsAlive() override {
                 u32 tmp_prio = 0;
                 auto res = svcGetThreadPriority(&tmp_prio, this->thread.handle);
+                // If the thread has ended, the handle should make this call fail :P
                 return R_SUCCEEDED(res);
-            }
-
-            virtual native::Priority GetPriority() override {
-                // Stub
-                return native::Thread::DefaultPriority;
-            }
-
-            virtual void SetPriority(native::Priority prio) override {
-                // Stub
             }
 
     };
@@ -81,6 +67,15 @@ namespace javm::native {
 
     Ptr<Thread> CreateExistingThread(native::ThreadHandle handle) {
         return PtrUtils::New<nx::LibnxThread>(handle);
+    }
+
+    Priority GetThreadPriority(ThreadHandle handle) {
+        // Stub
+        return Thread::DefaultPriority;
+    }
+
+    void SetThreadPriority(ThreadHandle handle, Priority prio) {
+        // Stub
     }
 
 }

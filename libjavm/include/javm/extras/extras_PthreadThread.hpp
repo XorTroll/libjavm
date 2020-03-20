@@ -33,15 +33,11 @@ namespace javm::extras {
 
             PthreadThread(native::ThreadHandle handle) : existing(true), pthread(CastToPthread(handle)) {}
 
-            virtual void DoStart(native::ThreadEntrypoint entry_fn) override {
+            virtual void Start(native::ThreadEntrypoint entry_fn) override {
                 if(existing) {
                     return;
                 }
                 pthread_create(&this->pthread, nullptr, (PthreadEntry)entry_fn, reinterpret_cast<void*>(this));
-            }
-
-            virtual native::ThreadId GetId() override {
-                return this->GetHandleImpl();
             }
 
             virtual native::ThreadHandle GetHandle() override {
@@ -54,15 +50,6 @@ namespace javm::extras {
                     return true;
                 }
                 return false;
-            }
-
-            virtual native::Priority GetPriority() override {
-                // Stub
-                return native::Thread::DefaultPriority;
-            }
-
-            virtual void SetPriority(native::Priority prio) override {
-                // Stub
             }
 
     };
@@ -82,6 +69,15 @@ namespace javm::native {
 
     Ptr<Thread> CreateExistingThread(native::ThreadHandle handle) {
         return PtrUtils::New<extras::PthreadThread>(handle);
+    }
+
+    Priority GetThreadPriority(ThreadHandle handle) {
+        // Stub
+        return Thread::DefaultPriority;
+    }
+
+    void SetThreadPriority(ThreadHandle handle, Priority prio) {
+        // Stub
     }
 
 }

@@ -2,7 +2,9 @@
 
 libjavm is a simple, header-only, zero-dependency C++17 Java Virtual Machine library.
 
-The only "dependency" it does require is standard C and C++17 libraries, plus the offial Java standard library (`rt.jar` file).
+The only "dependencies" it does require is standard C and C++17 libraries, plus the offial Java standard library (`rt.jar` file).
+
+Note that, for threading and synchronization items (mutexes, condition vars...) you must provide your own implementation. This libraries provide a sample/default implementation with **pthread** for threading and **standard C++** for sync stuff (`std::recursive_mutex`, `std::condition_variable_any`...).
 
 It provides everything necessary to run Java (8 or lower...?) code in any kind of system.
 
@@ -35,15 +37,18 @@ using namespace javm;
 #include <javm/extras/extras_CppSync.hpp>
 
 void CheckHandleException(vm::ExecutionResult ret) {
-    // If an exception is thrown, let's handle it and throw it
-    if(ret.Is<vm::ExecutionStatus::ThrowableThrown>()) {
-        auto throwable_obj = ret.ret_var->GetAs<vm::type::ClassInstance>();
+    if(ret.Is<vm::ExecutionStatus::Thrown>()) {
+        auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
+        auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField("detailMessage", "Ljava/lang/String;");
-        auto cur_thr = vm::ThreadUtils::GetCurrentThread();
-        auto msg = "Exception thrown in thread '" + cur_thr->GetThreadName() + "' (" + vm::TypeUtils::FormatVariableType(ret.ret_var) + ") - " + vm::StringUtils::GetValue(msg_v);
+        auto msg = "Exception in thread \"" + thread->GetThreadName() + "\" " + vm::TypeUtils::FormatVariableType(throwable_var);
+        auto msg_str = vm::StringUtils::GetValue(msg_v);
+        if(!msg_str.empty()) {
+            msg +=  + ": " + vm::StringUtils::GetValue(msg_v);
+        }
         printf("%s\n", msg.c_str());
-        for(auto call_info: cur_thr->GetInvertedCallStack()) {
-            printf("- At %s - %s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
+        for(auto call_info: thread->GetInvertedCallStack()) {
+            printf("    at %s.%s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
         }
         exit(0);
     }
@@ -98,11 +103,71 @@ int main(int argc, char **argv) {
 }
 ```
 
-### For a more deep explanation and/or documentation, go [here](docs/Start.md)!
+> TODO: documentation for the new VM!
+
+## Java tests
+
+The tests used to test the VM (thanks, KiVM!) are located at `java-test`. Currently x out of 28 tests are successfully passed (comparing their output to normal JRE's one):
+
+- `ArgumentTest`: pass!
+
+- `ArithmeticTest`: fail (need to throw an exception internally when dividing by zero!)
+
+- `ArrayTest`: pass!
+
+- `ArrayTest1`: fail (multi-dimension arrays aren't implemented yet!)
+
+- `ArrayTest2`: pass! (the out-of-range exception isn't the same one official Java throws, so that should be corrected...)
+
+- `AssertTest`: pass!
+
+- `ChineseTest`: pass, but the VM currently uses UTF-8 strings, which should be UTF-16!
+
+- `ClassCastTest`: fail (unrelated classes can be casted right now, class casting should be corrected and maybe reimplemented...)
+
+- `ClassNameTest`: semi-pass (primitive types show a different name ('B' instead of 'byte'), and it also failed due to the lack of multi-dimension array support)
+
+- `CovScriptJNITest`: pass (those native functions aren't present, so an exception is thrown)
+
+- `ExceptionTest`: pass!
+
+- `ExceptionTest1`: fail (invalid classes should throw an exception)
+
+- `ExceptionTest2`: fail (makes the VM crash...? needs more debugging)
+
+- `ExceptionTest3`: fail (because the exceptions we throw aren't the ones JRE throws, thus the catch blocks inside the test do nothing...)
+
+- `FileTest`: fail (filesystem-related native methods aren't implemented)
+
+- `GCTest`: pass! (memory is properly free'd, I guess)
+
+- `HashTest`: pass!
+
+- `HelloWorld`: pass!
+
+- `LambdaTest`: fail (dynamic stuff not implemented yet...)
+
+- `Main`: pass (we aren't setting the 'kivm.info' property, thus it's null)
+
+- `PackagePrivateTest`: fail? (needs further debugging)
+
+- `Polymorphism`: pass!
+
+- `StaticFieldTest`: pass!
+
+- `StringBuilderTest1`: pass!
+
+- `ThreadExceptionTest`: pass!
+
+- `ThreadTest`: pass!
+
+Outcome: 17.5 out of 28 tests passed (for now)!
 
 ## TO-DO list
 
-- Implement `invokedynamic`, `wide`, `tableswitch` opcodes
+- Implement `invokedynamic`, `wide`, `tableswitch`, `multianewarray` opcodes
+
+- Properly support multi-dimension arrays (`multianewarray`)
 
 - Implement not implemented native methods (only implemented basic ones to get past initialization, for now)
 
@@ -110,4 +175,4 @@ int main(int argc, char **argv) {
 
 - Dynamic invoking stuff, related to `invokedynamic` opcode (method handle support, constant pool items related to this...)
 
-- Support or take into account annotations (currently only `CallerSensitive` is checked)
+- Support or take into account other annotations (currently only `CallerSensitive` is checked)

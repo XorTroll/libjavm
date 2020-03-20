@@ -31,14 +31,18 @@ void DoExit()  {
 }
 
 void CheckHandleException(vm::ExecutionResult ret) {
-    if(ret.Is<vm::ExecutionStatus::ThrowableThrown>()) {
-        auto throwable_obj = ret.ret_var->GetAs<vm::type::ClassInstance>();
+    if(ret.Is<vm::ExecutionStatus::Thrown>()) {
+        auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
+        auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField("detailMessage", "Ljava/lang/String;");
-        auto cur_thr = vm::ThreadUtils::GetCurrentThread();
-        auto msg = "Exception thrown in thread '" + cur_thr->GetThreadName() + "' (" + vm::TypeUtils::FormatVariableType(ret.ret_var) + ") - " + vm::StringUtils::GetValue(msg_v);
+        auto msg = "Exception in thread \"" + thread->GetThreadName() + "\" " + vm::TypeUtils::FormatVariableType(throwable_var);
+        auto msg_str = vm::StringUtils::GetValue(msg_v);
+        if(!msg_str.empty()) {
+            msg +=  + ": " + vm::StringUtils::GetValue(msg_v);
+        }
         printf("%s\n", msg.c_str());
-        for(auto call_info: cur_thr->GetInvertedCallStack()) {
-            printf("- At %s - %s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
+        for(auto call_info: thread->GetInvertedCallStack()) {
+            printf("    at %s.%s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
         }
         DoExit();
     }

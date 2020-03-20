@@ -159,7 +159,7 @@ namespace javm::vm {
                                 frame.PushStack(class_v); \
                             } \
                             else { \
-                                JAVM_LOG("[ldc-base] Invalid type name!"); \
+                                ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unsupported constant pool item"); \
                             } \
                             break; \
                         } \
@@ -168,7 +168,7 @@ namespace javm::vm {
                     } \
                 } \
                 else { \
-                    JAVM_LOG("Bad const item...?"); \
+                    ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unsupported constant pool item"); \
                 } \
             }
 
@@ -185,7 +185,7 @@ namespace javm::vm {
                     auto index_obj = index_var->GetAs<type::Integer>(); \
                     auto index = PtrUtils::GetValue(index_obj); \
                     if(index < 0) { \
-                        JAVM_LOG("this->ThrowRuntimeException('Invalid array index');"); \
+                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -196,11 +196,11 @@ namespace javm::vm {
                                 frame.PushStack(inner_var); \
                             } \
                             else { \
-                                JAVM_LOG("this->ThrowRuntimeException('Invalid array element index');"); \
+                                return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array index"); \
                             } \
                         } \
                         else { \
-                            JAVM_LOG("this->ThrowRuntimeException('Invalid input variable (not an array)');"); \
+                            return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array item"); \
                         } \
                     } \
                     break; \
@@ -213,7 +213,7 @@ namespace javm::vm {
                     auto index_obj = index_var->GetAs<type::Integer>(); \
                     auto index = PtrUtils::GetValue(index_obj); \
                     if(index < 0) { \
-                        JAVM_LOG("this->ThrowRuntimeException('Invalid array index');"); \
+                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -222,7 +222,7 @@ namespace javm::vm {
                             array_obj->SetAt(index, value); \
                         } \
                         else { \
-                            JAVM_LOG("this->ThrowRuntimeException('Invalid input variable (not an array)');"); \
+                            return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array index"); \
                         } \
                     } \
                     break; \
@@ -1380,7 +1380,8 @@ namespace javm::vm {
                     auto msg = throwable_obj->CallInstanceMethod("getMessage", "()Ljava/lang/String;", throwable_var);
                     auto msg_str = StringUtils::GetValue(msg.ret_var);
                     JAVM_LOG("[athrow] Thrown message: '%s'", msg_str.c_str());
-                    return ExecutionResult::Throw(throwable_var);
+                    inner_impl::NotifyExceptionThrownImpl(throwable_var);
+                    return ExecutionResult::Thrown();
                 }
                 case Instruction::CHECKCAST: {
                     u16 index = BE(frame.ReadCode<u16>());
@@ -1507,8 +1508,7 @@ namespace javm::vm {
                 }
                 
                 default:
-                    printf("  [VM] !!! Unknown or unimplemented opcode/instruction: 0x%x!\n", static_cast<u32>(inst));
-                    break;
+                    return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unimplemented instruction: " + std::to_string(static_cast<u32>(inst)));
             }
             return ExecutionResult::ContinueCodeExecution();
         }
@@ -1538,12 +1538,14 @@ namespace javm::vm {
         }
 
         ExecutionResult CommonDoExecute(ExecutionFrame &frame) {
+            // First of all, check if any exceptions were thrown in any threads
+            if(inner_impl::WasExceptionThrownImpl()) {
+                JAVM_LOG("[execution] Exception thrown, skipping execution...");
+                return ExecutionResult::Thrown();
+            }
+
             while(true) {
                 auto res = exec_impl::HandleInstructionImpl(frame);
-                if(res.Is<ExecutionStatus::ThrowableThrown>()) {
-                    JAVM_LOG("[execution] exception thrown!");
-                    return res;
-                }
                 if(!res.Is<ExecutionStatus::ContinueExecution>()) {
                     return res;
                 }

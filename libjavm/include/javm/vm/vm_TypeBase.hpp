@@ -58,7 +58,7 @@ namespace javm::vm {
         ContinueExecution, // Continue reading instructions
         VoidReturn,
         VariableReturn,
-        ThrowableThrown,
+        Thrown,
 
     };
 
@@ -72,7 +72,7 @@ namespace javm::vm {
         }
 
         inline constexpr bool IsInvalidOrThrown() {
-            return this->Is<ExecutionStatus::Invalid>() || this->Is<ExecutionStatus::ThrowableThrown>();
+            return this->Is<ExecutionStatus::Invalid>() || this->Is<ExecutionStatus::Thrown>();
         }
 
         static inline ExecutionResult Void() {
@@ -83,8 +83,8 @@ namespace javm::vm {
             return { ExecutionStatus::VariableReturn, var };
         }
 
-        static inline ExecutionResult Throw(Ptr<Variable> throwable_var) {
-            return { ExecutionStatus::ThrowableThrown, throwable_var };
+        static inline ExecutionResult Thrown() {
+            return { ExecutionStatus::Thrown, nullptr };
         }
 
         static inline ExecutionResult InvalidState() {
@@ -121,6 +121,10 @@ namespace javm::vm {
         ExecutionResult ThrowWithTypeImpl(const std::string &class_name);
 
         ExecutionResult ThrowWithTypeAndMessageImpl(const std::string &class_name, const std::string &msg);
+
+        static inline bool WasExceptionThrownImpl();
+
+        static inline void NotifyExceptionThrownImpl(Ptr<Variable> throwable_v);
 
     }
 

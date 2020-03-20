@@ -7,6 +7,7 @@
 #include <javm/vm/vm_Reflection.hpp>
 #include <unistd.h>
 #include <csignal>
+#include <sys/time.h>
 
 namespace javm::native {
 
@@ -238,6 +239,14 @@ namespace javm::native {
                 auto lib = StringUtils::GetValue(lib_v);
                 JAVM_LOG("[java.lang.System.loadLibrary] called - library name: '%s'...", lib.c_str());
                 return ExecutionResult::Void();
+            }
+
+            ExecutionResult currentTimeMillis(std::vector<Ptr<Variable>> param_vars) {
+                timeval time = {};
+                gettimeofday(&time, nullptr);
+                auto time_ms = time.tv_sec * 1000 + time.tv_usec / 1000;
+                JAVM_LOG("[java.lang.System.currentTimeMillis] called - time ms: %ld", time_ms);
+                return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(time_ms));
             }
 
         }
@@ -756,13 +765,7 @@ namespace javm::native {
                 auto eetop_v = thread_obj->GetField("eetop", "J");
                 auto eetop = eetop_v->GetValue<type::Long>();
 
-                auto thr = ThreadUtils::GetThreadByHandle(eetop);
-                if(thr) {
-                    thr->GetThreadObject()->SetPriority(prio);
-                }
-                else {
-                    return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/RuntimeException", "Thread not found...?");
-                }
+                native::SetThreadPriority(eetop, prio);
 
                 return ExecutionResult::Void();
             }
@@ -954,6 +957,7 @@ namespace javm::native {
         RegisterNativeClassMethod("java/lang/System", "setErr0", "(Ljava/io/PrintStream;)V", &impl::java::lang::System::setErr0);
         RegisterNativeClassMethod("java/lang/System", "mapLibraryName", "(Ljava/lang/String;)Ljava/lang/String;", &impl::java::lang::System::mapLibraryName);
         RegisterNativeClassMethod("java/lang/System", "loadLibrary", "(Ljava/lang/String;)V", &impl::java::lang::System::loadLibrary);
+        RegisterNativeClassMethod("java/lang/System", "currentTimeMillis", "()J", &impl::java::lang::System::currentTimeMillis);
         RegisterNativeClassMethod("java/lang/Class", "registerNatives", "()V", &impl::java::lang::Class::registerNatives);
         RegisterNativeClassMethod("java/lang/Class", "getPrimitiveClass", "(Ljava/lang/String;)Ljava/lang/Class;", &impl::java::lang::Class::getPrimitiveClass);
         RegisterNativeClassMethod("java/lang/Class", "desiredAssertionStatus0", "(Ljava/lang/Class;)Z", &impl::java::lang::Class::desiredAssertionStatus0);

@@ -21,12 +21,11 @@ namespace javm::vm {
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto ret = throwable_obj->CallConstructor(throwable_v, "()V");
-                    if(ret.IsInvalidOrThrown()) {
-                        return ret;
+                    if(!ret.IsInvalidOrThrown()) {
+                        inner_impl::NotifyExceptionThrownImpl(throwable_v);
+                        return ExecutionResult::Thrown();
                     }
-                    return ExecutionResult::ReturnVariable(throwable_v);
                 }
-                // Don't throw another exception, since if basic Java exception types aren't present we might end up in a recursive loop
                 return ExecutionResult::InvalidState();
             }
 
@@ -36,12 +35,11 @@ namespace javm::vm {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto msg_v = inner_impl::CreateNewString(msg);
                     auto ret = throwable_obj->CallConstructor(throwable_v, "(Ljava/lang/String;)V", msg_v);
-                    if(ret.IsInvalidOrThrown()) {
-                        return ret;
+                    if(!ret.IsInvalidOrThrown()) {
+                        inner_impl::NotifyExceptionThrownImpl(throwable_v);
+                        return ExecutionResult::Thrown();
                     }
-                    return ExecutionResult::ReturnVariable(throwable_v);
                 }
-                // Don't throw another exception, since if basic Java exception types aren't present we might end up in a recursive loop
                 return ExecutionResult::InvalidState();
             }
 

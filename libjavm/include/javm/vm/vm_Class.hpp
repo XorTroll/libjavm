@@ -291,7 +291,7 @@ namespace javm::vm {
                                         if(is_sync) {
                                             this->monitor->Leave();
                                         }
-                                        if(ret.Is<ExecutionStatus::ThrowableThrown>()) {
+                                        if(ret.Is<ExecutionStatus::Thrown>()) {
                                             guard.NotifyThrown();
                                         }
                                         return ret;
@@ -648,7 +648,7 @@ namespace javm::vm {
                                     if(is_sync) {
                                         this->monitor->Leave();
                                     }
-                                    if(ret.Is<ExecutionStatus::ThrowableThrown>()) {
+                                    if(ret.Is<ExecutionStatus::Thrown>()) {
                                         guard.NotifyThrown();
                                     }
                                     return ret;
