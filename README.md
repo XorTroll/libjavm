@@ -149,7 +149,7 @@ The tests used to test the VM (thanks, KiVM!) are located at `java-test`. Curren
 
 - `Main`: pass (we aren't setting the 'kivm.info' property, thus it's null)
 
-- `PackagePrivateTest`: fail? (needs further debugging)
+- `PackagePrivateTest`: pass!
 
 - `Polymorphism`: pass!
 
@@ -161,7 +161,7 @@ The tests used to test the VM (thanks, KiVM!) are located at `java-test`. Curren
 
 - `ThreadTest`: pass!
 
-Outcome: 17.5 out of 28 tests passed (for now)!
+Outcome: 18.5 out of 28 tests passed (for now)!
 
 ## TO-DO list
 

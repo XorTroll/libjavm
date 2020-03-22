@@ -301,6 +301,12 @@ namespace javm::vm {
                         }
                     }
                 }
+                if(this->HasSuperClass()) {
+                    auto super_class = this->GetSuperClassType();
+                    if(super_class) {
+                        return super_class->CallClassMethod(name, descriptor, param_vars);
+                    }
+                }
                 return ExecutionResult::InvalidState();
             }
 
