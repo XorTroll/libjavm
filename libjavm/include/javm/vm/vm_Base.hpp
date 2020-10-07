@@ -1,6 +1,7 @@
 
 #pragma once
 #include <javm/javm_Base.hpp>
+#include <javm/javm_String.hpp>
 
 namespace javm::vm {
 
@@ -51,12 +52,8 @@ namespace javm::vm {
 
     struct AttributeType {
 
-        #define _JAVM_ATTRIBUTE_TYPE_DEFINE(attr) static inline constexpr const char *attr = #attr;
-
-        _JAVM_ATTRIBUTE_TYPE_DEFINE(Code)
-        _JAVM_ATTRIBUTE_TYPE_DEFINE(RuntimeVisibleAnnotations)
-
-        #undef _JAVM_ATTRIBUTE_TYPE_DEFINE
+        static inline constexpr auto Code = u"Code";
+        static inline constexpr auto RuntimeVisibleAnnotations = u"RuntimeVisibleAnnotations";
 
     };
 

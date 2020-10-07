@@ -40,34 +40,14 @@ namespace javm {
         return tmpn;
     }
 
-    template<typename N>
-    inline std::string ToHexString(N n) {
-        std::stringstream strm;
-        strm << std::hex << n;
-        return strm.str();
-    }
-
-    template<typename T>
-    struct ThisClassTypeDeduction {
-        
-        static_assert(!std::is_pointer_v<T> && std::is_reference_v<T>, "This must be done with '*this'!");
-        typedef typename std::remove_reference<T>::type Class;
-    };
-
-    #define JAVM_THIS_CLASS_TYPE(this_ptr) javm::ThisClassTypeDeduction<decltype(*this_ptr)>::Class
-    #define JAVM_CLASS_TYPE JAVM_THIS_CLASS_TYPE(this)
-
-    /*
-    
-    This can be used to determine a class's type from a member function based on 'this'.
-
-    Given class T, and doing this inside a member function of T,
-    ClassTypeDeduction<decltype(*this)>::Class / JAVM_THIS_CLASS_TYPE(this) / JAVA_CLASS_TYPE would equal T
-    
-    */
+    // Using shared pointers to dispose components properly
 
     template<typename T>
     using Ptr = std::shared_ptr<T>;
+
+    // In Java, Strings are UTF-16!
+
+    using String = std::u16string;
 
     class PtrUtils {
 

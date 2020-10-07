@@ -4,24 +4,22 @@
 
 namespace javm::vm {
 
-    using PropertyTable = std::map<std::string, std::string>;
+    using PropertyTable = std::map<String, String>;
 
     namespace inner_impl {
 
         static inline PropertyTable g_system_property_table = {
-
             // TODO
-            { "java.vm.specification.version", "1.8-demo" },
-            { "path.separator", ":" },
-            { "file.encoding.pkg", "sun.io" },
-            { "os.arch", "demo-arch" },
-            { "os.name", "Demo OS" },
-            { "os.version", "0.1-demo" },
-            { "line.separator", "\n" },
-            { "file.separator", "/" },
-            { "sun.jnu.encoding", "UTF-8" },
-            { "file.encoding", "UTF-8" },
-
+            { u"java.vm.specification.version", u"1.8-demo" },
+            { u"path.separator", u":" },
+            { u"file.encoding.pkg", u"sun.io" },
+            { u"os.arch", u"demo-arch" },
+            { u"os.name", u"Demo OS" },
+            { u"os.version", u"0.1-demo" },
+            { u"line.separator", u"\n" },
+            { u"file.separator", u"/" },
+            { u"sun.jnu.encoding", u"UTF-8" },
+            { u"file.encoding", u"UTF-8" },
         };
 
         static inline PropertyTable &GetSystemPropertyTableImpl() {
@@ -34,7 +32,7 @@ namespace javm::vm {
         return inner_impl::GetSystemPropertyTableImpl();
     }
 
-    static inline void SetSystemProperty(const std::string &name, const std::string &value) {
+    static inline void SetSystemProperty(const String &name, const String &value) {
         auto &system_props = GetSystemPropertyTable();
         // Remove if already set (allowing to redefine properties)
         auto it = system_props.find(name);

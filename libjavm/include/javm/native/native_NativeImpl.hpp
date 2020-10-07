@@ -17,11 +17,11 @@ namespace javm::native {
 
         namespace inner_impl {
 
-            static std::map<std::string, type::Integer> g_signal_table = {
+            static std::map<String, type::Integer> g_signal_table = {
                 // TODO
             };
 
-            static inline std::map<std::string, type::Integer> &GetSignalTable() {
+            static inline std::map<String, type::Integer> &GetSignalTable() {
                 return g_signal_table;
             }
 
@@ -62,7 +62,7 @@ namespace javm::native {
         inline Ptr<ReflectionType> GetReflectionTypeFromClassVariable(Ptr<Variable> var) {
             if(var->CanGetAs<VariableType::ClassInstance>()) {
                 auto var_obj = var->GetAs<type::ClassInstance>();
-                auto name_v = var_obj->GetField("name", "Ljava/lang/String;");
+                auto name_v = var_obj->GetField(u"name", u"Ljava/lang/String;");
                 auto name = StringUtils::GetValue(name_v);
                 return ReflectionUtils::FindTypeByName(name);
             }
@@ -72,7 +72,7 @@ namespace javm::native {
         ExecutionResult GetClassModifiers(Ptr<Variable> class_var) {
             auto ref_type = GetReflectionTypeFromClassVariable(class_var);
             if(ref_type) {
-                JAVM_LOG("[native-GetClassModifiers] reflection type name: '%s'", ref_type->GetTypeName().c_str());
+                JAVM_LOG("[native-GetClassModifiers] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                 if(ref_type->IsClassInstance()) {
                     auto class_type = ref_type->GetClassType();
                     auto flags_v = TypeUtils::NewPrimitiveVariable<type::Integer>(GetClassModifiersImpl(class_type));
@@ -94,9 +94,9 @@ namespace javm::native {
             ExecutionResult getClass(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
-                    JAVM_LOG("[java.lang.Object.getClass] called - class type name: '%s'", this_obj->GetClassType()->GetClassName().c_str());
+                    JAVM_LOG("[java.lang.Object.getClass] called - class type name: '%s'", StrUtils::ToUtf8(this_obj->GetClassType()->GetClassName()).c_str());
                     auto ref_type = ReflectionUtils::FindTypeByName(this_obj->GetClassType()->GetClassName());
-                    JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }
                 return ExecutionResult::ReturnVariable(TypeUtils::Null());
@@ -156,10 +156,10 @@ namespace javm::native {
                 auto props_obj = props_v->GetAs<type::ClassInstance>();
 
                 for(auto &[key, value] : vm::GetSystemPropertyTable()) {
-                    JAVM_LOG("[java.lang.System.initProperties] setting property '%s' of value '%s'", key.c_str(), value.c_str());
+                    JAVM_LOG("[java.lang.System.initProperties] setting property '%s' of value '%s'", StrUtils::ToUtf8(key).c_str(), StrUtils::ToUtf8(value).c_str());
                     auto key_str = StringUtils::CreateNew(key);
                     auto val_str = StringUtils::CreateNew(value);
-                    props_obj->CallInstanceMethod("setProperty", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", props_v, key_str, val_str);
+                    props_obj->CallInstanceMethod(u"setProperty", u"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", props_v, key_str, val_str);
                 }
 
                 return ExecutionResult::ReturnVariable(props_v);
@@ -205,39 +205,39 @@ namespace javm::native {
 
             ExecutionResult setIn0(std::vector<Ptr<Variable>> param_vars) {
                 auto stream_v = param_vars[0];
-                JAVM_LOG("[java.lang.System.setIn0] called - in stream: '%s'...", TypeUtils::FormatVariableType(stream_v).c_str());
-                auto system_class_type = vm::inner_impl::LocateClassTypeImpl("java/lang/System");
-                system_class_type->SetStaticField("in", "Ljava/io/InputStream;", stream_v);
+                JAVM_LOG("[java.lang.System.setIn0] called - in stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
+                auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
+                system_class_type->SetStaticField(u"in", u"Ljava/io/InputStream;", stream_v);
                 return ExecutionResult::Void();
             }
 
             ExecutionResult setOut0(std::vector<Ptr<Variable>> param_vars) {
                 auto stream_v = param_vars[0];
-                JAVM_LOG("[java.lang.System.setOut0] called - out stream: '%s'...", TypeUtils::FormatVariableType(stream_v).c_str());
-                auto system_class_type = vm::inner_impl::LocateClassTypeImpl("java/lang/System");
-                system_class_type->SetStaticField("out", "Ljava/io/PrintStream;", stream_v);
+                JAVM_LOG("[java.lang.System.setOut0] called - out stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
+                auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
+                system_class_type->SetStaticField(u"out", u"Ljava/io/PrintStream;", stream_v);
                 return ExecutionResult::Void();
             }
 
             ExecutionResult setErr0(std::vector<Ptr<Variable>> param_vars) {
                 auto stream_v = param_vars[0];
-                JAVM_LOG("[java.lang.System.setErr0] called - err stream: '%s'...", TypeUtils::FormatVariableType(stream_v).c_str());
-                auto system_class_type = vm::inner_impl::LocateClassTypeImpl("java/lang/System");
-                system_class_type->SetStaticField("err", "Ljava/io/PrintStream;", stream_v);
+                JAVM_LOG("[java.lang.System.setErr0] called - err stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
+                auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
+                system_class_type->SetStaticField(u"err", u"Ljava/io/PrintStream;", stream_v);
                 return ExecutionResult::Void();
             }
 
             ExecutionResult mapLibraryName(std::vector<Ptr<Variable>> param_vars) {
                 auto lib_v = param_vars[0];
                 auto lib = StringUtils::GetValue(lib_v);
-                JAVM_LOG("[java.lang.System.mapLibraryName] called - library name: '%s'...", lib.c_str());
+                JAVM_LOG("[java.lang.System.mapLibraryName] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::ReturnVariable(lib_v);
             }
 
             ExecutionResult loadLibrary(std::vector<Ptr<Variable>> param_vars) {
                 auto lib_v = param_vars[0];
                 auto lib = StringUtils::GetValue(lib_v);
-                JAVM_LOG("[java.lang.System.loadLibrary] called - library name: '%s'...", lib.c_str());
+                JAVM_LOG("[java.lang.System.loadLibrary] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::Void();
             }
 
@@ -261,7 +261,7 @@ namespace javm::native {
             ExecutionResult getPrimitiveClass(std::vector<Ptr<Variable>> param_vars) {
                 auto type_name_v = param_vars[0];
                 auto type_name = StringUtils::GetValue(type_name_v);
-                JAVM_LOG("[java.lang.Class.getPrimitiveClass] called - primitive type name: '%s'...", type_name.c_str());
+                JAVM_LOG("[java.lang.Class.getPrimitiveClass] called - primitive type name: '%s'...", StrUtils::ToUtf8(type_name).c_str());
                 auto ref_type = ReflectionUtils::FindTypeByName(type_name);
                 if(ref_type) {
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
@@ -272,7 +272,7 @@ namespace javm::native {
             ExecutionResult desiredAssertionStatus0(std::vector<Ptr<Variable>> param_vars) {
                 auto ref_type = GetReflectionTypeFromClassVariable(param_vars[0]);
                 if(ref_type) {
-                    JAVM_LOG("[java.lang.Class.desiredAssertionStatus0] called - Reflection type name: '%s'...", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.desiredAssertionStatus0] called - Reflection type name: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                 }
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(0));
             }
@@ -285,11 +285,11 @@ namespace javm::native {
                 auto loader_v = param_vars[2];
                 auto loader = loader_v->GetAs<type::ClassInstance>();
 
-                JAVM_LOG("[java.lang.Class.forName0] called - Class name: '%s'...", class_name.c_str());
+                JAVM_LOG("[java.lang.Class.forName0] called - Class name: '%s'...", StrUtils::ToUtf8(class_name).c_str());
 
                 auto ref_type = ReflectionUtils::FindTypeByName(class_name);
                 if(ref_type) {
-                    JAVM_LOG("[java.lang.Class.desiredAssertionStatus0] called - Processed reflection type: '%s'...", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.desiredAssertionStatus0] called - Processed reflection type: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     // Call the static initializer, just in case
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
@@ -310,10 +310,10 @@ namespace javm::native {
 
                 auto ref_type = GetReflectionTypeFromClassVariable(this_var);
                 if(ref_type) {
-                    JAVM_LOG("[java.lang.Class.getDeclaredFields0] reflection type name: '%s'...", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.getDeclaredFields0] reflection type name: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
-                        auto field_class_type = vm::inner_impl::LocateClassTypeImpl("java/lang/reflect/Field");
+                        auto field_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/reflect/Field");
                         if(field_class_type) {
                             if(class_type) {
                                 auto &fields = class_type->GetRawFields();
@@ -326,30 +326,30 @@ namespace javm::native {
                                     auto field_obj = field_v->GetAs<type::ClassInstance>();
 
                                     auto declaring_class_obj = this_var;
-                                    JAVM_LOG("[java.lang.Class.getDeclaredFields0] Field[%d] -> %s", i, field.GetName().c_str());
+                                    JAVM_LOG("[java.lang.Class.getDeclaredFields0] Field[%d] -> %s", i, StrUtils::ToUtf8(field.GetName()).c_str());
 
-                                    field_obj->SetField("clazz", "Ljava/lang/Class;", declaring_class_obj);
+                                    field_obj->SetField(u"clazz", u"Ljava/lang/Class;", declaring_class_obj);
 
                                     auto field_ref_type = ReflectionUtils::FindTypeByName(field.GetDescriptor());
                                     if(field_ref_type) {
-                                        JAVM_LOG("[java.lang.Class.getDeclaredFields0] Field reflection type: '%s'...", field_ref_type->GetTypeName().c_str());
+                                        JAVM_LOG("[java.lang.Class.getDeclaredFields0] Field reflection type: '%s'...", StrUtils::ToUtf8(field_ref_type->GetTypeName()).c_str());
                                         auto class_v = TypeUtils::NewClassTypeVariable(field_ref_type);
-                                        field_obj->SetField("type", "Ljava/lang/Class;", class_v);
+                                        field_obj->SetField(u"type", u"Ljava/lang/Class;", class_v);
                                     }
 
                                     auto offset = class_type->GetRawFieldUnsafeOffset(field.GetName(), field.GetDescriptor());
-                                    field_obj->SetField("slot", "I", TypeUtils::NewPrimitiveVariable<type::Integer>(offset));
+                                    field_obj->SetField(u"slot", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(offset));
 
                                     auto name = StringUtils::CreateNew(field.GetName());
-                                    field_obj->SetField("name", "Ljava/lang/String;", name);
+                                    field_obj->SetField(u"name", u"Ljava/lang/String;", name);
 
                                     auto modifiers = (type::Integer)field.GetAccessFlags();
-                                    field_obj->SetField("modifiers", "I", TypeUtils::NewPrimitiveVariable<type::Integer>(modifiers));
+                                    field_obj->SetField(u"modifiers", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(modifiers));
 
                                     auto signature = StringUtils::CreateNew(field.GetDescriptor());
-                                    field_obj->SetField("signature", "Ljava/lang/String;", signature);
+                                    field_obj->SetField(u"signature", u"Ljava/lang/String;", signature);
 
-                                    field_obj->SetField("override", "Z", TypeUtils::False());
+                                    field_obj->SetField(u"override", u"Z", TypeUtils::False());
 
                                     field_array_obj->SetAt(i, field_v);
                                 }
@@ -373,7 +373,7 @@ namespace javm::native {
 
                 auto ref_type = GetReflectionTypeFromClassVariable(this_var);
                 if(ref_type) {
-                    JAVM_LOG("[java.lang.Class.isInterface] reflection type name: '%s'...", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.isInterface] reflection type name: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
                         if(class_type->HasFlag<AccessFlags::Interface>()) {
@@ -390,7 +390,7 @@ namespace javm::native {
 
                 auto ref_type = GetReflectionTypeFromClassVariable(this_var);
                 if(ref_type) {
-                    JAVM_LOG("[java.lang.Class.isPrimitive] reflection type name: '%s'...", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.isPrimitive] reflection type name: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     if(ref_type->IsPrimitive()) {
                         return ExecutionResult::ReturnVariable(TypeUtils::True());    
                     }
@@ -404,10 +404,10 @@ namespace javm::native {
 
                 auto ref_type_1 = GetReflectionTypeFromClassVariable(this_var);
                 if(ref_type_1) {
-                    JAVM_LOG("[java.lang.Class.isAssignableFrom] reflection 1 type name: '%s'...", ref_type_1->GetTypeName().c_str());
+                    JAVM_LOG("[java.lang.Class.isAssignableFrom] reflection 1 type name: '%s'...", StrUtils::ToUtf8(ref_type_1->GetTypeName()).c_str());
                     auto ref_type_2 = GetReflectionTypeFromClassVariable(param_vars[0]);
                     if(ref_type_2) {
-                        JAVM_LOG("[java.lang.Class.isAssignableFrom] reflection 2 type name: '%s'...", ref_type_2->GetTypeName().c_str());
+                        JAVM_LOG("[java.lang.Class.isAssignableFrom] reflection 2 type name: '%s'...", StrUtils::ToUtf8(ref_type_2->GetTypeName()).c_str());
                         if(ref_type_1->IsClassInstance() && ref_type_2->IsClassInstance()) {
                             auto class_1 = ref_type_1->GetClassType();
                             auto class_2 = ref_type_2->GetClassType();
@@ -441,9 +441,9 @@ namespace javm::native {
 
             ExecutionResult doPrivileged(std::vector<Ptr<Variable>> param_vars) {
                 auto action_v = param_vars[0];
-                JAVM_LOG("[java.security.AccessController.doPrivileged] called - action type: '%s'", TypeUtils::FormatVariableType(action_v).c_str());
+                JAVM_LOG("[java.security.AccessController.doPrivileged] called - action type: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(action_v)).c_str());
                 auto action_obj = action_v->GetAs<type::ClassInstance>();
-                auto ret = action_obj->CallInstanceMethod("run", "()Ljava/lang/Object;", action_v);
+                auto ret = action_obj->CallInstanceMethod(u"run", u"()Ljava/lang/Object;", action_v);
                 JAVM_LOG("Return type of privileged action: %d", static_cast<u32>(ret.status));
                 return ret;
             }
@@ -529,14 +529,14 @@ namespace javm::native {
                     for(auto &raw_inv: call_info.caller_type->GetRawInvokables()) {
                         if(raw_inv.GetName() == call_info.invokable_name) {
                             if(raw_inv.GetDescriptor() == call_info.invokable_desc) {
-                                found = !raw_inv.HasAnnotation("Lsun/reflect/CallerSensitive;");
+                                found = !raw_inv.HasAnnotation(u"Lsun/reflect/CallerSensitive;");
                                 break;
                             }
                         }
                     }
                     if(found) {
                         // This one is a valid one
-                        JAVM_LOG("[sun.reflect.Reflection.getCallerClass] called - caller class type: '%s'...", call_info.caller_type->GetClassName().c_str());
+                        JAVM_LOG("[sun.reflect.Reflection.getCallerClass] called - caller class type: '%s'...", StrUtils::ToUtf8(call_info.caller_type->GetClassName()).c_str());
 
                         auto dummy_ref_type = ReflectionUtils::FindTypeByName(call_info.caller_type->GetClassName());
                         return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(dummy_ref_type));
@@ -579,20 +579,20 @@ namespace javm::native {
                 JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] called");
                 auto field_v = param_vars[0];
                 auto field_obj = field_v->GetAs<type::ClassInstance>();
-                auto field_name_v = field_obj->GetField("name", "Ljava/lang/String;");
+                auto field_name_v = field_obj->GetField(u"name", u"Ljava/lang/String;");
                 auto field_name = StringUtils::GetValue(field_name_v);
-                auto field_desc_v = field_obj->GetField("signature", "Ljava/lang/String;");
+                auto field_desc_v = field_obj->GetField(u"signature", u"Ljava/lang/String;");
                 auto field_desc = StringUtils::GetValue(field_desc_v);
-                auto class_type_v = field_obj->GetField("clazz", "Ljava/lang/Class;");
+                auto class_type_v = field_obj->GetField(u"clazz", u"Ljava/lang/Class;");
                 auto ref_type = GetReflectionTypeFromClassVariable(class_type_v);
                 if(ref_type) {
-                    JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] reflection type name: '%s'", ref_type->GetTypeName().c_str());
+                    JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
                         auto offset = class_type->GetRawFieldUnsafeOffset(field_name, field_desc);
                         auto is_static = class_type->IsRawFieldStatic(field_name, field_desc);
                         auto raw_offset = EncodeUnsafeOffset(offset, is_static);
-                        JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] field: '%s' - '%s', offset: %d", field_name.c_str(), field_desc.c_str(), offset);
+                        JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] field: '%s' - '%s', offset: %d", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), offset);
                         ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(raw_offset));
                     }
                 }
@@ -610,12 +610,12 @@ namespace javm::native {
 
                 if(is_static) {
                     auto var = obj_type->GetStaticFieldByUnsafeOffset(off);
-                    JAVM_LOG("[sun.misc.Unsafe.getIntVolatile] returning '%s'...", TypeUtils::FormatVariableType(var).c_str());
+                    JAVM_LOG("[sun.misc.Unsafe.getIntVolatile] returning '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
                     return ExecutionResult::ReturnVariable(var);
                 }
                 else {
                     auto var = obj_obj->GetFieldByUnsafeOffset(off);
-                    JAVM_LOG("[sun.misc.Unsafe.getIntVolatile] returning '%s'...", TypeUtils::FormatVariableType(var).c_str());
+                    JAVM_LOG("[sun.misc.Unsafe.getIntVolatile] returning '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
                     return ExecutionResult::ReturnVariable(var);
                 }
 
@@ -719,7 +719,7 @@ namespace javm::native {
         namespace java::lang::String {
 
             ExecutionResult intern(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
-                JAVM_LOG("[java.lang.String.intern] called - string: '%s'", StringUtils::GetValue(this_var).c_str());
+                JAVM_LOG("[java.lang.String.intern] called - string: '%s'", StrUtils::ToUtf8(StringUtils::GetValue(this_var)).c_str());
                 return ExecutionResult::ReturnVariable(StringUtils::CheckIntern(this_var));
             }
 
@@ -762,7 +762,7 @@ namespace javm::native {
                 JAVM_LOG("[java.lang.Thread.setPriority0] called - priority: %d", prio);
 
                 auto thread_obj = this_var->GetAs<type::ClassInstance>();
-                auto eetop_v = thread_obj->GetField("eetop", "J");
+                auto eetop_v = thread_obj->GetField(u"eetop", u"J");
                 auto eetop = eetop_v->GetValue<type::Long>();
 
                 native::SetThreadPriority(eetop, prio);
@@ -772,24 +772,24 @@ namespace javm::native {
 
             ExecutionResult isAlive(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto thread_obj = this_var->GetAs<type::ClassInstance>();
-                auto name_res = thread_obj->CallInstanceMethod("getName", "()Ljava/lang/String;", this_var);
+                auto name_res = thread_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
                 if(name_res.IsInvalidOrThrown()) {
                     return name_res;
                 }
                 auto name_v = name_res.ret_var;
                 auto name = StringUtils::GetValue(name_v);
-                auto eetop_v = thread_obj->GetField("eetop", "J");
+                auto eetop_v = thread_obj->GetField(u"eetop", u"J");
                 auto eetop = eetop_v->GetValue<type::Long>();
 
                 auto thr = ThreadUtils::GetThreadByHandle(eetop);
                 if(thr) {
-                    JAVM_LOG("[java.lang.Thread.isAlive] Java thread name: '%s' Thread name: '%s', thread handle: %ld", name.c_str(), thr->GetThreadName().c_str(), eetop);
+                    JAVM_LOG("[java.lang.Thread.isAlive] Java thread name: '%s' Thread name: '%s', thread handle: %ld", StrUtils::ToUtf8(name).c_str(), StrUtils::ToUtf8(thr->GetThreadName()).c_str(), eetop);
                     if(thr->GetThreadObject()->IsAlive()) {
                         return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Boolean>(1));
                     }
                 }
                 else {
-                    JAVM_LOG("[java.lang.Thread.isAlive] Java thread name: '%s' thread handle: %ld - not found (must be finished)...", name.c_str(), eetop);
+                    JAVM_LOG("[java.lang.Thread.isAlive] Java thread name: '%s' thread handle: %ld - not found (must be finished)...", StrUtils::ToUtf8(name).c_str(), eetop);
                 }
 
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Boolean>(0));
@@ -797,14 +797,14 @@ namespace javm::native {
 
             ExecutionResult start0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto thr_obj = this_var->GetAs<type::ClassInstance>();
-                auto name_res = thr_obj->CallInstanceMethod("getName", "()Ljava/lang/String;", this_var);
+                auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
                 if(name_res.IsInvalidOrThrown()) {
                     return name_res;
                 }
                 auto name_v = name_res.ret_var;
                 auto name = StringUtils::GetValue(name_v);
 
-                JAVM_LOG("[java.lang.Thread.start0] called - thread name: '%s'", name.c_str());
+                JAVM_LOG("[java.lang.Thread.start0] called - thread name: '%s'", StrUtils::ToUtf8(name).c_str());
 
                 ThreadUtils::RegisterAndStartThread(this_var);
 
@@ -842,9 +842,9 @@ namespace javm::native {
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] called - Array: bytes[%d], Offset: %d, Length: %d, Append: %s", byte_arr->GetLength(), off, len, append ? "true" : "false");
 
                 auto this_obj = this_var->GetAs<type::ClassInstance>();
-                auto fd_fd_v = this_obj->GetField("fd", "Ljava/io/FileDescriptor;");
+                auto fd_fd_v = this_obj->GetField(u"fd", u"Ljava/io/FileDescriptor;");
                 auto fd_fd_obj = fd_fd_v->GetAs<type::ClassInstance>();
-                auto fd_v = fd_fd_obj->GetField("fd", "I");
+                auto fd_v = fd_fd_obj->GetField(u"fd", u"I");
                 auto fd = fd_v->GetValue<type::Integer>();
 
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] FD: %d", fd);
@@ -876,11 +876,11 @@ namespace javm::native {
                 auto obj_v = param_vars[1];
                 auto cs_name_v = param_vars[2];
                 auto cs_name = StringUtils::GetValue(cs_name_v);
-                JAVM_LOG("[sun.nio.cs.StreamEncoder.forOutputStreamWriter] called - Charset name: '%s'...", cs_name.c_str());
-                auto se_class_type = vm::inner_impl::LocateClassTypeImpl("sun/nio/cs/StreamEncoder");
-                auto cs_class_type = vm::inner_impl::LocateClassTypeImpl("java/nio/charset/Charset");
-                auto global_cs_v = cs_class_type->GetStaticField("defaultCharset", "Ljava/nio/charset/Charset;");
-                auto se_v = TypeUtils::NewClassVariable(se_class_type, "(Ljava/io/OutputStream;Ljava/lang/Object;Ljava/nio/charset/Charset;)V", stream_v, obj_v, global_cs_v);
+                JAVM_LOG("[sun.nio.cs.StreamEncoder.forOutputStreamWriter] called - Charset name: '%s'...", StrUtils::ToUtf8(cs_name).c_str());
+                auto se_class_type = vm::inner_impl::LocateClassTypeImpl(u"sun/nio/cs/StreamEncoder");
+                auto cs_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/nio/charset/Charset");
+                auto global_cs_v = cs_class_type->GetStaticField(u"defaultCharset", u"Ljava/nio/charset/Charset;");
+                auto se_v = TypeUtils::NewClassVariable(se_class_type, u"(Ljava/io/OutputStream;Ljava/lang/Object;Ljava/nio/charset/Charset;)V", stream_v, obj_v, global_cs_v);
                 return ExecutionResult::ReturnVariable(se_v);
             }
 
@@ -909,7 +909,7 @@ namespace javm::native {
             ExecutionResult findSignal(std::vector<Ptr<Variable>> param_vars) {
                 auto sig_v = param_vars[0];
                 auto sig = StringUtils::GetValue(sig_v);
-                JAVM_LOG("[sun.misc.Signal.findSignal] called - signal: '%s'...", sig.c_str());
+                JAVM_LOG("[sun.misc.Signal.findSignal] called - signal: '%s'...", StrUtils::ToUtf8(sig).c_str());
 
                 auto &sig_table = inner_impl::GetSignalTable();
                 auto it = sig_table.find(sig);
@@ -943,68 +943,68 @@ namespace javm::native {
             return;
         }
 
-        RegisterNativeClassMethod("java/lang/Object", "registerNatives", "()V", &impl::java::lang::Object::registerNatives);
-        RegisterNativeInstanceMethod("java/lang/Object", "getClass", "()Ljava/lang/Class;", &impl::java::lang::Object::getClass);
-        RegisterNativeInstanceMethod("java/lang/Object", "hashCode", "()I", &impl::java::lang::Object::hashCode);
-        RegisterNativeInstanceMethod("java/lang/Object", "notify", "()V", &impl::java::lang::Object::notify);
-        RegisterNativeInstanceMethod("java/lang/Object", "notifyAll", "()V", &impl::java::lang::Object::notifyAll);
-        RegisterNativeInstanceMethod("java/lang/Object", "wait", "(J)V", &impl::java::lang::Object::wait);
-        RegisterNativeClassMethod("java/lang/System", "registerNatives", "()V", &impl::java::lang::System::registerNatives);
-        RegisterNativeClassMethod("java/lang/System", "initProperties", "(Ljava/util/Properties;)Ljava/util/Properties;", &impl::java::lang::System::initProperties);
-        RegisterNativeClassMethod("java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V", &impl::java::lang::System::arraycopy);
-        RegisterNativeClassMethod("java/lang/System", "setIn0", "(Ljava/io/InputStream;)V", &impl::java::lang::System::setIn0);
-        RegisterNativeClassMethod("java/lang/System", "setOut0", "(Ljava/io/PrintStream;)V", &impl::java::lang::System::setOut0);
-        RegisterNativeClassMethod("java/lang/System", "setErr0", "(Ljava/io/PrintStream;)V", &impl::java::lang::System::setErr0);
-        RegisterNativeClassMethod("java/lang/System", "mapLibraryName", "(Ljava/lang/String;)Ljava/lang/String;", &impl::java::lang::System::mapLibraryName);
-        RegisterNativeClassMethod("java/lang/System", "loadLibrary", "(Ljava/lang/String;)V", &impl::java::lang::System::loadLibrary);
-        RegisterNativeClassMethod("java/lang/System", "currentTimeMillis", "()J", &impl::java::lang::System::currentTimeMillis);
-        RegisterNativeClassMethod("java/lang/Class", "registerNatives", "()V", &impl::java::lang::Class::registerNatives);
-        RegisterNativeClassMethod("java/lang/Class", "getPrimitiveClass", "(Ljava/lang/String;)Ljava/lang/Class;", &impl::java::lang::Class::getPrimitiveClass);
-        RegisterNativeClassMethod("java/lang/Class", "desiredAssertionStatus0", "(Ljava/lang/Class;)Z", &impl::java::lang::Class::desiredAssertionStatus0);
-        RegisterNativeClassMethod("java/lang/Class", "forName0", "(Ljava/lang/String;ZLjava/lang/ClassLoader;Ljava/lang/Class;)Ljava/lang/Class;", &impl::java::lang::Class::forName0);
-        RegisterNativeInstanceMethod("java/lang/Class", "getDeclaredFields0", "(Z)[Ljava/lang/reflect/Field;", &impl::java::lang::Class::getDeclaredFields0);
-        RegisterNativeInstanceMethod("java/lang/Class", "isInterface", "()Z", &impl::java::lang::Class::isInterface);
-        RegisterNativeInstanceMethod("java/lang/Class", "isPrimitive", "()Z", &impl::java::lang::Class::isPrimitive);
-        RegisterNativeInstanceMethod("java/lang/Class", "isAssignableFrom", "(Ljava/lang/Class;)Z", &impl::java::lang::Class::isAssignableFrom);
-        RegisterNativeClassMethod("java/lang/ClassLoader", "registerNatives", "()V", &impl::java::lang::ClassLoader::registerNatives);
-        RegisterNativeClassMethod("java/security/AccessController", "doPrivileged", "(Ljava/security/PrivilegedExceptionAction;)Ljava/lang/Object;", &impl::java::security::AccessController::doPrivileged);
-        RegisterNativeClassMethod("java/security/AccessController", "doPrivileged", "(Ljava/security/PrivilegedAction;)Ljava/lang/Object;", &impl::java::security::AccessController::doPrivileged);
-        RegisterNativeClassMethod("java/security/AccessController", "getStackAccessControlContext", "()Ljava/security/AccessControlContext;", &impl::java::security::AccessController::getStackAccessControlContext);
-        RegisterNativeClassMethod("java/lang/Float", "floatToRawIntBits", "(F)I", &impl::java::lang::Float::floatToRawIntBits);
-        RegisterNativeClassMethod("java/lang/Double", "doubleToRawLongBits", "(D)J", &impl::java::lang::Double::doubleToRawLongBits);
-        RegisterNativeClassMethod("java/lang/Double", "longBitsToDouble", "(J)D", &impl::java::lang::Double::longBitsToDouble);
-        RegisterNativeClassMethod("sun/misc/VM", "initialize", "()V", &impl::sun::misc::VM::initialize);
-        RegisterNativeClassMethod("sun/reflect/Reflection", "getCallerClass", "()Ljava/lang/Class;", &impl::sun::reflect::Reflection::getCallerClass);
-        RegisterNativeClassMethod("sun/reflect/Reflection", "getClassAccessFlags", "(Ljava/lang/Class;)I", &impl::sun::reflect::Reflection::getClassAccessFlags);
-        RegisterNativeClassMethod("sun/misc/Unsafe", "registerNatives", "()V", &impl::sun::misc::Unsafe::registerNatives);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "arrayBaseOffset", "(Ljava/lang/Class;)I", &impl::sun::misc::Unsafe::arrayBaseOffset);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "arrayIndexScale", "(Ljava/lang/Class;)I", &impl::sun::misc::Unsafe::arrayIndexScale);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "addressSize", "()I", &impl::sun::misc::Unsafe::addressSize);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "objectFieldOffset", "(Ljava/lang/reflect/Field;)J", &impl::sun::misc::Unsafe::objectFieldOffset);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "getIntVolatile", "(Ljava/lang/Object;J)I", &impl::sun::misc::Unsafe::getIntVolatile);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "compareAndSwapInt", "(Ljava/lang/Object;JII)Z", &impl::sun::misc::Unsafe::compareAndSwapInt);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "allocateMemory", "(J)J", &impl::sun::misc::Unsafe::allocateMemory);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "putLong", "(JJ)V", &impl::sun::misc::Unsafe::putLong);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "getByte", "(J)B", &impl::sun::misc::Unsafe::getByte);
-        RegisterNativeInstanceMethod("sun/misc/Unsafe", "freeMemory", "(J)V", &impl::sun::misc::Unsafe::freeMemory);
-        RegisterNativeInstanceMethod("java/lang/Throwable", "fillInStackTrace", "(I)Ljava/lang/Throwable;", &impl::java::lang::Throwable::fillInStackTrace);
-        RegisterNativeInstanceMethod("java/lang/String", "intern", "()Ljava/lang/String;", &impl::java::lang::String::intern);
-        RegisterNativeClassMethod("java/io/FileDescriptor", "initIDs", "()V", &impl::java::io::FileDescriptor::initIDs);
-        RegisterNativeClassMethod("java/io/FileDescriptor", "set", "(I)J", &impl::java::io::FileDescriptor::set);
-        RegisterNativeClassMethod("java/lang/Thread", "registerNatives", "()V", &impl::java::lang::Thread::registerNatives);
-        RegisterNativeClassMethod("java/lang/Thread", "currentThread", "()Ljava/lang/Thread;", &impl::java::lang::Thread::currentThread);
-        RegisterNativeInstanceMethod("java/lang/Thread", "setPriority0", "(I)V", &impl::java::lang::Thread::setPriority0);
-        RegisterNativeInstanceMethod("java/lang/Thread", "isAlive", "()Z", &impl::java::lang::Thread::isAlive);
-        RegisterNativeInstanceMethod("java/lang/Thread", "start0", "()V", &impl::java::lang::Thread::start0);
-        RegisterNativeClassMethod("java/io/FileInputStream", "initIDs", "()V", &impl::java::io::FileInputStream::initIDs);
-        RegisterNativeClassMethod("java/io/FileOutputStream", "initIDs", "()V", &impl::java::io::FileOutputStream::initIDs);
-        RegisterNativeInstanceMethod("java/io/FileOutputStream", "writeBytes", "([BIIZ)V", &impl::java::io::FileOutputStream::writeBytes);
-        RegisterNativeClassMethod("sun/nio/cs/StreamEncoder", "forOutputStreamWriter", "(Ljava/io/OutputStream;Ljava/lang/Object;Ljava/lang/String;)Lsun/nio/cs/StreamEncoder;", &impl::sun::nio::cs::StreamEncoder::forOutputStreamWriter);
-        RegisterNativeClassMethod("java/io/WinNTFileSystem", "initIDs", "()V", &impl::java::io::WinNTFileSystem::initIDs);
-        RegisterNativeClassMethod("java/util/concurrent/atomic/AtomicLong", "VMSupportsCS8", "()Z", &impl::java::util::concurrent::atomic::AtomicLong::VMSupportsCS8);
-        RegisterNativeClassMethod("sun/misc/Signal", "findSignal", "(Ljava/lang/String;)I", &impl::sun::misc::Signal::findSignal);
-        RegisterNativeClassMethod("sun/misc/Signal", "handle0", "(IJ)J", &impl::sun::misc::Signal::handle0);
-        RegisterNativeClassMethod("sun/io/Win32ErrorMode", "setErrorMode", "(J)J", &impl::sun::io::Win32ErrorMode::setErrorMode);
+        RegisterNativeClassMethod(u"java/lang/Object", u"registerNatives", u"()V", &impl::java::lang::Object::registerNatives);
+        RegisterNativeInstanceMethod(u"java/lang/Object", u"getClass", u"()Ljava/lang/Class;", &impl::java::lang::Object::getClass);
+        RegisterNativeInstanceMethod(u"java/lang/Object", u"hashCode", u"()I", &impl::java::lang::Object::hashCode);
+        RegisterNativeInstanceMethod(u"java/lang/Object", u"notify", u"()V", &impl::java::lang::Object::notify);
+        RegisterNativeInstanceMethod(u"java/lang/Object", u"notifyAll", u"()V", &impl::java::lang::Object::notifyAll);
+        RegisterNativeInstanceMethod(u"java/lang/Object", u"wait", u"(J)V", &impl::java::lang::Object::wait);
+        RegisterNativeClassMethod(u"java/lang/System", u"registerNatives", u"()V", &impl::java::lang::System::registerNatives);
+        RegisterNativeClassMethod(u"java/lang/System", u"initProperties", u"(Ljava/util/Properties;)Ljava/util/Properties;", &impl::java::lang::System::initProperties);
+        RegisterNativeClassMethod(u"java/lang/System", u"arraycopy", u"(Ljava/lang/Object;ILjava/lang/Object;II)V", &impl::java::lang::System::arraycopy);
+        RegisterNativeClassMethod(u"java/lang/System", u"setIn0", u"(Ljava/io/InputStream;)V", &impl::java::lang::System::setIn0);
+        RegisterNativeClassMethod(u"java/lang/System", u"setOut0", u"(Ljava/io/PrintStream;)V", &impl::java::lang::System::setOut0);
+        RegisterNativeClassMethod(u"java/lang/System", u"setErr0", u"(Ljava/io/PrintStream;)V", &impl::java::lang::System::setErr0);
+        RegisterNativeClassMethod(u"java/lang/System", u"mapLibraryName", u"(Ljava/lang/String;)Ljava/lang/String;", &impl::java::lang::System::mapLibraryName);
+        RegisterNativeClassMethod(u"java/lang/System", u"loadLibrary", u"(Ljava/lang/String;)V", &impl::java::lang::System::loadLibrary);
+        RegisterNativeClassMethod(u"java/lang/System", u"currentTimeMillis", u"()J", &impl::java::lang::System::currentTimeMillis);
+        RegisterNativeClassMethod(u"java/lang/Class", u"registerNatives", u"()V", &impl::java::lang::Class::registerNatives);
+        RegisterNativeClassMethod(u"java/lang/Class", u"getPrimitiveClass", u"(Ljava/lang/String;)Ljava/lang/Class;", &impl::java::lang::Class::getPrimitiveClass);
+        RegisterNativeClassMethod(u"java/lang/Class", u"desiredAssertionStatus0", u"(Ljava/lang/Class;)Z", &impl::java::lang::Class::desiredAssertionStatus0);
+        RegisterNativeClassMethod(u"java/lang/Class", u"forName0", u"(Ljava/lang/String;ZLjava/lang/ClassLoader;Ljava/lang/Class;)Ljava/lang/Class;", &impl::java::lang::Class::forName0);
+        RegisterNativeInstanceMethod(u"java/lang/Class", u"getDeclaredFields0", u"(Z)[Ljava/lang/reflect/Field;", &impl::java::lang::Class::getDeclaredFields0);
+        RegisterNativeInstanceMethod(u"java/lang/Class", u"isInterface", u"()Z", &impl::java::lang::Class::isInterface);
+        RegisterNativeInstanceMethod(u"java/lang/Class", u"isPrimitive", u"()Z", &impl::java::lang::Class::isPrimitive);
+        RegisterNativeInstanceMethod(u"java/lang/Class", u"isAssignableFrom", u"(Ljava/lang/Class;)Z", &impl::java::lang::Class::isAssignableFrom);
+        RegisterNativeClassMethod(u"java/lang/ClassLoader", u"registerNatives", u"()V", &impl::java::lang::ClassLoader::registerNatives);
+        RegisterNativeClassMethod(u"java/security/AccessController", u"doPrivileged", u"(Ljava/security/PrivilegedExceptionAction;)Ljava/lang/Object;", &impl::java::security::AccessController::doPrivileged);
+        RegisterNativeClassMethod(u"java/security/AccessController", u"doPrivileged", u"(Ljava/security/PrivilegedAction;)Ljava/lang/Object;", &impl::java::security::AccessController::doPrivileged);
+        RegisterNativeClassMethod(u"java/security/AccessController", u"getStackAccessControlContext", u"()Ljava/security/AccessControlContext;", &impl::java::security::AccessController::getStackAccessControlContext);
+        RegisterNativeClassMethod(u"java/lang/Float", u"floatToRawIntBits", u"(F)I", &impl::java::lang::Float::floatToRawIntBits);
+        RegisterNativeClassMethod(u"java/lang/Double", u"doubleToRawLongBits", u"(D)J", &impl::java::lang::Double::doubleToRawLongBits);
+        RegisterNativeClassMethod(u"java/lang/Double", u"longBitsToDouble", u"(J)D", &impl::java::lang::Double::longBitsToDouble);
+        RegisterNativeClassMethod(u"sun/misc/VM", u"initialize", u"()V", &impl::sun::misc::VM::initialize);
+        RegisterNativeClassMethod(u"sun/reflect/Reflection", u"getCallerClass", u"()Ljava/lang/Class;", &impl::sun::reflect::Reflection::getCallerClass);
+        RegisterNativeClassMethod(u"sun/reflect/Reflection", u"getClassAccessFlags", u"(Ljava/lang/Class;)I", &impl::sun::reflect::Reflection::getClassAccessFlags);
+        RegisterNativeClassMethod(u"sun/misc/Unsafe", u"registerNatives", u"()V", &impl::sun::misc::Unsafe::registerNatives);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"arrayBaseOffset", u"(Ljava/lang/Class;)I", &impl::sun::misc::Unsafe::arrayBaseOffset);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"arrayIndexScale", u"(Ljava/lang/Class;)I", &impl::sun::misc::Unsafe::arrayIndexScale);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"addressSize", u"()I", &impl::sun::misc::Unsafe::addressSize);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"objectFieldOffset", u"(Ljava/lang/reflect/Field;)J", &impl::sun::misc::Unsafe::objectFieldOffset);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"getIntVolatile", u"(Ljava/lang/Object;J)I", &impl::sun::misc::Unsafe::getIntVolatile);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"compareAndSwapInt", u"(Ljava/lang/Object;JII)Z", &impl::sun::misc::Unsafe::compareAndSwapInt);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"allocateMemory", u"(J)J", &impl::sun::misc::Unsafe::allocateMemory);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"putLong", u"(JJ)V", &impl::sun::misc::Unsafe::putLong);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"getByte", u"(J)B", &impl::sun::misc::Unsafe::getByte);
+        RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"freeMemory", u"(J)V", &impl::sun::misc::Unsafe::freeMemory);
+        RegisterNativeInstanceMethod(u"java/lang/Throwable", u"fillInStackTrace", u"(I)Ljava/lang/Throwable;", &impl::java::lang::Throwable::fillInStackTrace);
+        RegisterNativeInstanceMethod(u"java/lang/String", u"intern", u"()Ljava/lang/String;", &impl::java::lang::String::intern);
+        RegisterNativeClassMethod(u"java/io/FileDescriptor", u"initIDs", u"()V", &impl::java::io::FileDescriptor::initIDs);
+        RegisterNativeClassMethod(u"java/io/FileDescriptor", u"set", u"(I)J", &impl::java::io::FileDescriptor::set);
+        RegisterNativeClassMethod(u"java/lang/Thread", u"registerNatives", u"()V", &impl::java::lang::Thread::registerNatives);
+        RegisterNativeClassMethod(u"java/lang/Thread", u"currentThread", u"()Ljava/lang/Thread;", &impl::java::lang::Thread::currentThread);
+        RegisterNativeInstanceMethod(u"java/lang/Thread", u"setPriority0", u"(I)V", &impl::java::lang::Thread::setPriority0);
+        RegisterNativeInstanceMethod(u"java/lang/Thread", u"isAlive", u"()Z", &impl::java::lang::Thread::isAlive);
+        RegisterNativeInstanceMethod(u"java/lang/Thread", u"start0", u"()V", &impl::java::lang::Thread::start0);
+        RegisterNativeClassMethod(u"java/io/FileInputStream", u"initIDs", u"()V", &impl::java::io::FileInputStream::initIDs);
+        RegisterNativeClassMethod(u"java/io/FileOutputStream", u"initIDs", u"()V", &impl::java::io::FileOutputStream::initIDs);
+        RegisterNativeInstanceMethod(u"java/io/FileOutputStream", u"writeBytes", u"([BIIZ)V", &impl::java::io::FileOutputStream::writeBytes);
+        RegisterNativeClassMethod(u"sun/nio/cs/StreamEncoder", u"forOutputStreamWriter", u"(Ljava/io/OutputStream;Ljava/lang/Object;Ljava/lang/String;)Lsun/nio/cs/StreamEncoder;", &impl::sun::nio::cs::StreamEncoder::forOutputStreamWriter);
+        RegisterNativeClassMethod(u"java/io/WinNTFileSystem", u"initIDs", u"()V", &impl::java::io::WinNTFileSystem::initIDs);
+        RegisterNativeClassMethod(u"java/util/concurrent/atomic/AtomicLong", u"VMSupportsCS8", u"()Z", &impl::java::util::concurrent::atomic::AtomicLong::VMSupportsCS8);
+        RegisterNativeClassMethod(u"sun/misc/Signal", u"findSignal", u"(Ljava/lang/String;)I", &impl::sun::misc::Signal::findSignal);
+        RegisterNativeClassMethod(u"sun/misc/Signal", u"handle0", u"(IJ)J", &impl::sun::misc::Signal::handle0);
+        RegisterNativeClassMethod(u"sun/io/Win32ErrorMode", u"setErrorMode", u"(J)J", &impl::sun::io::Win32ErrorMode::setErrorMode);
 
         inner_impl::NotifyNativeRegistered();
     }

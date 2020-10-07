@@ -9,7 +9,7 @@ namespace javm::vm {
     enum class ConstantPoolTag : u8 {
 
         Invalid = 0,
-        UTF8 = 1,
+        Utf8 = 1,
         Integer = 3,
         Float = 4,
         Long = 5,
@@ -30,7 +30,7 @@ namespace javm::vm {
 
         private:
             u16 name_idx;
-            std::string name;
+            String name;
 
         public:
             u16 GetNameIndex() {
@@ -41,7 +41,7 @@ namespace javm::vm {
                 this->name_idx = idx;
             }
 
-            std::string GetName() {
+            String GetName() {
                 return this->name;
             }
 
@@ -49,7 +49,7 @@ namespace javm::vm {
                 return !this->name.empty();
             }
 
-            void SetName(const std::string &new_name) {
+            void SetName(const String &new_name) {
                 this->name = new_name;
             }
 
@@ -59,7 +59,7 @@ namespace javm::vm {
 
         private:
             u16 desc_idx;
-            std::string desc;
+            String desc;
 
         public:
             u16 GetDescriptorIndex() {
@@ -70,7 +70,7 @@ namespace javm::vm {
                 this->desc_idx = idx;
             }
 
-            std::string GetDescriptor() {
+            String GetDescriptor() {
                 return this->desc;
             }
 
@@ -78,7 +78,7 @@ namespace javm::vm {
                 return !this->desc.empty();
             }
 
-            void SetDescriptor(const std::string &new_desc) {
+            void SetDescriptor(const String &new_desc) {
                 this->desc = new_desc;
             }
 
@@ -88,7 +88,7 @@ namespace javm::vm {
 
         private:
             u16 str_idx;
-            std::string str;
+            String str;
 
         public:
             u16 GetStringIndex() {
@@ -99,7 +99,7 @@ namespace javm::vm {
                 this->str_idx = idx;
             }
 
-            std::string GetString() {
+            String GetString() {
                 return this->str;
             }
 
@@ -107,7 +107,7 @@ namespace javm::vm {
                 return !this->str.empty();
             }
 
-            void SetString(const std::string &new_str) {
+            void SetString(const String &new_str) {
                 this->str = new_str;
             }
 
@@ -134,9 +134,9 @@ namespace javm::vm {
 
     };
 
-    struct UTF8Data {
+    struct Utf8Data {
         u16 length;
-        std::string str;
+        std::string utf8_str;
     };
 
     struct IntegerData {
@@ -157,12 +157,12 @@ namespace javm::vm {
 
     struct ClassData {
         u16 name_index;
-        std::string processed_name;
+        String processed_name;
     };
 
     struct StringData {
         u16 string_index;
-        std::string processed_string;
+        String processed_string;
     };
 
     struct FieldMethodRefData {
@@ -172,9 +172,9 @@ namespace javm::vm {
 
     struct NameAndTypeData {
         u16 name_index;
-        std::string processed_name;
+        String processed_name;
         u16 desc_index;
-        std::string processed_desc;
+        String processed_desc;
     };
 
     struct InstanceMethodHandleData {
@@ -184,7 +184,7 @@ namespace javm::vm {
 
     struct InstanceMethodTypeData {
         u16 desc_index;
-        std::string processed_desc;
+        String processed_desc;
     };
 
     struct InvokeDynamicData {
@@ -198,7 +198,7 @@ namespace javm::vm {
             ConstantPoolTag tag;
             bool empty;
             
-            UTF8Data utf8;
+            Utf8Data utf8;
             IntegerData integer;
             FloatData flt;
             LongData lng;
@@ -217,12 +217,12 @@ namespace javm::vm {
             ConstantPoolItem(MemoryReader &reader) : empty(true), tag(ConstantPoolTag::Invalid) {
                 this->tag = static_cast<ConstantPoolTag>(reader.Read<u8>());
                 switch(this->tag) {
-                    case ConstantPoolTag::UTF8: {
+                    case ConstantPoolTag::Utf8: {
                         this->utf8.length = BE(reader.Read<u16>());
                         if(this->utf8.length > 0) {
                             auto strbuf = new char[this->utf8.length + 1]();
                             reader.ReadPointer(strbuf, this->utf8.length);
-                            this->utf8.str.assign(strbuf, this->utf8.length);
+                            this->utf8.utf8_str.assign(strbuf, this->utf8.length);
                             delete[] strbuf;
                         }
                         break;
@@ -289,7 +289,7 @@ namespace javm::vm {
                 return this->tag;
             }
 
-            UTF8Data &GetUTF8Data() {
+            Utf8Data &GetUtf8Data() {
                 return this->utf8;
             }
 

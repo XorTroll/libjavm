@@ -132,10 +132,10 @@ namespace javm::vm {
                 return g_null_ref_var;
             }
 
-            static Ptr<Variable> GetCachedClassType(const std::string &class_name) {
+            static Ptr<Variable> GetCachedClassType(const String &class_name) {
                 for(auto &class_v: g_cached_class_types) {
                     auto class_obj = class_v->GetAs<type::ClassInstance>();
-                    auto name_v = class_obj->GetField("name", "Ljava/lang/String;");
+                    auto name_v = class_obj->GetField(u"name", u"Ljava/lang/String;");
                     auto name = inner_impl::GetStringValue(name_v);
                     if(class_name == name) {
                         return class_v;
@@ -235,7 +235,7 @@ namespace javm::vm {
             }
 
             template<typename ...JArgs>
-            static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type, const std::string &init_descriptor, JArgs &&...java_args) {
+            static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
                 auto class_var = PtrUtils::New<Variable>(PtrUtils::New<type::ClassInstance>(class_type));
                 
                 auto class_obj = class_var->GetAs<type::ClassInstance>();
@@ -287,7 +287,7 @@ namespace javm::vm {
                     return cached_v;
                 }
 
-                auto class_class_type = inner_impl::LocateClassTypeImpl("java/lang/Class");
+                auto class_class_type = inner_impl::LocateClassTypeImpl(u"java/lang/Class");
 
                 // No need to call ctor, we set classLoader to null manually to avoid having to execute code
                 auto class_v = NewClassVariable(class_class_type);
@@ -295,8 +295,8 @@ namespace javm::vm {
 
                 auto class_name_v = inner_impl::CreateNewString(class_name);
 
-                class_obj->SetField("classLoader", "Ljava/lang/ClassLoader;", Null());
-                class_obj->SetField("name", "Ljava/lang/String;", class_name_v);
+                class_obj->SetField(u"classLoader", u"Ljava/lang/ClassLoader;", Null());
+                class_obj->SetField(u"name", u"Ljava/lang/String;", class_name_v);
 
                 CacheClassType(class_v);
                 return class_v;
@@ -304,13 +304,13 @@ namespace javm::vm {
 
             // Extras
 
-            static std::string FormatVariableType(Ptr<Variable> var) {
+            static String FormatVariableType(Ptr<Variable> var) {
                 if(!var) {
-                    return "<invalid>";
+                    return u"<invalid>";
                 }
                 auto type = var->GetType();
                 if(var->IsNull()) {
-                    return "null";
+                    return u"<null>";
                 }
                 if(IsPrimitiveType(type)) {
                     return TypeTraits::GetNameForPrimitiveType(type);
@@ -322,7 +322,7 @@ namespace javm::vm {
                     }
                     else if(type == VariableType::Array) {
                         auto arr_obj = var->GetAs<type::Array>();
-                        std::string base_s;
+                        String base_s;
                         if(arr_obj->IsClassInstanceArray()) {
                             auto cls_type = arr_obj->GetClassType();
                             base_s += ClassUtils::MakeDotClassName(cls_type->GetClassName());
@@ -331,19 +331,19 @@ namespace javm::vm {
                             base_s += TypeTraits::GetNameForPrimitiveType(arr_obj->GetVariableType());
                         }
                         auto len = arr_obj->GetLength();
-                        auto base = base_s + "[" + std::to_string(len) + "]";
+                        auto base = base_s + u"[" + StrUtils::From(len) + u"]";
                         return base;
                     }
                 }
-                return "<unknown - type: " + std::to_string(static_cast<u32>(type)) + ">";
+                return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
             }
 
-            static std::string FormatVariable(Ptr<Variable> var) {
+            static String FormatVariable(Ptr<Variable> var) {
                 if(!var) {
-                    return "<invalid>";
+                    return u"<invalid>";
                 }
                 if(var->IsNull()) {
-                    return "null";
+                    return u"<null>";
                 }
                 auto type = var->GetType();
                 if(IsPrimitiveType(type)) {
@@ -354,57 +354,50 @@ namespace javm::vm {
                         case VariableType::Byte:
                         case VariableType::Short: {
                             auto val = var->GetValue<type::Integer>();
-                            return std::to_string(val);
+                            return StrUtils::From(val);
                         }
                         case VariableType::Float: {
                             auto val = var->GetValue<type::Float>();
-                            return std::to_string(val);
+                            return StrUtils::From(val);
                         }
                         case VariableType::Double: {
                             auto val = var->GetValue<type::Double>();
-                            return std::to_string(val);
+                            return StrUtils::From(val);
                         }
                         case VariableType::Long: {
                             auto val = var->GetValue<type::Long>();
-                            return std::to_string(val);
+                            return StrUtils::From(val);
                         }
                         default:
-                            return "<wtf>";
+                            return u"<wtf>";
                     }
                 }
                 else {
                     if(type == VariableType::ClassInstance) {
                         auto class_obj = var->GetAs<type::ClassInstance>();
-                        auto ret = class_obj->CallInstanceMethod("toString", "()Ljava/lang/String;", var);
+                        auto ret = class_obj->CallInstanceMethod(u"toString", u"()Ljava/lang/String;", var);
                         return inner_impl::GetStringValue(ret.ret_var);
                     }
                     if(type == VariableType::Array) {
-                        return "<array>";
+                        return u"<array>";
                     }
                 }
-                return "<unknown - type: " + std::to_string(static_cast<u32>(type)) + ">";
+                return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
             }
 
-            static std::string GetBaseClassName(const std::string &class_name) {
+            static String GetBaseClassName(const String &class_name) {
                 auto name_copy = class_name;
-                while(name_copy.front() == '[') {
+                while(name_copy.front() == u'[') {
                     name_copy.erase(0, 1);
                 }
-                while(name_copy.front() == 'L') {
+                while(name_copy.front() == u'L') {
                     name_copy.erase(0, 1);
                 }
-                if(name_copy.back() == ';') {
+                if(name_copy.back() == u';') {
                     name_copy.pop_back();
                 }
                 return ClassUtils::MakeSlashClassName(name_copy);
             }
-
-    };
-
-    class ClassTypeUtils {
-
-        public:
-            // TODO
 
     };
 
@@ -419,7 +412,7 @@ namespace javm::vm {
         }
 
         template<typename ...JArgs>
-        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const std::string &init_descriptor, JArgs &&...java_args) {
+        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
             return TypeUtils::NewClassVariable(class_type, init_descriptor, java_args...);
         }
         

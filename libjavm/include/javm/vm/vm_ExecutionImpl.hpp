@@ -10,7 +10,7 @@ namespace javm::vm {
 
     namespace inner_impl {
 
-        Ptr<ClassType> LocateClassTypeImpl(const std::string &class_name) {
+        Ptr<ClassType> LocateClassTypeImpl(const String &class_name) {
             return rt::LocateClassType(class_name);
         }
 
@@ -19,24 +19,24 @@ namespace javm::vm {
     class ExecutionUtils {
 
         public:
-            static u32 GetFunctionDescriptorParameterCount(const std::string &descriptor) {
-                auto tmp = descriptor.substr(descriptor.find_first_of('(') + 1);
-                tmp = tmp.substr(0, tmp.find_last_of(')'));
+            static u32 GetFunctionDescriptorParameterCount(const String &descriptor) {
+                auto tmp = descriptor.substr(descriptor.find_first_of(u'(') + 1);
+                tmp = tmp.substr(0, tmp.find_last_of(u')'));
                 bool parsing_class = false;
                 u32 count = 0;
                 for(auto &ch: tmp) {
-                    if(ch == '[') {
+                    if(ch == u'[') {
                         // Array, so not a new parameter
                         continue;
                     }
                     if(parsing_class) {
-                        if(ch == ';') {
+                        if(ch == u';') {
                             parsing_class = false;
                         }
                         continue;
                     }
                     else {
-                        if(ch == 'L') {
+                        if(ch == u'L') {
                             parsing_class = true;
                         }
                     }
@@ -45,7 +45,7 @@ namespace javm::vm {
                 return count;
             }
 
-            static std::vector<Ptr<Variable>> LoadClassMethodParameters(ExecutionFrame &frame, const std::string &descriptor) {
+            static std::vector<Ptr<Variable>> LoadClassMethodParameters(ExecutionFrame &frame, const String &descriptor) {
                 std::vector<Ptr<Variable>> params;
                 const u32 param_count = GetFunctionDescriptorParameterCount(descriptor);
                 for(u32 i = 0; i < param_count; i++) {
@@ -57,11 +57,11 @@ namespace javm::vm {
                 return params;
             }
 
-            static inline bool FunctionIsVoid(const std::string &descriptor) {
-                return descriptor.back() == 'V';
+            static inline bool FunctionIsVoid(const String &descriptor) {
+                return descriptor.back() == u'V';
             }
 
-            static std::pair<Ptr<Variable>, std::vector<Ptr<Variable>>> LoadInstanceMethodParameters(ExecutionFrame &frame, const std::string &descriptor) {
+            static std::pair<Ptr<Variable>, std::vector<Ptr<Variable>>> LoadInstanceMethodParameters(ExecutionFrame &frame, const String &descriptor) {
                 std::vector<Ptr<Variable>> params;
                 const u32 param_count = GetFunctionDescriptorParameterCount(descriptor);
                 for(u32 i = 0; i < param_count; i++) {
@@ -88,7 +88,7 @@ namespace javm::vm {
             case Instruction::instr: { \
                     u8 index = idx; \
                     auto var = frame.GetLocalAt((u32)index); \
-                    JAVM_LOG("[*load] Loaded: '%s' at locals[%d]", TypeUtils::FormatVariableType(var).c_str(), index); \
+                    JAVM_LOG("[*load] Loaded: '%s' at locals[%d]", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str(), index); \
                     if(var->CanGetAs<VariableType::Integer>()) { \
                         JAVM_LOG("[*load] Integer value: %d", var->GetValue<type::Integer>()); \
                     } \
@@ -102,7 +102,7 @@ namespace javm::vm {
             case Instruction::instr: { \
                     u8 index = idx; \
                     auto var = frame.PopStack(); \
-                    JAVM_LOG("[*store] Stored: '%s' at locals[%d]", TypeUtils::FormatVariableType(var).c_str(), index); \
+                    JAVM_LOG("[*store] Stored: '%s' at locals[%d]", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str(), index); \
                     frame.SetLocalAt((u32)index, var); \
                     break; \
                 }
@@ -145,21 +145,21 @@ namespace javm::vm {
                         } \
                         case ConstantPoolTag::String: { \
                             auto str = const_item->GetStringData().processed_string; \
-                            JAVM_LOG("[ldc-base] String value: '%s'", str.c_str()); \
+                            JAVM_LOG("[ldc-base] String value: '%s'", StrUtils::ToUtf8(str).c_str()); \
                             auto str_var = StringUtils::CreateNew(str); \
                             frame.PushStack(str_var); \
                             break; \
                         } \
                         case ConstantPoolTag::Class: { \
                             auto type_name = const_item->GetClassData().processed_name; \
-                            JAVM_LOG("[ldc-base] Type name: '%s'", type_name.c_str()); \
+                            JAVM_LOG("[ldc-base] Type name: '%s'", StrUtils::ToUtf8(type_name).c_str()); \
                             auto ref_type = ReflectionUtils::FindTypeByName(type_name); \
                             if(ref_type) { \
                                 auto class_v = TypeUtils::NewClassTypeVariable(ref_type); \
                                 frame.PushStack(class_v); \
                             } \
                             else { \
-                                ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unsupported constant pool item"); \
+                                ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unsupported constant pool item"); \
                             } \
                             break; \
                         } \
@@ -168,7 +168,7 @@ namespace javm::vm {
                     } \
                 } \
                 else { \
-                    ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unsupported constant pool item"); \
+                    ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unsupported constant pool item"); \
                 } \
             }
 
@@ -185,7 +185,7 @@ namespace javm::vm {
                     auto index_obj = index_var->GetAs<type::Integer>(); \
                     auto index = PtrUtils::GetValue(index_obj); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Negative array index"); \
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -196,11 +196,11 @@ namespace javm::vm {
                                 frame.PushStack(inner_var); \
                             } \
                             else { \
-                                return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array index"); \
+                                return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array index"); \
                             } \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array item"); \
+                            return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array item"); \
                         } \
                     } \
                     break; \
@@ -213,7 +213,7 @@ namespace javm::vm {
                     auto index_obj = index_var->GetAs<type::Integer>(); \
                     auto index = PtrUtils::GetValue(index_obj); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Negative array index"); \
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -222,7 +222,7 @@ namespace javm::vm {
                             array_obj->SetAt(index, value); \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid array index"); \
+                            return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array index"); \
                         } \
                     } \
                     break; \
@@ -230,12 +230,25 @@ namespace javm::vm {
 
             #define _JAVM_OPERATOR_INSTRUCTION(instr, typ, op) \
             case Instruction::instr: { \
-                    bool pop_ok = false; \
                     auto var2 = frame.PopStack(); \
                     auto var2_val = var2->GetValue<typ>(); \
                     auto var1 = frame.PopStack(); \
                     auto var1_val = var1->GetValue<typ>(); \
                     auto res_var = TypeUtils::NewPrimitiveVariable<typ>(var1_val op var2_val); \
+                    frame.PushStack(res_var); \
+                    break; \
+                }
+
+            #define _JAVM_DIV_INSTRUCTION(instr, typ) \
+            case Instruction::instr: { \
+                    auto var2 = frame.PopStack(); \
+                    auto var2_val = var2->GetValue<typ>(); \
+                    if(var2_val == 0) { \
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/ArithmeticException", u"Divide by zero"); \
+                    } \
+                    auto var1 = frame.PopStack(); \
+                    auto var1_val = var1->GetValue<typ>(); \
+                    auto res_var = TypeUtils::NewPrimitiveVariable<typ>(var1_val / var2_val); \
                     frame.PushStack(res_var); \
                     break; \
                 }
@@ -597,10 +610,10 @@ namespace javm::vm {
                 _JAVM_OPERATOR_INSTRUCTION(LMUL, type::Long, *)
                 _JAVM_OPERATOR_INSTRUCTION(FMUL, type::Float, *)
                 _JAVM_OPERATOR_INSTRUCTION(DMUL, type::Double, *)
-                _JAVM_OPERATOR_INSTRUCTION(IDIV, type::Integer, /)
-                _JAVM_OPERATOR_INSTRUCTION(LDIV, type::Long, /)
-                _JAVM_OPERATOR_INSTRUCTION(FDIV, type::Float, /)
-                _JAVM_OPERATOR_INSTRUCTION(DDIV, type::Double, /)
+                _JAVM_DIV_INSTRUCTION(IDIV, type::Integer)
+                _JAVM_DIV_INSTRUCTION(LDIV, type::Long)
+                _JAVM_DIV_INSTRUCTION(FDIV, type::Float)
+                _JAVM_DIV_INSTRUCTION(DDIV, type::Double)
                 _JAVM_OPERATOR_INSTRUCTION(IREM, type::Integer, %)
                 _JAVM_OPERATOR_INSTRUCTION(LREM, type::Long, %)
                 // Fuck u, decimals
@@ -825,7 +838,7 @@ namespace javm::vm {
                 case Instruction::IF_ACMPEQ: {
                     auto var2 = frame.PopStack();
                     auto var1 = frame.PopStack();
-                    JAVM_LOG("[acmpeq] %s == %s", TypeUtils::FormatVariable(var1).c_str(), TypeUtils::FormatVariable(var2).c_str());
+                    JAVM_LOG("[acmpeq] %s == %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
                     i16 branch = BE(frame.ReadCode<i16>());
                     if(PtrUtils::Equal(var1, var2)) {
                         pos -= 3;
@@ -836,7 +849,7 @@ namespace javm::vm {
                 case Instruction::IF_ACMPNE: {
                     auto var2 = frame.PopStack();
                     auto var1 = frame.PopStack();
-                    JAVM_LOG("[acmpne] %s != %s", TypeUtils::FormatVariable(var1).c_str(), TypeUtils::FormatVariable(var2).c_str());
+                    JAVM_LOG("[acmpne] %s != %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
                     i16 branch = BE(frame.ReadCode<i16>());
                     if(!PtrUtils::Equal(var1, var2)) {
                         pos -= 3;
@@ -895,7 +908,7 @@ namespace javm::vm {
                 case Instruction::DRETURN:
                 case Instruction::ARETURN: {
                     auto var = frame.PopStack();
-                    JAVM_LOG("[*return] Returning '%s'...", TypeUtils::FormatVariableType(var).c_str());
+                    JAVM_LOG("[*return] Returning '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
                     if(var->CanGetAs<VariableType::Integer>()) {
                         JAVM_LOG("[*return] Return int value: %d", var->GetValue<type::Integer>());
                     }
@@ -926,16 +939,16 @@ namespace javm::vm {
                                 auto field_name = field_nat_data.processed_name;
                                 auto field_desc = field_nat_data.processed_desc;
 
-                                JAVM_LOG("[getstatic] Get static field '%s' ('%s') of '%s'...", field_name.c_str(), field_desc.c_str(), class_name.c_str());
+                                JAVM_LOG("[getstatic] Get static field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
 
                                 auto class_type = rt::LocateClassType(class_name);
                                 if(class_type) {
                                     auto var = class_type->GetStaticField(field_name, field_desc);
-                                    JAVM_LOG("[getstatic] Static field: '%s'...", TypeUtils::FormatVariableType(var).c_str());
+                                    JAVM_LOG("[getstatic] Static field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
                                     frame.PushStack(var);
                                 }
                                 else {
-                                    JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                    JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                 }
                             }
                             else {
@@ -970,15 +983,15 @@ namespace javm::vm {
                                 auto field_name = field_nat_data.processed_name;
                                 auto field_desc = field_nat_data.processed_desc;
 
-                                JAVM_LOG("[putstatic] Set static field '%s' ('%s') of '%s'...", field_name.c_str(), field_desc.c_str(), class_name.c_str());
-                                JAVM_LOG("[putstatic] Static field: '%s'...", TypeUtils::FormatVariableType(var).c_str());
+                                JAVM_LOG("[putstatic] Set static field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
+                                JAVM_LOG("[putstatic] Static field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
 
                                 auto class_type = rt::LocateClassType(class_name);
                                 if(class_type) {
                                     class_type->SetStaticField(field_name, field_desc, var);
                                 }
                                 else {
-                                    JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                    JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                 }
                             }
                             else {
@@ -1016,16 +1029,16 @@ namespace javm::vm {
                                     auto field_name = field_nat_data.processed_name;
                                     auto field_desc = field_nat_data.processed_desc;
 
-                                    JAVM_LOG("[getfield] Get field '%s' ('%s') of '%s'...", field_name.c_str(), field_desc.c_str(), class_name.c_str());
+                                    JAVM_LOG("[getfield] Get field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
 
                                     auto var_obj_c = var_obj->GetInstanceByClassType(var_obj, class_name);
                                     if(var_obj_c) {
                                         auto field_var = var_obj_c->GetField(field_name, field_desc);
-                                        JAVM_LOG("[getfield] Field: '%s'...", TypeUtils::FormatVariableType(field_var).c_str());
+                                        JAVM_LOG("[getfield] Field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(field_var)).c_str());
                                         frame.PushStack(field_var);
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                     }
                                 }
                                 else {
@@ -1068,15 +1081,15 @@ namespace javm::vm {
                                     auto field_name = field_nat_data.processed_name;
                                     auto field_desc = field_nat_data.processed_desc;
 
-                                    JAVM_LOG("[putfield] Set field '%s' ('%s') of '%s'...", field_name.c_str(), field_desc.c_str(), class_name.c_str());
-                                    JAVM_LOG("[putfield] Field: '%s'...", TypeUtils::FormatVariableType(field_var).c_str());
+                                    JAVM_LOG("[putfield] Set field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
+                                    JAVM_LOG("[putfield] Field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(field_var)).c_str());
 
                                     auto var_obj_c = var_obj->GetInstanceByClassType(var_obj, class_name);
                                     if(var_obj_c) {
                                         var_obj_c->SetField(field_name, field_desc, field_var);
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                     }
                                 }
                                 else {
@@ -1134,7 +1147,7 @@ namespace javm::vm {
                                     JAVM_LOG("[invokeinterface]");
                                 }
 
-                                JAVM_LOG("[invoke] Executing '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                JAVM_LOG("[invoke] Executing '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
 
                                 auto [this_var, param_vars] = ExecutionUtils::LoadInstanceMethodParameters(frame, fn_desc);
                                 JAVM_LOG("[invoke] Parameter count: %ld + this...", param_vars.size());
@@ -1147,12 +1160,12 @@ namespace javm::vm {
                                     else {
                                         this_var_obj_c = this_var_obj->GetInstanceByClassTypeAndMethodVirtualInterface(this_var_obj, class_name, fn_name, fn_desc);
                                     }
-                                    JAVM_LOG("[invoke] This type: '%s'...", this_var_obj->GetClassType()->GetClassName().c_str());
-                                    JAVM_LOG("[invoke] Detected instance type: '%s'...", this_var_obj_c->GetClassType()->GetClassName().c_str());
+                                    JAVM_LOG("[invoke] This type: '%s'...", StrUtils::ToUtf8(this_var_obj->GetClassType()->GetClassName()).c_str());
+                                    JAVM_LOG("[invoke] Detected instance type: '%s'...", StrUtils::ToUtf8(this_var_obj_c->GetClassType()->GetClassName()).c_str());
                                     if(this_var_obj_c) {
                                         auto result = this_var_obj_c->CallInstanceMethod(fn_name, fn_desc, this_var, param_vars);
                                         if(result.IsInvalidOrThrown()) {
-                                            JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                            JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                                             return result;
                                         }
                                         if(result.Is<ExecutionStatus::VariableReturn>()) {
@@ -1166,7 +1179,7 @@ namespace javm::vm {
                                         }
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                     }
                                 }
                                 else {
@@ -1177,7 +1190,7 @@ namespace javm::vm {
                                         JAVM_LOG("Invalid class object...");
                                     }
                                 }
-                                JAVM_LOG("[invoke] Done '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                JAVM_LOG("[invoke] Done '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                             }
                             else {
                                 JAVM_LOG("Invalid const pool item NAT...?");
@@ -1210,7 +1223,7 @@ namespace javm::vm {
                                 auto fn_name = const_fn_nat_data.processed_name;
                                 auto fn_desc = const_fn_nat_data.processed_desc;
 
-                                JAVM_LOG("[invokestatic] Executing '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                JAVM_LOG("[invokestatic] Executing '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
 
                                 auto class_type = rt::LocateClassType(class_name);
                                 if(class_type) {
@@ -1218,7 +1231,7 @@ namespace javm::vm {
                                     JAVM_LOG("[invokestatic] Parameter count: %ld...", param_vars.size());
                                     auto result = class_type->CallClassMethod(fn_name, fn_desc, param_vars);
                                     if(result.IsInvalidOrThrown()) {
-                                        JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                        JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                                         return result;
                                     }
                                     if(result.Is<ExecutionStatus::VariableReturn>()) {
@@ -1232,10 +1245,10 @@ namespace javm::vm {
                                     }
                                 }
                                 else {
-                                    JAVM_LOG("Invalid class name: '%s'", class_name.c_str());
+                                    JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                                 }
 
-                                JAVM_LOG("[invokestatic] Done '%s'::'%s'::'%s'...", class_name.c_str(), fn_name.c_str(), fn_desc.c_str());
+                                JAVM_LOG("[invokestatic] Done '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                             }
                             else {
                                 JAVM_LOG("Invalid const pool item NAT...?");
@@ -1261,7 +1274,7 @@ namespace javm::vm {
                         auto const_class_data = const_class_item->GetClassData();
                         auto class_name = const_class_data.processed_name;
 
-                        JAVM_LOG("[NEW] new '%s'...", class_name.c_str());
+                        JAVM_LOG("[NEW] new '%s'...", StrUtils::ToUtf8(class_name).c_str());
 
                         auto class_type = rt::LocateClassType(class_name);
                         if(class_type) {
@@ -1318,9 +1331,9 @@ namespace javm::vm {
                         auto const_class_data = const_class_item->GetClassData();
                         auto class_name = const_class_data.processed_name;
 
-                        JAVM_LOG("[anewarray] Class name: '%s'", class_name.c_str());
+                        JAVM_LOG("[anewarray] Class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                         auto class_type = rt::LocateClassType(class_name);
-                        JAVM_LOG("[anewarray] Got class: '%s'", class_name.c_str());
+                        JAVM_LOG("[anewarray] Got class: '%s'", StrUtils::ToUtf8(class_name).c_str());
                         if(class_type) {
                             auto ret = class_type->EnsureStaticInitializerCalled();
                             if(ret.IsInvalidOrThrown()) {
@@ -1331,7 +1344,7 @@ namespace javm::vm {
                                 if(len_val >= 0) {
                                     JAVM_LOG("[anewarray] Array length: %d", len_val);
                                     auto arr_var = TypeUtils::NewArray(len_val, class_type);
-                                    JAVM_LOG("[anewarray] Created array! '%s'", TypeUtils::FormatVariableType(arr_var).c_str());
+                                    JAVM_LOG("[anewarray] Created array! '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(arr_var)).c_str());
                                     frame.PushStack(arr_var);
                                 }
                                 else {
@@ -1360,7 +1373,7 @@ namespace javm::vm {
                         
                         auto arr_len = arr_obj->GetLength();
 
-                        JAVM_LOG("[arraylength] -> Array: '%s'...", TypeUtils::FormatVariableType(arr_var).c_str());
+                        JAVM_LOG("[arraylength] -> Array: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(arr_var)).c_str());
                         JAVM_LOG("[arraylength] -> Length: %d...", arr_obj->GetLength());
 
                         auto len_var = TypeUtils::NewPrimitiveVariable<type::Integer>(arr_len);
@@ -1375,11 +1388,11 @@ namespace javm::vm {
                 case Instruction::ATHROW: {
                     // TODO - proper exception handling
                     auto throwable_var = frame.PopStack();
-                    JAVM_LOG("[athrow] Throwable object: '%s'", TypeUtils::FormatVariableType(throwable_var).c_str());
+                    JAVM_LOG("[athrow] Throwable object: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(throwable_var)).c_str());
                     auto throwable_obj = throwable_var->GetAs<type::ClassInstance>();
-                    auto msg = throwable_obj->CallInstanceMethod("getMessage", "()Ljava/lang/String;", throwable_var);
+                    auto msg = throwable_obj->CallInstanceMethod(u"getMessage", u"()Ljava/lang/String;", throwable_var);
                     auto msg_str = StringUtils::GetValue(msg.ret_var);
-                    JAVM_LOG("[athrow] Thrown message: '%s'", msg_str.c_str());
+                    JAVM_LOG("[athrow] Thrown message: '%s'", StrUtils::ToUtf8(msg_str).c_str());
                     inner_impl::NotifyExceptionThrownImpl(throwable_var);
                     return ExecutionResult::Thrown();
                 }
@@ -1393,11 +1406,11 @@ namespace javm::vm {
                         auto const_class_data = const_class_item->GetClassData();
                         auto class_name = const_class_data.processed_name;
 
-                        JAVM_LOG("[checkcast] class name: '%s'", class_name.c_str());
+                        JAVM_LOG("[checkcast] class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
 
                         if(var->CanGetAs<VariableType::ClassInstance>()) {
                             auto var_obj = var->GetAs<type::ClassInstance>();
-                            JAVM_LOG("[checkcast] instance class name: '%s'", var_obj->GetClassType()->GetClassName().c_str());
+                            JAVM_LOG("[checkcast] instance class name: '%s'", StrUtils::ToUtf8(var_obj->GetClassType()->GetClassName()).c_str());
                             if(var_obj->GetClassType()->CanCastTo(class_name)) {
                                 frame.PushStack(var);
                             }
@@ -1465,7 +1478,7 @@ namespace javm::vm {
                         monitor->Enter();
                     }
                     else {
-                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid monitor enter");
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid monitor enter");
                     }
 
                     break;
@@ -1478,7 +1491,7 @@ namespace javm::vm {
                         monitor->Leave();
                     }
                     else {
-                        return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid monitor leave");
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid monitor leave");
                     }
 
                     break;
@@ -1508,7 +1521,7 @@ namespace javm::vm {
                 }
                 
                 default:
-                    return ExceptionUtils::ThrowWithTypeAndMessage("java/lang/Exception", "Invalid or unimplemented instruction: " + std::to_string(static_cast<u32>(inst)));
+                    return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
             }
             return ExecutionResult::ContinueCodeExecution();
         }

@@ -10,12 +10,12 @@ namespace javm::vm {
             VariableType type;
             Ptr<ClassType> base_type;
             u32 array_dimensions;
-            std::string type_name;
+            String type_name;
 
-            std::string ComputeTypeName() {
-                std::string base_name;
+            String ComputeTypeName() {
+                String base_name;
                 for(u32 i = 0; i < this->array_dimensions; i++) {
-                    base_name += '[';
+                    base_name += u'[';
                 }
                 if(this->IsPrimitiveType()) {
                     auto type_name = TypeTraits::GetDescriptorForPrimitiveType(this->type);
@@ -26,7 +26,7 @@ namespace javm::vm {
                     base_name += class_name;
                 }
                 else {
-                    return "";
+                    return u"";
                 }
                 return base_name;
             }
@@ -76,7 +76,7 @@ namespace javm::vm {
                 return this->base_type;
             }
 
-            std::string GetTypeName() {
+            String GetTypeName() {
                 return this->type_name;
             }
 
@@ -108,7 +108,7 @@ namespace javm::vm {
                 return ref_type;
             }
 
-            static Ptr<ReflectionType> CreateTypeByName(const std::string &name) {
+            static Ptr<ReflectionType> CreateTypeByName(const String &name) {
                 u32 array_dimensions = 0;
                 auto name_copy = name;
                 while(name_copy.front() == '[') {
@@ -142,7 +142,7 @@ namespace javm::vm {
                 return t_a->GetTypeName() == t_b->GetTypeName();
             }
 
-            static Ptr<ReflectionType> FindTypeByName(const std::string &name) {
+            static Ptr<ReflectionType> FindTypeByName(const String &name) {
                 auto ref_type = CreateTypeByName(name);
                 if(ref_type) {
                     return EnsureType(ref_type);

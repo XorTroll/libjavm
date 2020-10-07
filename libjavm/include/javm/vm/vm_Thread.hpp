@@ -10,8 +10,8 @@ namespace javm::vm {
 
     struct CallInfo {
         Ptr<ClassType> caller_type;
-        std::string invokable_name;
-        std::string invokable_desc;
+        String invokable_name;
+        String invokable_desc;
     };
 
     class ThreadAccessor {
@@ -20,7 +20,7 @@ namespace javm::vm {
             Ptr<native::Thread> thread_obj;
             std::vector<CallInfo> call_stack;
             bool exception_thrown;
-            std::string cached_name;
+            String cached_name;
 
         public:
             ThreadAccessor(Ptr<native::Thread> thr_obj) : thread_obj(thr_obj), exception_thrown(false) {}
@@ -36,14 +36,14 @@ namespace javm::vm {
             void CacheThreadName() {
                 auto java_thr_v = this->thread_obj->GetJavaThreadVariable();
                 auto thr_obj = java_thr_v->GetAs<type::ClassInstance>();
-                auto name_res = thr_obj->CallInstanceMethod("getName", "()Ljava/lang/String;", java_thr_v);
+                auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", java_thr_v);
                 if(!name_res.IsInvalidOrThrown()) {
                     auto name_v = name_res.ret_var;
                     this->cached_name = StringUtils::GetValue(name_v);
                 }
             }
 
-            std::string GetThreadName() {
+            String GetThreadName() {
                 if(this->cached_name.empty()) {
                     this->CacheThreadName();
                 }
@@ -54,7 +54,7 @@ namespace javm::vm {
                 return this->thread_obj->GetJavaThreadVariable();
             }
 
-            void PushNewCall(Ptr<ClassType> caller_type, const std::string &invokable_name, const std::string &invokable_desc) {
+            void PushNewCall(Ptr<ClassType> caller_type, const String &invokable_name, const String &invokable_desc) {
                 if(this->exception_thrown) {
                     return;
                 }
@@ -211,11 +211,11 @@ namespace javm::vm {
                 auto java_thr_obj = java_thr_v->GetAs<type::ClassInstance>();
 
                 auto eetop = thr_ref->GetHandle();
-                java_thr_obj->SetField("eetop", "J", TypeUtils::NewPrimitiveVariable<type::Long>(eetop));
+                java_thr_obj->SetField(u"eetop", u"J", TypeUtils::NewPrimitiveVariable<type::Long>(eetop));
                 auto prio = native::GetThreadPriority(eetop);
-                java_thr_obj->SetField("priority", "I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
+                java_thr_obj->SetField(u"priority", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
 
-                java_thr_obj->CallInstanceMethod("run", "()V", java_thr_v);
+                java_thr_obj->CallInstanceMethod(u"run", u"()V", java_thr_v);
 
                 UnregisterSelf();
 
@@ -261,15 +261,15 @@ namespace javm::vm {
                 auto handle = native::GetCurrentThreadHandle();
                 auto thread_obj = native::CreateExistingThread(handle);
                 
-                auto thread_class_type = inner_impl::LocateClassTypeImpl("java/lang/Thread");
+                auto thread_class_type = inner_impl::LocateClassTypeImpl(u"java/lang/Thread");
                 auto java_thread_v = TypeUtils::NewClassVariable(thread_class_type);
 
                 thread_class_type->EnsureStaticInitializerCalled();
 
                 auto java_thread_obj = java_thread_v->GetAs<type::ClassInstance>();
-                java_thread_obj->SetField("eetop", "J", TypeUtils::NewPrimitiveVariable<type::Long>(handle));
+                java_thread_obj->SetField(u"eetop", u"J", TypeUtils::NewPrimitiveVariable<type::Long>(handle));
                 auto prio = native::GetThreadPriority(handle);
-                java_thread_obj->SetField("priority", "I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
+                java_thread_obj->SetField(u"priority", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
 
                 thread_obj->AssignJavaThreadVariable(java_thread_v);
 
@@ -293,7 +293,7 @@ namespace javm::vm {
 
     namespace inner_impl {
 
-        void ThreadNotifyExecutionStartImpl(Ptr<ClassType> type, const std::string &name, const std::string &descriptor) {
+        void ThreadNotifyExecutionStartImpl(Ptr<ClassType> type, const String &name, const String &descriptor) {
             auto cur_thr = ThreadUtils::GetCurrentThread();
             if(cur_thr) {
                 cur_thr->PushNewCall(type, name, descriptor);

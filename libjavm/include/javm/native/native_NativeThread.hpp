@@ -17,7 +17,7 @@ namespace javm::native {
     class Thread {
 
         public:
-            static constexpr const char *MainThreadName = "main";
+            static constexpr auto MainThreadName = u"main";
             
             static constexpr Priority MinPriority = 1;
             static constexpr Priority DefaultPriority = 5;

@@ -8,7 +8,7 @@ namespace javm::rt {
     class ClassSource {
 
         public:
-            virtual Ptr<vm::ClassType> LocateClassType(const std::string &find_class_name) = 0;
+            virtual Ptr<vm::ClassType> LocateClassType(const String &find_class_name) = 0;
 
             virtual void ResetCachedClassTypes() = 0;
             

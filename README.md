@@ -149,7 +149,7 @@ The tests used to test the VM (thanks, KiVM!) are located at `java-test`. Curren
 
 - `Main`: pass (we aren't setting the 'kivm.info' property, thus it's null)
 
-- `PackagePrivateTest`: fail? (needs further debugging)
+- `PackagePrivateTest`: pass!
 
 - `Polymorphism`: pass!
 
@@ -161,7 +161,7 @@ The tests used to test the VM (thanks, KiVM!) are located at `java-test`. Curren
 
 - `ThreadTest`: pass!
 
-Outcome: 17.5 out of 28 tests passed (for now)!
+Outcome: 18.5 out of 28 tests passed (for now)!
 
 ## TO-DO list
 
@@ -170,8 +170,6 @@ Outcome: 17.5 out of 28 tests passed (for now)!
 - Properly support multi-dimension arrays (`multianewarray`)
 
 - Implement not implemented native methods (only implemented basic ones to get past initialization, for now)
-
-- Use UTF-16 Strings both in Java and C++, currently using UTF-8 / std::string
 
 - Dynamic invoking stuff, related to `invokedynamic` opcode (method handle support, constant pool items related to this...)
 
