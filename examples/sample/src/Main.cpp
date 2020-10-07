@@ -17,15 +17,15 @@ void CheckHandleException(vm::ExecutionResult ret) {
     if(ret.Is<vm::ExecutionStatus::Thrown>()) {
         auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
         auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
-        auto msg_v = throwable_obj->GetField("detailMessage", "Ljava/lang/String;");
-        auto msg = "Exception in thread \"" + thread->GetThreadName() + "\" " + vm::TypeUtils::FormatVariableType(throwable_var);
+        auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
+        auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
         auto msg_str = vm::StringUtils::GetValue(msg_v);
         if(!msg_str.empty()) {
-            msg +=  + ": " + vm::StringUtils::GetValue(msg_v);
+            msg += u": " + msg_str;
         }
-        printf("%s\n", msg.c_str());
+        printf("%s\n", StrUtils::ToUtf8(msg).c_str());
         for(auto call_info: thread->GetInvertedCallStack()) {
-            printf("    at %s.%s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
+            printf("    at %s.%s%s\n", StrUtils::ToUtf8(call_info.caller_type->GetClassName()).c_str(), StrUtils::ToUtf8(call_info.invokable_name).c_str(), StrUtils::ToUtf8(call_info.invokable_desc).c_str());
         }
         exit(0);
     }
@@ -40,7 +40,7 @@ void CheckHandleException(vm::ExecutionResult ret) {
 int main(int argc, char **argv) {
 
     if(argc < 3) {
-        printf("Bad arguments - usage: test <rt-jar> <main-jar> [<args-to-be-passed-for-jar-main>]\n");
+        printf("Bad arguments - usage: sample <rt-jar> <main-jar> [<args-to-be-passed-for-jar-main>]\n");
         return 0;
     }
 
@@ -59,16 +59,16 @@ int main(int argc, char **argv) {
     int args_len = argc - args_off;
 
     // Create a String array (String[]) and populate it
-    auto args_arr_v = vm::TypeUtils::NewArray(args_len, rt::LocateClassType("java/lang/String"));
+    auto args_arr_v = vm::TypeUtils::NewArray(args_len, rt::LocateClassType(u"java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
     for(u32 i = 0; i < args_len; i++) {
-        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(argv[args_off + i]));
+        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(argv[args_off + i])));
     }
 
     if(main_jar->CanBeExecuted()) {
         // Call the JAR's main(String[]) method
         auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
-        auto res = main_class_type->CallClassMethod("main", "([Ljava/lang/String;)V", args_arr_v);
+        auto res = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
         CheckHandleException(res);
     }
     else {

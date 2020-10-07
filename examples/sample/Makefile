@@ -21,7 +21,7 @@ $(OBJ_DIR)/%.o: %.cpp
 $(OUT_DIR)/$(TARGET): $(OBJECTS)
 	@mkdir -p $(@D)
 	@$(CXX) $(CXXFLAGS) -o $(OUT_DIR)/$(TARGET) $^ $(LDFLAGS)
-	@echo built -> $(OUT_DIR)/$(TARGET)
+	@echo built - $(OUT_DIR)/$(TARGET)
 
 .PHONY: all build clean debug release
 

@@ -105,22 +105,22 @@ namespace javm::vm {
         template<typename ...JArgs>
         ExecutionResult ExecuteCode(u8 *code_ptr, u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args);
 
-        Ptr<ClassType> LocateClassTypeImpl(const std::string &class_name);
+        Ptr<ClassType> LocateClassTypeImpl(const String &class_name);
 
         inline Ptr<Variable> NewDefaultVariableImpl(VariableType type);
 
-        Ptr<Variable> CreateNewString(const std::string &native_str);
+        Ptr<Variable> CreateNewString(const String &native_str);
 
-        std::string GetStringValue(Ptr<Variable> str);
+        String GetStringValue(Ptr<Variable> str);
 
         inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type);
 
         template<typename ...JArgs>
-        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const std::string &init_descriptor, JArgs &&...java_args);
+        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args);
 
-        ExecutionResult ThrowWithTypeImpl(const std::string &class_name);
+        ExecutionResult ThrowWithTypeImpl(const String &class_name);
 
-        ExecutionResult ThrowWithTypeAndMessageImpl(const std::string &class_name, const std::string &msg);
+        ExecutionResult ThrowWithTypeAndMessageImpl(const String &class_name, const String &msg);
 
         static inline bool WasExceptionThrownImpl();
 
@@ -138,7 +138,7 @@ namespace javm::vm {
             return ExtendedVariableType { type, nullptr };
         }
 
-        static ExtendedVariableType MakeClassType(const std::string &class_name) {
+        static ExtendedVariableType MakeClassType(const String &class_name) {
             return ExtendedVariableType { VariableType::ClassInstance, inner_impl::LocateClassTypeImpl(class_name) };
         }
 
@@ -151,40 +151,40 @@ namespace javm::vm {
     class TypeTraits {
 
         private:
-            static inline std::map<VariableType, std::string> g_primitive_type_name_table =
+            static inline std::map<VariableType, String> g_primitive_type_name_table =
             {
-                { VariableType::Byte, "byte" },
-                { VariableType::Boolean, "boolean" },
-                { VariableType::Short, "short" },
-                { VariableType::Character, "char" },
-                { VariableType::Integer, "int" },
-                { VariableType::Long, "long" },
-                { VariableType::Float, "float" },
-                { VariableType::Double, "double" },
+                { VariableType::Byte, u"byte" },
+                { VariableType::Boolean, u"boolean" },
+                { VariableType::Short, u"short" },
+                { VariableType::Character, u"char" },
+                { VariableType::Integer, u"int" },
+                { VariableType::Long, u"long" },
+                { VariableType::Float, u"float" },
+                { VariableType::Double, u"double" },
             };
 
-            static inline std::map<VariableType, std::string> g_primitive_type_table =
+            static inline std::map<VariableType, String> g_primitive_type_table =
             {
-                { VariableType::Byte, "B" },
-                { VariableType::Boolean, "Z" },
-                { VariableType::Short, "S" },
-                { VariableType::Character, "C" },
-                { VariableType::Integer, "I" },
-                { VariableType::Long, "J" },
-                { VariableType::Float, "F" },
-                { VariableType::Double, "D" },
+                { VariableType::Byte, u"B" },
+                { VariableType::Boolean, u"Z" },
+                { VariableType::Short, u"S" },
+                { VariableType::Character, u"C" },
+                { VariableType::Integer, u"I" },
+                { VariableType::Long, u"J" },
+                { VariableType::Float, u"F" },
+                { VariableType::Double, u"D" },
             };
 
         public:
 
-            static bool IsPrimitiveType(const std::string &class_name) {
+            static bool IsPrimitiveType(const String &class_name) {
                 for(auto &[type, name]: g_primitive_type_name_table) {
                     if(name == class_name) {
                         return true;
                     }
                 }
                 auto class_copy = class_name;
-                while(class_copy.front() == '[') {
+                while(class_copy.front() == u'[') {
                     class_copy.erase(0, 1);
                 }
                 for(auto &[type, name]: g_primitive_type_table) {
@@ -235,7 +235,7 @@ namespace javm::vm {
                 return (type != VariableType::Invalid) && (type != VariableType::ClassInstance) && (type != VariableType::Array) && (type != VariableType::NullObject);
             }
 
-            static VariableType GetFieldNameType(const std::string &descriptor) {
+            static VariableType GetFieldNameType(const String &descriptor) {
                 for(auto &[type, name] : g_primitive_type_name_table) {
                     if(name == descriptor) {
                         return type;
@@ -244,7 +244,7 @@ namespace javm::vm {
                 return VariableType::Invalid;
             }
 
-            static VariableType GetFieldDescriptorType(const std::string &descriptor) {
+            static VariableType GetFieldDescriptorType(const String &descriptor) {
                 for(auto &[type, name] : g_primitive_type_table) {
                     if(name == descriptor) {
                         return type;
@@ -253,7 +253,7 @@ namespace javm::vm {
                 return VariableType::Invalid;
             }
 
-            static inline VariableType GetFieldAnyType(const std::string &descriptor) {
+            static inline VariableType GetFieldAnyType(const String &descriptor) {
                 auto type = GetFieldNameType(descriptor);
                 if(type == VariableType::Invalid) {
                     return GetFieldDescriptorType(descriptor);
@@ -261,54 +261,54 @@ namespace javm::vm {
                 return type;
             }
 
-            static ExtendedVariableType GetFieldDescriptorFullType(const std::string &descriptor) {
-                if(descriptor == "B") {
+            static ExtendedVariableType GetFieldDescriptorFullType(const String &descriptor) {
+                if(descriptor == u"B") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Byte);
                 }
-                if(descriptor == "Z") {
+                if(descriptor == u"Z") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Boolean);
                 }
-                if(descriptor == "S") {
+                if(descriptor == u"S") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Short);
                 }
-                if(descriptor == "C") {
+                if(descriptor == u"C") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Character);
                 }
-                if(descriptor == "I") {
+                if(descriptor == u"I") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Integer);
                 }
-                if(descriptor == "J") {
+                if(descriptor == u"J") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Long);
                 }
-                if(descriptor == "F") {
+                if(descriptor == u"F") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Float);
                 }
-                if(descriptor == "D") {
+                if(descriptor == u"D") {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Double);
                 }
-                if(descriptor.front() == '[') {
+                if(descriptor.front() == u'[') {
                     // array - TODO
                     return ExtendedVariableType::MakeSimpleType(VariableType::Array);
                 }
-                if(descriptor.front() == 'L') {
+                if(descriptor.front() == u'L') {
                     auto class_name = descriptor.substr(1, descriptor.length() - 2);
                     return ExtendedVariableType::MakeClassType(class_name);
                 }
                 return ExtendedVariableType::MakeSimpleType(VariableType::NullObject);
             }
 
-            static std::string GetDescriptorForPrimitiveType(VariableType type) {
+            static String GetDescriptorForPrimitiveType(VariableType type) {
                 if(g_primitive_type_table.find(type) != g_primitive_type_table.end()) {
                     return g_primitive_type_table[type];
                 }
-                return "";
+                return u"";
             }
 
-            static std::string GetNameForPrimitiveType(VariableType type) {
+            static String GetNameForPrimitiveType(VariableType type) {
                 if(g_primitive_type_name_table.find(type) != g_primitive_type_name_table.end()) {
                     return g_primitive_type_name_table[type];
                 }
-                return "";
+                return u"";
             }
 
     };
@@ -316,19 +316,19 @@ namespace javm::vm {
     class ClassUtils {
 
         public:
-            static std::string MakeSlashClassName(const std::string &input_name) {
-                std::string copy = input_name;
-                std::replace(copy.begin(), copy.end(), '.', '/');
+            static String MakeSlashClassName(const String &input_name) {
+                auto copy = input_name;
+                std::replace(copy.begin(), copy.end(), u'.', u'/');
                 return copy;
             }
 
-            static std::string MakeDotClassName(const std::string &input_name) {
-                std::string copy = input_name;
-                std::replace(copy.begin(), copy.end(), '/', '.');
+            static String MakeDotClassName(const String &input_name) {
+                auto copy = input_name;
+                std::replace(copy.begin(), copy.end(), u'/', u'.');
                 return copy;
             }
 
-            static inline bool EqualClassNames(const std::string &name_a, const std::string &name_b) {
+            static inline bool EqualClassNames(const String &name_a, const String &name_b) {
                 // Directly convert both to slash names to avoid any trouble
                 if(MakeSlashClassName(name_a) == MakeSlashClassName(name_b)) {
                     return true;

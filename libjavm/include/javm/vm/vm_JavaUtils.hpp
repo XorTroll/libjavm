@@ -7,7 +7,7 @@ namespace javm::vm {
     class ExceptionUtils {
 
         private:
-            static Ptr<Variable> CreateThrowableByType(const std::string &class_name) {
+            static Ptr<Variable> CreateThrowableByType(const String &class_name) {
                 auto class_type = inner_impl::LocateClassTypeImpl(class_name);
                 if(class_type) {
                     return inner_impl::NewClassVariableImpl(class_type);
@@ -16,11 +16,11 @@ namespace javm::vm {
             }
 
         public:
-            static ExecutionResult ThrowWithType(const std::string &class_name) {
+            static ExecutionResult ThrowWithType(const String &class_name) {
                 auto throwable_v = CreateThrowableByType(class_name);
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
-                    auto ret = throwable_obj->CallConstructor(throwable_v, "()V");
+                    auto ret = throwable_obj->CallConstructor(throwable_v, u"()V");
                     if(!ret.IsInvalidOrThrown()) {
                         inner_impl::NotifyExceptionThrownImpl(throwable_v);
                         return ExecutionResult::Thrown();
@@ -29,12 +29,12 @@ namespace javm::vm {
                 return ExecutionResult::InvalidState();
             }
 
-            static ExecutionResult ThrowWithTypeAndMessage(const std::string &class_name, const std::string &msg) {
+            static ExecutionResult ThrowWithTypeAndMessage(const String &class_name, const String &msg) {
                 auto throwable_v = CreateThrowableByType(class_name);
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto msg_v = inner_impl::CreateNewString(msg);
-                    auto ret = throwable_obj->CallConstructor(throwable_v, "(Ljava/lang/String;)V", msg_v);
+                    auto ret = throwable_obj->CallConstructor(throwable_v, u"(Ljava/lang/String;)V", msg_v);
                     if(!ret.IsInvalidOrThrown()) {
                         inner_impl::NotifyExceptionThrownImpl(throwable_v);
                         return ExecutionResult::Thrown();
@@ -62,7 +62,7 @@ namespace javm::vm {
     class StringUtils {
 
         public:
-            static void Assign(Ptr<Variable> str_var, const std::string &native_str) {
+            static void Assign(Ptr<Variable> str_var, const String &native_str) {
                 if(str_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto str_obj = str_var->GetAs<type::ClassInstance>();
                     const size_t str_len = native_str.length();
@@ -75,37 +75,37 @@ namespace javm::vm {
                         arr_obj->SetAt(i, char_var);
                     }
 
-                    str_obj->SetField("value", "[C", arr_var);
+                    str_obj->SetField(u"value", u"[C", arr_var);
                 }
             }
 
-            static std::string GetValue(Ptr<Variable> str_var) {
+            static String GetValue(Ptr<Variable> str_var) {
                 if(!str_var) {
-                    return "<invalid-str-var>";
+                    return u"<invalid-str-var>";
                 }
                 if(str_var->IsNull()) {
-                    return "<null>";
+                    return u"<null>";
                 }
                 
-                std::string ret_str;
+                String ret_str;
                 
                 if(str_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto str_obj = str_var->GetAs<type::ClassInstance>();
 
-                    auto arr_var = str_obj->GetField("value", "[C");
+                    auto arr_var = str_obj->GetField(u"value", u"[C");
                     auto arr_obj = arr_var->GetAs<type::Array>();
 
                     for(u32 i = 0; i < arr_obj->GetLength(); i++) {
                         auto char_var = arr_obj->GetAt(i);
                         auto char_val = char_var->GetValue<type::Character>();
-                        ret_str += char_val;
+                        ret_str += (char16_t)char_val;
                     }
                 }
 
                 return ret_str;
             }
 
-            static Ptr<Variable> CheckInternValue(const std::string &native_str) {
+            static Ptr<Variable> CheckInternValue(const String &native_str) {
                 for(auto &var: inner_impl::GetInternStringTable()) {
                     auto value_val = GetValue(var);
                     if(native_str == value_val) {
@@ -126,14 +126,14 @@ namespace javm::vm {
                 return str_var;
             }
 
-            static Ptr<Variable> CreateNew(const std::string &native_str) {
+            static Ptr<Variable> CreateNew(const String &native_str) {
                 // First, look if it's already cached
                 auto str_var = CheckInternValue(native_str);
                 if(str_var) {
                     return str_var;
                 }
 
-                auto str_class_type = inner_impl::LocateClassTypeImpl("java/lang/String");
+                auto str_class_type = inner_impl::LocateClassTypeImpl(u"java/lang/String");
                 if(str_class_type) {
                     if(native_str.empty()) {
                         // Trick to avoid infinite loop of String creation:
@@ -143,7 +143,7 @@ namespace javm::vm {
                         str_var = TypeUtils::NewClassVariable(str_class_type);
                     }
                     else {
-                        str_var = TypeUtils::NewClassVariable(str_class_type, "()V");
+                        str_var = TypeUtils::NewClassVariable(str_class_type, u"()V");
                     }
                     Assign(str_var, native_str);
                 }
@@ -153,23 +153,27 @@ namespace javm::vm {
                 return str_var;
             }
 
+            static inline Ptr<Variable> CreateNewUtf8(const std::string &native_str) {
+                return CreateNew(StrUtils::FromUtf8(native_str));
+            }
+
     };
 
     namespace inner_impl {
 
-        Ptr<Variable> CreateNewString(const std::string &native_str) {
+        Ptr<Variable> CreateNewString(const String &native_str) {
             return StringUtils::CreateNew(native_str);
         }
 
-        std::string GetStringValue(Ptr<Variable> str) {
+        String GetStringValue(Ptr<Variable> str) {
             return StringUtils::GetValue(str);
         }
 
-        ExecutionResult ThrowWithTypeImpl(const std::string &class_name) {
+        ExecutionResult ThrowWithTypeImpl(const String &class_name) {
             return ExceptionUtils::ThrowWithType(class_name);
         }
 
-        ExecutionResult ThrowWithTypeAndMessageImpl(const std::string &class_name, const std::string &msg) {
+        ExecutionResult ThrowWithTypeAndMessageImpl(const String &class_name, const String &msg) {
             return ExceptionUtils::ThrowWithTypeAndMessage(class_name, msg);
         }
 

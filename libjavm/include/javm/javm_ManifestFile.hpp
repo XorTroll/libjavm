@@ -50,16 +50,16 @@ namespace javm {
                 this->Load();
             }
 
-            bool HasAttribute(const std::string &name) {
-                return this->attributes.find(name) != this->attributes.end();
+            bool HasAttribute(const String &name) {
+                return this->attributes.find(StrUtils::ToUtf8(name)) != this->attributes.end();
             }
 
-            std::string FindAttribute(const std::string &name) {
-                auto it = this->attributes.find(name);
+            String FindAttribute(const String &name) {
+                auto it = this->attributes.find(StrUtils::ToUtf8(name));
                 if(it != this->attributes.end()) {
-                    return it->second;
+                    return StrUtils::FromUtf8(it->second);
                 }
-                return "";
+                return u"";
             }
 
     };

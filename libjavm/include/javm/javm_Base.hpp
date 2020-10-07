@@ -45,6 +45,10 @@ namespace javm {
     template<typename T>
     using Ptr = std::shared_ptr<T>;
 
+    // In Java, Strings are UTF-16!
+
+    using String = std::u16string;
+
     class PtrUtils {
 
         public:
