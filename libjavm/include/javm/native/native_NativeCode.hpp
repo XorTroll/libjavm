@@ -23,9 +23,9 @@ namespace javm::native {
         }
 
         struct NativeLocation {
-            std::string class_name;
-            std::string name;
-            std::string descriptor;
+            String class_name;
+            String name;
+            String descriptor;
         };
 
         template<typename Fn>
@@ -121,27 +121,27 @@ namespace javm::native {
 
     }
 
-    static inline void RegisterNativeInstanceMethod(const std::string &class_name, const std::string &method_name, const std::string &method_descriptor, NativeInstanceMethod method) {
+    static inline void RegisterNativeInstanceMethod(const String &class_name, const String &method_name, const String &method_descriptor, NativeInstanceMethod method) {
         inner_impl::RegisterNativeInstanceMethod({ vm::ClassUtils::MakeSlashClassName(class_name), method_name, method_descriptor }, method);
     }
 
-    static inline bool HasNativeInstanceMethod(const std::string &class_name, const std::string &method_name, const std::string &method_descriptor) {
+    static inline bool HasNativeInstanceMethod(const String &class_name, const String &method_name, const String &method_descriptor) {
         return inner_impl::HasNativeInstanceMethod({ vm::ClassUtils::MakeSlashClassName(class_name), method_name, method_descriptor });
     }
 
-    static inline NativeInstanceMethod FindNativeInstanceMethod(const std::string &class_name, const std::string &method_name, const std::string &method_descriptor) {
+    static inline NativeInstanceMethod FindNativeInstanceMethod(const String &class_name, const String &method_name, const String &method_descriptor) {
         return inner_impl::FindNativeInstanceMethod({ vm::ClassUtils::MakeSlashClassName(class_name), method_name, method_descriptor });
     }
 
-    static inline void RegisterNativeClassMethod(const std::string &class_name, const std::string &fn_name, const std::string &fn_descriptor, NativeClassMethod fn) {
+    static inline void RegisterNativeClassMethod(const String &class_name, const String &fn_name, const String &fn_descriptor, NativeClassMethod fn) {
         inner_impl::RegisterNativeClassMethod({ vm::ClassUtils::MakeSlashClassName(class_name), fn_name, fn_descriptor }, fn);
     }
 
-    static inline bool HasNativeClassMethod(const std::string &class_name, const std::string &fn_name, const std::string &fn_descriptor) {
+    static inline bool HasNativeClassMethod(const String &class_name, const String &fn_name, const String &fn_descriptor) {
         return inner_impl::HasNativeClassMethod({ vm::ClassUtils::MakeSlashClassName(class_name), fn_name, fn_descriptor });
     }
 
-    static inline NativeClassMethod FindNativeClassMethod(const std::string &class_name, const std::string &fn_name, const std::string &fn_descriptor) {
+    static inline NativeClassMethod FindNativeClassMethod(const String &class_name, const String &fn_name, const String &fn_descriptor) {
         return inner_impl::FindNativeClassMethod({ vm::ClassUtils::MakeSlashClassName(class_name), fn_name, fn_descriptor });
     }
 

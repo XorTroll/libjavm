@@ -11,7 +11,7 @@ namespace javm::rt {
         private:
 
             bool archive_valid;
-            std::string main_class_name;
+            String main_class_name;
             std::vector<Ptr<JavaClassFileSource>> cached_class_files;
 
             inline zipfile_reader OpenSelf() {
@@ -24,7 +24,7 @@ namespace javm::rt {
                         zipfile_reader reader = this->OpenSelf();
                         auto v_data = reader.read("META-INF/MANIFEST.MF");
                         ManifestFile manifest(v_data.data(), v_data.size());
-                        auto main_class = manifest.FindAttribute("Main-Class");
+                        auto main_class = manifest.FindAttribute(u"Main-Class");
                         this->main_class_name = main_class;
                         this->archive_valid = true;
                     }
@@ -45,7 +45,7 @@ namespace javm::rt {
                 this->Load();
             }
 
-            std::string GetMainClass() {
+            String GetMainClass() {
                 return this->main_class_name;
             }
 
@@ -60,7 +60,7 @@ namespace javm::rt {
                 return this->IsValid() && this->archive_valid;
             }
 
-            virtual Ptr<vm::ClassType> LocateClassType(const std::string &find_class_name) override {
+            virtual Ptr<vm::ClassType> LocateClassType(const String &find_class_name) override {
                 for(auto &class_file: this->cached_class_files) {
                     if(vm::ClassUtils::EqualClassNames(find_class_name, class_file->GetClassName())) {
                         return class_file->LocateClassType(find_class_name);
@@ -68,7 +68,7 @@ namespace javm::rt {
                 }
                 try {
                     zipfile_reader reader = this->OpenSelf();
-                    auto v_data = reader.read(vm::ClassUtils::MakeSlashClassName(find_class_name) + ".class");
+                    auto v_data = reader.read(StrUtils::ToUtf8(vm::ClassUtils::MakeSlashClassName(find_class_name) + u".class"));
                     auto class_src = PtrUtils::New<JavaClassFileSource>(v_data.data(), v_data.size());
                     this->cached_class_files.push_back(class_src);
                     return class_src->LocateClassType(find_class_name);

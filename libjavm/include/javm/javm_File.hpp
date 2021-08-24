@@ -7,6 +7,8 @@ namespace javm {
 
     // Simple but useful wrapper to read a binary file
 
+    // Unlike the rest of the library, this type uses std::string FWIW
+
     class File {
 
         private:

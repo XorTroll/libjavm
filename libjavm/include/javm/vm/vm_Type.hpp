@@ -55,7 +55,7 @@ namespace javm::vm {
                 return this->class_type;
             }
 
-            bool CanCastTo(const std::string &class_name) {
+            bool CanCastTo(const String &class_name) {
                 if(this->class_type) {
                     if(ClassUtils::EqualClassNames(class_name, this->class_type->GetClassName())) {
                         return true;

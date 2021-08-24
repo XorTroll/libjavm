@@ -87,14 +87,14 @@ namespace javm::vm {
         type::Float processed_flt;
         type::Double processed_dbl;
         type::Long processed_lng;
-        std::string processed_str;
+        String processed_str;
     };
     
     struct EnumConstAnnotationValue {
         u16 type_name_index;
-        std::string processed_type_name;
+        String processed_type_name;
         u16 const_name_index;
-        std::string processed_const_name;
+        String processed_const_name;
     };
 
     struct ClassInfoAnnotationValue {
@@ -103,12 +103,12 @@ namespace javm::vm {
 
     struct AnnotationAnnotationValue {
         u16 type_index;
-        std::string processed_type;
+        String processed_type;
     };
 
     struct Value {
         u16 name_index;
-        std::string processed_name;
+        String processed_name;
         u8 tag;
         ConstAnnotationValue const_value;
         EnumConstAnnotationValue enum_const_value;
@@ -118,7 +118,7 @@ namespace javm::vm {
 
     struct Annotation {
         u16 type_index;
-        std::string processed_type;
+        String processed_type;
         std::vector<Value> values;
     };
 
@@ -128,7 +128,7 @@ namespace javm::vm {
             u32 len;
             std::vector<Annotation> annotations;
             u16 type_index;
-            std::string type;
+            String type;
 
             Annotation ReadAnnotationImpl(MemoryReader &reader) {
                 Annotation annot = {};
@@ -189,11 +189,11 @@ namespace javm::vm {
 
             void ProcessAnnotations(ConstantPool &pool) {
                 for(auto &annot: this->annotations) {
-                    auto type_data_item = pool.GetItemAt(annot.type_index, vm::ConstantPoolTag::UTF8);
+                    auto type_data_item = pool.GetItemAt(annot.type_index, vm::ConstantPoolTag::Utf8);
                     if(type_data_item) {
-                        auto &type_data = type_data_item->GetUTF8Data();
-                        annot.processed_type = type_data.str;
-                        JAVM_LOG("[annotations] Annotation name: '%s'...", annot.processed_type.c_str());
+                        auto &type_data = type_data_item->GetUtf8Data();
+                        annot.processed_type = StrUtils::FromUtf8(type_data.utf8_str);
+                        JAVM_LOG("[annotations] Annotation name: '%s'...", StrUtils::ToUtf8(annot.processed_type).c_str());
                     }
                     for(auto &val: annot.values) {
                         JAVM_LOG("[annotations] Processing tag '%c'...", (char)val.tag);
@@ -235,23 +235,23 @@ namespace javm::vm {
                                 break;
                             }
                             case AnnotationTagType::String: {
-                                auto str_data_item = pool.GetItemAt(val.const_value.const_value_index, vm::ConstantPoolTag::UTF8);
+                                auto str_data_item = pool.GetItemAt(val.const_value.const_value_index, vm::ConstantPoolTag::Utf8);
                                 if(str_data_item) {
-                                    auto &str_data = str_data_item->GetUTF8Data();
-                                    val.const_value.processed_str = str_data.str;
+                                    auto &str_data = str_data_item->GetUtf8Data();
+                                    val.const_value.processed_str = StrUtils::FromUtf8(str_data.utf8_str);
                                 }
                                 break;
                             }
                             case AnnotationTagType::Enum: {
-                                auto name_data_item = pool.GetItemAt(val.enum_const_value.type_name_index, vm::ConstantPoolTag::UTF8);
+                                auto name_data_item = pool.GetItemAt(val.enum_const_value.type_name_index, vm::ConstantPoolTag::Utf8);
                                 if(name_data_item) {
-                                    auto &name_data = name_data_item->GetUTF8Data();
-                                    val.enum_const_value.processed_type_name = name_data.str;
+                                    auto &name_data = name_data_item->GetUtf8Data();
+                                    val.enum_const_value.processed_type_name = StrUtils::FromUtf8(name_data.utf8_str);
                                 }
-                                name_data_item = pool.GetItemAt(val.enum_const_value.const_name_index, vm::ConstantPoolTag::UTF8);
+                                name_data_item = pool.GetItemAt(val.enum_const_value.const_name_index, vm::ConstantPoolTag::Utf8);
                                 if(name_data_item) {
-                                    auto &name_data = name_data_item->GetUTF8Data();
-                                    val.enum_const_value.processed_const_name = name_data.str;
+                                    auto &name_data = name_data_item->GetUtf8Data();
+                                    val.enum_const_value.processed_const_name = StrUtils::FromUtf8(name_data.utf8_str);
                                 }
                                 break;
                             }
@@ -277,7 +277,7 @@ namespace javm::vm {
                 return this->annotations;
             }
 
-            bool HasAnnotation(const std::string &type) {
+            bool HasAnnotation(const String &type) {
                 for(auto &annot: this->annotations) {
                     if(annot.processed_type == type) {
                         return true;
@@ -296,10 +296,10 @@ namespace javm::vm {
 
             void ProcessAttributeInfoArray(ConstantPool &pool) {
                 for(auto &info: this->attributes) {
-                    auto name_data_item = pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::UTF8);
+                    auto name_data_item = pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::Utf8);
                     if(name_data_item) {
-                        auto &name_data = name_data_item->GetUTF8Data();
-                        info.SetName(name_data.str);
+                        auto &name_data = name_data_item->GetUtf8Data();
+                        info.SetName(StrUtils::FromUtf8(name_data.utf8_str));
                     }
                 }
             }
@@ -330,7 +330,7 @@ namespace javm::vm {
                 return this->annotation_infos;
             }
 
-            bool HasAnnotation(const std::string &type) {
+            bool HasAnnotation(const String &type) {
                 for(auto &rt_annot: this->annotation_infos) {
                     for(auto &annot: rt_annot.GetAnnotations()) {
                         if(annot.processed_type == type) {

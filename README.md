@@ -171,8 +171,6 @@ Outcome: 18.5 out of 28 tests passed (for now)!
 
 - Implement not implemented native methods (only implemented basic ones to get past initialization, for now)
 
-- Use UTF-16 Strings both in Java and C++, currently using UTF-8 / std::string
-
 - Dynamic invoking stuff, related to `invokedynamic` opcode (method handle support, constant pool items related to this...)
 
 - Support or take into account other annotations (currently only `CallerSensitive` is checked)

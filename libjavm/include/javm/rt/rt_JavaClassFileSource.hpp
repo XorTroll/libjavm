@@ -15,54 +15,54 @@ namespace javm::rt {
             u16 minor;
             u16 major;
             vm::ConstantPool pool;
-            std::string class_name;
-            std::string super_class_name;
-            std::vector<std::string> interfaces;
+            String class_name;
+            String super_class_name;
+            std::vector<String> interfaces;
             std::vector<vm::FieldInfo> fields;
             std::vector<vm::FieldInfo> methods;
             Ptr<vm::ClassType> cached_class_type;
 
-            void ProcessConstantPoolUTF8Data(vm::ConstantPool &pool) {
+            void ProcessConstantPoolUtf8Data(vm::ConstantPool &pool) {
                 pool.ForEachItem([&](Ptr<vm::ConstantPoolItem> item_ref) {
                     switch(item_ref->GetTag()) {
                         case vm::ConstantPoolTag::Class: {
                             auto &data = item_ref->GetClassData();
-                            auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::UTF8);
+                            auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::Utf8);
                             if(name_data_item) {
-                                auto &name_data = name_data_item->GetUTF8Data();
-                                data.processed_name = name_data.str;
+                                auto &name_data = name_data_item->GetUtf8Data();
+                                data.processed_name = StrUtils::FromUtf8(name_data.utf8_str);
                             }
                             break;
                         }
                         case vm::ConstantPoolTag::NameAndType: {
                             auto &data = item_ref->GetNameAndTypeData();
-                            auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::UTF8);
+                            auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::Utf8);
                             if(name_data_item) {
-                                auto &name_data = name_data_item->GetUTF8Data();
-                                data.processed_name = name_data.str;
+                                auto &name_data = name_data_item->GetUtf8Data();
+                                data.processed_name = StrUtils::FromUtf8(name_data.utf8_str);
                             }
-                            auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::UTF8);
+                            auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::Utf8);
                             if(desc_data_item) {
-                                auto &desc_data = desc_data_item->GetUTF8Data();
-                                data.processed_desc = desc_data.str;
+                                auto &desc_data = desc_data_item->GetUtf8Data();
+                                data.processed_desc = StrUtils::FromUtf8(desc_data.utf8_str);
                             }
                             break;
                         }
                         case vm::ConstantPoolTag::String: {
                             auto &data = item_ref->GetStringData();
-                            auto str_data_item = this->pool.GetItemAt(data.string_index, vm::ConstantPoolTag::UTF8);
+                            auto str_data_item = this->pool.GetItemAt(data.string_index, vm::ConstantPoolTag::Utf8);
                             if(str_data_item) {
-                                auto &str_data = str_data_item->GetUTF8Data();
-                                data.processed_string = str_data.str;
+                                auto &str_data = str_data_item->GetUtf8Data();
+                                data.processed_string = StrUtils::FromUtf8(str_data.utf8_str);
                             }
                             break;
                         }
                         case vm::ConstantPoolTag::InstanceMethodType: {
                             auto &data = item_ref->GetInstanceMethodTypeData();
-                            auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::UTF8);
+                            auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::Utf8);
                             if(desc_data_item) {
-                                auto &desc_data = desc_data_item->GetUTF8Data();
-                                data.processed_desc = desc_data.str;
+                                auto &desc_data = desc_data_item->GetUtf8Data();
+                                data.processed_desc = StrUtils::FromUtf8(desc_data.utf8_str);
                             }
                             break;
                         }
@@ -74,15 +74,15 @@ namespace javm::rt {
 
             void ProcessFieldInfoArray(std::vector<vm::FieldInfo> &array) {
                 for(auto &info: array) {
-                    auto name_data_item = this->pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::UTF8);
+                    auto name_data_item = this->pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::Utf8);
                     if(name_data_item) {
-                        auto &name_data = name_data_item->GetUTF8Data();
-                        info.SetName(name_data.str);
+                        auto &name_data = name_data_item->GetUtf8Data();
+                        info.SetName(StrUtils::FromUtf8(name_data.utf8_str));
                     }
-                    auto desc_data_item = this->pool.GetItemAt(info.GetDescriptorIndex(), vm::ConstantPoolTag::UTF8);
+                    auto desc_data_item = this->pool.GetItemAt(info.GetDescriptorIndex(), vm::ConstantPoolTag::Utf8);
                     if(desc_data_item) {
-                        auto &desc_data = desc_data_item->GetUTF8Data();
-                        info.SetDescriptor(desc_data.str);
+                        auto &desc_data = desc_data_item->GetUtf8Data();
+                        info.SetDescriptor(StrUtils::FromUtf8(desc_data.utf8_str));
                     }
                 }
             }
@@ -112,7 +112,7 @@ namespace javm::rt {
                     }
                 }
 
-                this->ProcessConstantPoolUTF8Data(this->pool);
+                this->ProcessConstantPoolUtf8Data(this->pool);
 
                 this->access_flags = BE(reader.Read<u16>());
 
@@ -187,11 +187,11 @@ namespace javm::rt {
                 this->Load();
             }
 
-            std::string GetClassName() {
+            String GetClassName() {
                 return this->class_name;
             }
 
-            virtual Ptr<vm::ClassType> LocateClassType(const std::string &find_class_name) override {
+            virtual Ptr<vm::ClassType> LocateClassType(const String &find_class_name) override {
                 // Class files have a single class :P
                 if(vm::ClassUtils::EqualClassNames(this->class_name, find_class_name)) {
                     // If the class is already loaded, just return it

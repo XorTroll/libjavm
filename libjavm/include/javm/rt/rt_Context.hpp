@@ -33,7 +33,7 @@ namespace javm::rt {
         return AddClassSource(cs);
     }
 
-    static Ptr<vm::ClassType> LocateClassType(const std::string &class_name) {
+    static Ptr<vm::ClassType> LocateClassType(const String &class_name) {
         auto &inner_ctx = inner_impl::GetInnerGlobalContextImpl();
         for(auto &source: inner_ctx.class_sources) {
             auto class_ptr = source->LocateClassType(class_name);
