@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>javm</groupId>
-    <artifactId>javm-test</artifactId>
+    <artifactId>javm-test-suite</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
@@ -13,7 +13,7 @@
     </properties>
 
     <build>
-        <finalName>javm-test</finalName>
+        <finalName>javm-test-suite</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
