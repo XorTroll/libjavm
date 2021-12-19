@@ -6,6 +6,8 @@
 
 namespace javm::vm {
 
+    // TODO: does the eetop field hold anything else? it appears to be an internal VM pointer rather than just a thread handle...
+
     using ThreadHandle = native::ThreadHandle;
 
     struct CallInfo {
@@ -15,7 +17,6 @@ namespace javm::vm {
     };
 
     class ThreadAccessor {
-
         private:
             Ptr<native::Thread> thread_obj;
             std::vector<CallInfo> call_stack;
@@ -29,7 +30,7 @@ namespace javm::vm {
                 return this->thread_obj->GetHandle();
             }
 
-            Ptr<native::Thread> GetThreadObject() {
+            inline Ptr<native::Thread> GetThreadObject() {
                 return this->thread_obj;
             }
 
@@ -68,7 +69,7 @@ namespace javm::vm {
                 this->call_stack.pop_back();
             }
 
-            void NotifyExceptionThrown() {
+            inline void NotifyExceptionThrown() {
                 this->exception_thrown = true;
             }
 
@@ -76,7 +77,7 @@ namespace javm::vm {
                 return this->call_stack.back();
             }
 
-            std::vector<CallInfo> GetCallStack() {
+            inline std::vector<CallInfo> GetCallStack() {
                 return this->call_stack;
             }
 
@@ -87,7 +88,6 @@ namespace javm::vm {
             }
 
         friend class ThreadUtils;
-
     };
 
     namespace inner_impl {
@@ -97,7 +97,7 @@ namespace javm::vm {
 
         static Ptr<ThreadAccessor> RegisterThreadImpl(Ptr<native::Thread> thread_obj) {
             ScopedMonitorLock lk(g_thread_table_lock);
-            auto accessor = PtrUtils::New<ThreadAccessor>(thread_obj);
+            auto accessor = ptr::New<ThreadAccessor>(thread_obj);
             accessor->CacheThreadName();
             g_thread_table.push_back(accessor);
             return accessor;
@@ -105,7 +105,7 @@ namespace javm::vm {
 
         static Ptr<ThreadAccessor> RegisterThreadWithoutNameCacheImpl(Ptr<native::Thread> thread_obj) {
             ScopedMonitorLock lk(g_thread_table_lock);
-            auto accessor = PtrUtils::New<ThreadAccessor>(thread_obj);
+            auto accessor = ptr::New<ThreadAccessor>(thread_obj);
             g_thread_table.push_back(accessor);
             return accessor;
         }
@@ -172,7 +172,7 @@ namespace javm::vm {
 
         static inline bool WasExceptionThrownImpl() {
             ScopedMonitorLock lk(g_thrown_lock);
-            return PtrUtils::IsValid(g_thrown_throwable);
+            return ptr::IsValid(g_thrown_throwable);
         }
 
         static inline Ptr<ThreadAccessor> GetExceptionThreadImpl() {
@@ -201,11 +201,9 @@ namespace javm::vm {
     }
 
     class ThreadUtils {
-
         private:
             static void ThreadEntrypoint(void *thr_ptr) {
-
-                native::Thread *thr_ref = reinterpret_cast<native::Thread*>(thr_ptr);
+                auto thr_ref = reinterpret_cast<native::Thread*>(thr_ptr);
 
                 auto java_thr_v = thr_ref->GetJavaThreadVariable();
                 auto java_thr_obj = java_thr_v->GetAs<type::ClassInstance>();
@@ -218,7 +216,6 @@ namespace javm::vm {
                 java_thr_obj->CallInstanceMethod(u"run", u"()V", java_thr_v);
 
                 UnregisterSelf();
-
             }
 
         public:
@@ -288,7 +285,6 @@ namespace javm::vm {
                 }
                 return std::make_pair(nullptr, nullptr);
             }
-
     };
 
     namespace inner_impl {

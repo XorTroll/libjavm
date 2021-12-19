@@ -29,7 +29,7 @@ namespace javm::rt {
     template<typename CS, typename ...Args>
     static inline Ptr<CS> CreateAddClassSource(Args &&...args) {
         static_assert(std::is_base_of_v<ClassSource, CS>, "Object must be a javm::rt::ClassSource!");
-        auto cs = PtrUtils::New<CS>(args...);
+        auto cs = ptr::New<CS>(args...);
         return AddClassSource(cs);
     }
 

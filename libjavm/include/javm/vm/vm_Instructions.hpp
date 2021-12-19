@@ -5,7 +5,6 @@
 namespace javm::vm {
 
     enum class Instruction : u8 {
-
         NOP = 0x00,
         ACONST_NULL = 0x01,
         ICONST_M1 = 0x02,
@@ -174,7 +173,7 @@ namespace javm::vm {
         IF_ACMPEQ = 0xA5,
         IF_ACMPNE = 0xA6,
         GOTO = 0xA7,
-        JSR = 0xA8, // Not implementing this one anyway :P
+        JSR = 0xA8, // Not implementing this one anyway
         RET = 0xA9, // Same for this one ^ (they're too old)
         TABLESWITCH = 0xAA, // TODO
         LOOKUPSWITCH = 0xAB,
@@ -208,7 +207,6 @@ namespace javm::vm {
         IFNONNULL = 0xC7,
         GOTO_W = 0xC8, // Again, old opcode
         JSR_W = 0xC9, // Same as JSR above, not implementing it
-
     };
 
     // Types for NEWARRAY instruction
@@ -222,10 +220,9 @@ namespace javm::vm {
         Short = 9,
         Integer = 10,
         Long = 11,
-
     };
 
-    inline constexpr VariableType GetVariableTypeFromNewArrayType(NewArrayType type) {
+    inline constexpr VariableType GetVariableTypeFromNewArrayType(const NewArrayType type) {
         switch(type) {
             case NewArrayType::Boolean:
                 return VariableType::Boolean;

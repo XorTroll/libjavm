@@ -5,7 +5,6 @@
 namespace javm::vm {
 
     class Monitor {
-
         private:
             Ptr<native::RecursiveMutex> lock;
             Ptr<native::ConditionVariable> cond_var;
@@ -25,7 +24,7 @@ namespace javm::vm {
                 this->cond_var->Wait(this->lock);
             }
 
-            void WaitFor(type::Long ms) {
+            void WaitFor(const type::Long ms) {
                 this->cond_var->WaitFor(this->lock, ms);
             }
 
@@ -41,11 +40,9 @@ namespace javm::vm {
                 this->lock->TryLock();
                 this->lock->Unlock();
             }
-
     };
 
     class ScopedMonitorLock {
-
         private:
             Monitor &monitor_ref;
 
@@ -57,7 +54,6 @@ namespace javm::vm {
             ~ScopedMonitorLock() {
                 this->monitor_ref.Leave();
             }
-
     };
 
 }

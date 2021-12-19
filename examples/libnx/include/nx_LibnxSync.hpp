@@ -1,69 +1,64 @@
 
 #pragma once
 #include <javm/native/native_NativeSync.hpp>
-#include <mutex>
-#include <condition_variable>
+#include <switch.h>
 
 // Sync implementation
 
 namespace nx {
 
     class LibnxRecursiveMutex : public native::RecursiveMutex {
-
         private:
-            RMutex mtx;
+            RMutex nx_mutex;
 
         public:
             LibnxRecursiveMutex() {
-                rmutexInit(&this->mtx);
+                rmutexInit(&this->nx_mutex);
             }
 
             virtual void Lock() override {
-                rmutexLock(&this->mtx);
+                rmutexLock(&this->nx_mutex);
             }
 
             virtual bool TryLock() override {
-                return rmutexTryLock(&this->mtx);
+                return rmutexTryLock(&this->nx_mutex);
             }
 
             virtual void Unlock() override {
-                rmutexUnlock(&this->mtx);
+                rmutexUnlock(&this->nx_mutex);
             }
 
-            RMutex &GetHandle() {
-                return this->mtx;
+            inline RMutex &GetHandle() {
+                return this->nx_mutex;
             }
-
     };
 
     class LibnxConditionVariable : public native::ConditionVariable {
-
         private:
-            CondVar condv;
+            CondVar nx_cv;
 
         public:
             LibnxConditionVariable() {
-                condvarInit(&this->condv);
+                condvarInit(&this->nx_cv);
             }
 
             virtual void Wait(Ptr<native::RecursiveMutex> lock) override {
-                auto nx_lock = PtrUtils::CastTo<LibnxRecursiveMutex>(lock);
-                condvarWait(&this->condv, &nx_lock->GetHandle().lock);
+                auto nx_lock = ptr::CastTo<LibnxRecursiveMutex>(lock);
+                condvarWait(&this->nx_cv, &nx_lock->GetHandle().lock);
             }
 
             virtual void WaitFor(Ptr<native::RecursiveMutex> lock, vm::type::Long ms) override {
-                auto nx_lock = PtrUtils::CastTo<LibnxRecursiveMutex>(lock);
-                condvarWaitTimeout(&this->condv, &nx_lock->GetHandle().lock, ms);
+                auto nx_lock = ptr::CastTo<LibnxRecursiveMutex>(lock);
+                condvarWaitTimeout(&this->nx_cv, &nx_lock->GetHandle().lock, ms);
             }
 
             virtual void Notify() override {
-                condvarWakeOne(&this->condv);
+                condvarWakeOne(&this->nx_cv);
             }
 
             virtual void NotifyAll() override {
-                condvarWakeAll(&this->condv);
+                condvarWakeAll(&this->nx_cv);
             }
-
     };
 
 }
@@ -71,11 +66,11 @@ namespace nx {
 namespace javm::native {
 
     Ptr<RecursiveMutex> CreateRecursiveMutex() {
-        return PtrUtils::New<nx::LibnxRecursiveMutex>();
+        return ptr::New<nx::LibnxRecursiveMutex>();
     }
 
     Ptr<ConditionVariable> CreateConditionVariable() {
-        return PtrUtils::New<nx::LibnxConditionVariable>();
+        return ptr::New<nx::LibnxConditionVariable>();
     }
 
 }

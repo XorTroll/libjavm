@@ -3,8 +3,8 @@
      xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>javm</groupId>
-    <artifactId>libnx-javm</artifactId>
+    <groupId>javm-examples</groupId>
+    <artifactId>javm-libnx-example</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
 
@@ -13,7 +13,7 @@
     </properties>
 
     <build>
-        <finalName>libnx-javm</finalName>
+        <finalName>entry</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -29,11 +29,11 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>2.4</version>
                 <configuration>
-                <archive>
-                    <manifest>
-                    <mainClass>javm.libnx.Main</mainClass>
-                    </manifest>
-                </archive>
+                    <archive>
+                        <manifest>
+                            <mainClass>javm.example.libnx.Main</mainClass>
+                        </manifest>
+                    </archive>
                 </configuration>
             </plugin>
         </plugins>

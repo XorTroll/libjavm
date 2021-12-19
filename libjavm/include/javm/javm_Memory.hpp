@@ -6,14 +6,13 @@
 namespace javm {
 
     class MemoryReader {
-
         private:
-            u8 *inner_ptr;
+            const u8 *inner_ptr;
             size_t ptr_size;
             size_t offset;
 
         public:
-            MemoryReader(u8 *ptr, size_t len) : inner_ptr(ptr), ptr_size(len), offset(0) {}
+            MemoryReader(const u8 *ptr, const size_t len) : inner_ptr(ptr), ptr_size(len), offset(0) {}
 
             template<typename T>
             T Read(bool forward = true) {
@@ -25,16 +24,16 @@ namespace javm {
             }
 
             template<typename T>
-            void ReadPointer(T *ptr, size_t size_bytes, bool forward = true) {
+            void ReadPointer(T *ptr, const size_t size_bytes, const bool forward = true) {
                 memcpy(ptr, &this->inner_ptr[this->offset], size_bytes);
                 if(forward) {
                     this->offset += size_bytes;
                 }
             }
 
-            size_t GetOffset() {
+            inline size_t GetOffset() {
                 return this->offset;
             }
-
     };
+
 }

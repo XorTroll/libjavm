@@ -9,6 +9,8 @@
 #include <csignal>
 #include <sys/time.h>
 
+// TODO: many const/inline/etc codestyle fixes...
+
 namespace javm::native {
 
     using namespace vm;
@@ -18,7 +20,7 @@ namespace javm::native {
         namespace inner_impl {
 
             static std::map<String, type::Integer> g_signal_table = {
-                // TODO
+                // TODO: signals
             };
 
             static inline std::map<String, type::Integer> &GetSignalTable() {
@@ -27,7 +29,7 @@ namespace javm::native {
 
         }
 
-        inline std::pair<type::Integer, bool> DecodeUnsafeOffset(type::Long raw_off) {
+        constexpr inline std::pair<type::Integer, bool> DecodeUnsafeOffset(const type::Long raw_off) {
             union {
                 struct {
                     type::Integer is_static;
@@ -36,10 +38,10 @@ namespace javm::native {
                 type::Long raw_offset;
             } offset{};
             offset.raw_offset = raw_off;
-            return std::make_pair(offset.offset, (bool)offset.is_static);
+            return std::make_pair(offset.offset, static_cast<bool>(offset.is_static));
         }
 
-        inline type::Long EncodeUnsafeOffset(type::Integer off, bool is_static) {
+        constexpr inline type::Long EncodeUnsafeOffset(const type::Integer off, const bool is_static) {
             union {
                 struct {
                     type::Integer is_static;
@@ -48,7 +50,7 @@ namespace javm::native {
                 type::Long raw_offset;
             } offset{};
             offset.offset = off;
-            offset.is_static = (type::Integer)is_static;
+            offset.is_static = static_cast<type::Integer>(is_static);
             return offset.raw_offset;
         }
 
@@ -59,11 +61,11 @@ namespace javm::native {
             return static_cast<u16>(AccessFlagUtils::Make(AccessFlags::Public, AccessFlags::Final, AccessFlags::Abstract));
         }
 
-        inline Ptr<ReflectionType> GetReflectionTypeFromClassVariable(Ptr<Variable> var) {
+        Ptr<ReflectionType> GetReflectionTypeFromClassVariable(Ptr<Variable> var) {
             if(var->CanGetAs<VariableType::ClassInstance>()) {
                 auto var_obj = var->GetAs<type::ClassInstance>();
                 auto name_v = var_obj->GetField(u"name", u"Ljava/lang/String;");
-                auto name = StringUtils::GetValue(name_v);
+                const auto name = StringUtils::GetValue(name_v);
                 return ReflectionUtils::FindTypeByName(name);
             }
             return nullptr;
@@ -79,7 +81,8 @@ namespace javm::native {
                     return ExecutionResult::ReturnVariable(flags_v);
                 }
             }
-            u16 default_flags = static_cast<u16>(AccessFlagUtils::Make(AccessFlags::Abstract, AccessFlags::Final, AccessFlags::Public));
+
+            const auto default_flags = static_cast<u16>(AccessFlagUtils::Make(AccessFlags::Abstract, AccessFlags::Final, AccessFlags::Public));
             auto flags_v = TypeUtils::NewPrimitiveVariable<type::Integer>(default_flags);
             return ExecutionResult::ReturnVariable(flags_v);
         }
@@ -104,14 +107,16 @@ namespace javm::native {
 
             ExecutionResult hashCode(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
+                    // TODO: consider better hash code (not just the object pointer as an i32...)
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
-                    uintptr_t this_obj_ptr = (uintptr_t)this_obj.get();
-                    auto hash_code = static_cast<type::Integer>(this_obj_ptr);
+                    const auto this_obj_ptr = reinterpret_cast<uintptr_t>(this_obj.get());
+                    const auto hash_code = static_cast<type::Integer>(this_obj_ptr);
                     JAVM_LOG("[java.lang.Object.hashCode] called - hash code: %d", hash_code);
                     return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
                 }
                 else {
-                    JAVM_LOG("[java.lang.Object.getClass] Variable isn't class instance - W T F?");
+                    JAVM_LOG("[java.lang.Object.getClass] Variable isn't class instance...");
+                    // TODO: handle these situations
                 }
                 return ExecutionResult::Void();
             }
@@ -134,7 +139,7 @@ namespace javm::native {
 
             ExecutionResult wait(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto timeout_v = param_vars[0];
-                auto timeout = timeout_v->GetValue<type::Long>();
+                const auto timeout = timeout_v->GetValue<type::Long>();
                 JAVM_LOG("[java.lang.Object.wait] called...");
                 auto this_obj = this_var->GetAs<type::ClassInstance>();
                 auto monitor = this_obj->GetMonitor();
@@ -155,7 +160,7 @@ namespace javm::native {
                 auto props_v = param_vars[0];
                 auto props_obj = props_v->GetAs<type::ClassInstance>();
 
-                for(auto &[key, value] : vm::GetSystemPropertyTable()) {
+                for(const auto &[key, value] : vm::GetSystemPropertyTable()) {
                     JAVM_LOG("[java.lang.System.initProperties] setting property '%s' of value '%s'", StrUtils::ToUtf8(key).c_str(), StrUtils::ToUtf8(value).c_str());
                     auto key_str = StringUtils::CreateNew(key);
                     auto val_str = StringUtils::CreateNew(value);
@@ -168,6 +173,7 @@ namespace javm::native {
             ExecutionResult arraycopy(std::vector<Ptr<Variable>> param_vars) {
                 JAVM_LOG("[java.lang.System.arraycopy] called");
                 
+                // TODO: handle invalid param types/count
                 if(param_vars.size() == 5) {
                     auto src_v = param_vars[0];
                     auto srcpos_v = param_vars[1];
@@ -177,20 +183,20 @@ namespace javm::native {
                     if(src_v->CanGetAs<VariableType::Array>()) {
                         auto src = src_v->GetAs<type::Array>();
                         if(srcpos_v->CanGetAs<VariableType::Integer>()) {
-                            auto srcpos = srcpos_v->GetValue<type::Integer>();
+                            const auto srcpos = srcpos_v->GetValue<type::Integer>();
                             if(dst_v->CanGetAs<VariableType::Array>()) {
                                 auto dst = dst_v->GetAs<type::Array>();
                                 if(dstpos_v->CanGetAs<VariableType::Integer>()) {
-                                    auto dstpos = dstpos_v->GetValue<type::Integer>();
+                                    const auto dstpos = dstpos_v->GetValue<type::Integer>();
                                     if(len_v->CanGetAs<VariableType::Integer>()) {
-                                        auto len = len_v->GetValue<type::Integer>();
+                                        const auto len = len_v->GetValue<type::Integer>();
                                         // Create a temporary array, push values there, then move them to the dst array
                                         std::vector<Ptr<Variable>> tmp_values;
                                         tmp_values.reserve(len);
-                                        for(int i = srcpos; i < (srcpos + len); i++) {
+                                        for(auto i = srcpos; i < (srcpos + len); i++) {
                                             tmp_values.push_back(src->GetAt(i));
                                         }
-                                        for(int i = 0; i < len; i++) {
+                                        for(auto i = 0; i < len; i++) {
                                             dst->SetAt(i + dstpos, tmp_values[i]);
                                         }
                                     }
@@ -227,16 +233,18 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
+            // TODO: lib load support
+
             ExecutionResult mapLibraryName(std::vector<Ptr<Variable>> param_vars) {
                 auto lib_v = param_vars[0];
-                auto lib = StringUtils::GetValue(lib_v);
+                const auto lib = StringUtils::GetValue(lib_v);
                 JAVM_LOG("[java.lang.System.mapLibraryName] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::ReturnVariable(lib_v);
             }
 
             ExecutionResult loadLibrary(std::vector<Ptr<Variable>> param_vars) {
                 auto lib_v = param_vars[0];
-                auto lib = StringUtils::GetValue(lib_v);
+                const auto lib = StringUtils::GetValue(lib_v);
                 JAVM_LOG("[java.lang.System.loadLibrary] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::Void();
             }
@@ -279,9 +287,9 @@ namespace javm::native {
 
             ExecutionResult forName0(std::vector<Ptr<Variable>> param_vars) {
                 auto class_name_v = param_vars[0];
-                auto class_name = StringUtils::GetValue(class_name_v);
+                const auto class_name = StringUtils::GetValue(class_name_v);
                 auto init_v = param_vars[1];
-                auto init = init_v->GetAs<type::Boolean>();
+                const auto init = init_v->GetAs<type::Boolean>();
                 auto loader_v = param_vars[2];
                 auto loader = loader_v->GetAs<type::ClassInstance>();
 
@@ -293,7 +301,7 @@ namespace javm::native {
                     // Call the static initializer, just in case
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
-                        auto ret = class_type->EnsureStaticInitializerCalled();
+                        const auto ret = class_type->EnsureStaticInitializerCalled();
                         if(ret.IsInvalidOrThrown()) {
                             return ret;
                         }
@@ -317,7 +325,7 @@ namespace javm::native {
                         if(field_class_type) {
                             if(class_type) {
                                 auto &fields = class_type->GetRawFields();
-                                const size_t field_count = fields.size();
+                                const auto field_count = fields.size();
                                 auto field_array = TypeUtils::NewArray(field_count, field_class_type);
                                 auto field_array_obj = field_array->GetAs<type::Array>();
                                 for(u32 i = 0; i < field_count; i++) {
@@ -340,14 +348,14 @@ namespace javm::native {
                                     auto offset = class_type->GetRawFieldUnsafeOffset(field.GetName(), field.GetDescriptor());
                                     field_obj->SetField(u"slot", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(offset));
 
-                                    auto name = StringUtils::CreateNew(field.GetName());
-                                    field_obj->SetField(u"name", u"Ljava/lang/String;", name);
+                                    auto name_v = StringUtils::CreateNew(field.GetName());
+                                    field_obj->SetField(u"name", u"Ljava/lang/String;", name_v);
 
-                                    auto modifiers = (type::Integer)field.GetAccessFlags();
-                                    field_obj->SetField(u"modifiers", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(modifiers));
+                                    auto modifiers_v = TypeUtils::NewPrimitiveVariable<type::Integer>(field.GetAccessFlags());
+                                    field_obj->SetField(u"modifiers", u"I", modifiers_v);
 
-                                    auto signature = StringUtils::CreateNew(field.GetDescriptor());
-                                    field_obj->SetField(u"signature", u"Ljava/lang/String;", signature);
+                                    auto signature_v = StringUtils::CreateNew(field.GetDescriptor());
+                                    field_obj->SetField(u"signature", u"Ljava/lang/String;", signature_v);
 
                                     field_obj->SetField(u"override", u"Z", TypeUtils::False());
 
@@ -358,8 +366,8 @@ namespace javm::native {
                             }
                             else {
                                 // No type / no fields (primitive type), let's return an empty array
-                                auto field_array = TypeUtils::NewArray(0, field_class_type);
-                                return ExecutionResult::ReturnVariable(field_array);
+                                auto field_array_v = TypeUtils::NewArray(0, field_class_type);
+                                return ExecutionResult::ReturnVariable(field_array_v);
                             }
                         }
                     }
@@ -461,14 +469,14 @@ namespace javm::native {
                 auto f_v = param_vars[0];
                 auto f_flt = f_v->GetValue<type::Float>();
                 JAVM_LOG("[java.lang.Float.floatToRawIntBits] called - float: %f", f_flt);
-                // Do the conversion :P
+
                 union {
                     int i;
                     float flt;
                 } float_conv{};
                 float_conv.flt = f_flt;
 
-                auto res_i = float_conv.i;
+                const auto res_i = float_conv.i;
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(res_i));
             }
 
@@ -478,31 +486,32 @@ namespace javm::native {
 
             ExecutionResult doubleToRawLongBits(std::vector<Ptr<Variable>> param_vars) {
                 auto d_v = param_vars[0];
-                auto d_dbl = d_v->GetValue<type::Double>();
+                const auto d_dbl = d_v->GetValue<type::Double>();
                 JAVM_LOG("[java.lang.Double.doubleToRawLongBits] called - double: %f", d_dbl);
-                // Do the conversion :P
+                
+                
                 union {
                     long l;
                     double dbl;
                 } double_conv{};
                 double_conv.dbl = d_dbl;
 
-                auto res_l = double_conv.l;
+                const auto res_l = double_conv.l;
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(res_l));
             }
 
             ExecutionResult longBitsToDouble(std::vector<Ptr<Variable>> param_vars) {
                 auto l_v = param_vars[0];
-                auto l_long = l_v->GetValue<type::Long>();
+                const auto l_long = l_v->GetValue<type::Long>();
                 JAVM_LOG("[java.lang.Double.longBitsToDouble] called - long: %ld", l_long);
-                // Do the conversion :P
+
                 union {
                     long l;
                     double dbl;
                 } double_conv{};
                 double_conv.l = l_long;
 
-                auto res_d = double_conv.dbl;
+                const auto res_d = double_conv.dbl;
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Double>(res_d));
             }
 
@@ -580,18 +589,18 @@ namespace javm::native {
                 auto field_v = param_vars[0];
                 auto field_obj = field_v->GetAs<type::ClassInstance>();
                 auto field_name_v = field_obj->GetField(u"name", u"Ljava/lang/String;");
-                auto field_name = StringUtils::GetValue(field_name_v);
+                const auto field_name = StringUtils::GetValue(field_name_v);
                 auto field_desc_v = field_obj->GetField(u"signature", u"Ljava/lang/String;");
-                auto field_desc = StringUtils::GetValue(field_desc_v);
+                const auto field_desc = StringUtils::GetValue(field_desc_v);
                 auto class_type_v = field_obj->GetField(u"clazz", u"Ljava/lang/Class;");
                 auto ref_type = GetReflectionTypeFromClassVariable(class_type_v);
                 if(ref_type) {
                     JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     if(ref_type->IsClassInstance()) {
                         auto class_type = ref_type->GetClassType();
-                        auto offset = class_type->GetRawFieldUnsafeOffset(field_name, field_desc);
-                        auto is_static = class_type->IsRawFieldStatic(field_name, field_desc);
-                        auto raw_offset = EncodeUnsafeOffset(offset, is_static);
+                        const auto offset = class_type->GetRawFieldUnsafeOffset(field_name, field_desc);
+                        const auto is_static = class_type->IsRawFieldStatic(field_name, field_desc);
+                        const auto raw_offset = EncodeUnsafeOffset(offset, is_static);
                         JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] field: '%s' - '%s', offset: %d", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), offset);
                         ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(raw_offset));
                     }
@@ -604,8 +613,8 @@ namespace javm::native {
                 auto obj_obj = obj_v->GetAs<type::ClassInstance>();
                 auto obj_type = obj_obj->GetClassType();
                 auto raw_off_v = param_vars[1];
-                auto raw_off = raw_off_v->GetValue<type::Long>();
-                auto [off, is_static] = DecodeUnsafeOffset(raw_off);
+                const auto raw_off = raw_off_v->GetValue<type::Long>();
+                const auto [off, is_static] = DecodeUnsafeOffset(raw_off);
                 JAVM_LOG("[sun.misc.Unsafe.getIntVolatile] called - offset: %d, static: %s", off, is_static ? "true" : "false");
 
                 if(is_static) {
@@ -624,12 +633,12 @@ namespace javm::native {
 
             template<typename T>
             type::Boolean DoCompareAndSwap(Ptr<T> ptr, T old_v, T new_v) {
-                if(PtrUtils::GetValue(ptr) == old_v) {
-                    PtrUtils::SetValue(ptr, new_v);
+                if(ptr::GetValue(ptr) == old_v) {
+                    ptr::SetValue(ptr, new_v);
                     return true;
                 }
                 else {
-                    PtrUtils::SetValue(ptr, old_v);
+                    ptr::SetValue(ptr, old_v);
                     return false;
                 }
             }
@@ -639,12 +648,12 @@ namespace javm::native {
                 auto var_v = param_vars[0];
                 auto var_obj = var_v->GetAs<type::ClassInstance>();
                 auto raw_off_v = param_vars[1];
-                auto raw_off = raw_off_v->GetValue<type::Long>();
+                const auto raw_off = raw_off_v->GetValue<type::Long>();
                 auto expected_v = param_vars[2];
-                auto expected = expected_v->GetValue<type::Integer>();
+                const auto expected = expected_v->GetValue<type::Integer>();
                 auto newv_v = param_vars[3];
-                auto newv = newv_v->GetValue<type::Integer>();
-                auto [off, is_static] = DecodeUnsafeOffset(raw_off);
+                const auto newv = newv_v->GetValue<type::Integer>();
+                const auto [off, is_static] = DecodeUnsafeOffset(raw_off);
                 Ptr<Variable> field_v;
                 if(is_static) {
                     field_v = var_obj->GetClassType()->GetStaticFieldByUnsafeOffset(off);
@@ -654,8 +663,8 @@ namespace javm::native {
                 }
                 if(field_v) {
                     auto field_ref = field_v->GetAs<type::Integer>();
-                    JAVM_LOG("[sun.misc.Unsafe.compareAndSwapInt] Offset: %d, Static: %s, Value: %d, Expected: %d, New: %d", off, is_static ? "true" : "false", PtrUtils::GetValue(field_ref), expected, newv);
-                    auto ret = DoCompareAndSwap(field_ref, expected, newv);
+                    JAVM_LOG("[sun.misc.Unsafe.compareAndSwapInt] Offset: %d, Static: %s, Value: %d, Expected: %d, New: %d", off, is_static ? "true" : "false", ptr::GetValue(field_ref), expected, newv);
+                    const auto ret = DoCompareAndSwap(field_ref, expected, newv);
                     field_v->SetAs<type::Integer>(field_ref);
                     if(ret) {
                         return ExecutionResult::ReturnVariable(TypeUtils::True());
@@ -667,20 +676,20 @@ namespace javm::native {
 
             ExecutionResult allocateMemory(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto size_v = param_vars[0];
-                auto size = size_v->GetValue<type::Long>();
+                const auto size = size_v->GetValue<type::Long>();
                 auto ptr = new u8[size]();
                 JAVM_LOG("[sun.misc.Unsafe.allocateMemory] called - Size: %ld, Ptr: %p", size, ptr);
-                auto ptr_val = (type::Long)ptr;
+                const auto ptr_val = reinterpret_cast<type::Long>(ptr);
                 auto ptr_v = TypeUtils::NewPrimitiveVariable<type::Long>(ptr_val);
                 return ExecutionResult::ReturnVariable(ptr_v);
             }
 
             ExecutionResult putLong(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto addr_v = param_vars[0];
-                auto addr = addr_v->GetValue<type::Long>();
+                const auto addr = addr_v->GetValue<type::Long>();
                 auto val_v = param_vars[1];
-                auto val = val_v->GetValue<type::Long>();
-                auto ptr = (type::Long*)addr;
+                const auto val = val_v->GetValue<type::Long>();
+                auto ptr = reinterpret_cast<type::Long*>(addr);
                 JAVM_LOG("[sun.misc.Unsafe.putLong] called - Addr: %p, Value: %ld", ptr, val);
                 *ptr = val;
                 return ExecutionResult::Void();
@@ -688,18 +697,18 @@ namespace javm::native {
 
             ExecutionResult getByte(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto addr_v = param_vars[0];
-                auto addr = addr_v->GetValue<type::Long>();
-                auto ptr = (u8*)addr;
+                const auto addr = addr_v->GetValue<type::Long>();
+                auto ptr = reinterpret_cast<u8*>(addr);
                 JAVM_LOG("[sun.misc.Unsafe.getByte] called - Addr: %p", ptr);
-                auto byte = *ptr;
-                auto byte_v = TypeUtils::NewPrimitiveVariable<type::Byte>((type::Byte)byte);
+                const auto byte = *ptr;
+                auto byte_v = TypeUtils::NewPrimitiveVariable<type::Byte>(static_cast<type::Byte>(byte));
                 return ExecutionResult::ReturnVariable(byte_v);
             }
 
             ExecutionResult freeMemory(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto addr_v = param_vars[0];
-                auto addr = addr_v->GetValue<type::Long>();
-                auto ptr = (u8*)addr;
+                const auto addr = addr_v->GetValue<type::Long>();
+                auto ptr = reinterpret_cast<u8*>(addr);
                 JAVM_LOG("[sun.misc.Unsafe.freeMemory] called - Addr: %p", ptr);
                 delete[] ptr;
                 return ExecutionResult::Void();
@@ -734,9 +743,9 @@ namespace javm::native {
 
             ExecutionResult set(std::vector<Ptr<Variable>> param_vars) {
                 auto fd_v = param_vars[0];
-                auto fd_i = fd_v->GetValue<type::Integer>();
+                const auto fd_i = fd_v->GetValue<type::Integer>();
                 JAVM_LOG("[java.io.FileDescriptor.set] called - fd: %d", fd_i);
-                auto fd_l_v = TypeUtils::NewPrimitiveVariable<type::Long>((type::Long)fd_i);
+                auto fd_l_v = TypeUtils::NewPrimitiveVariable<type::Long>(static_cast<type::Long>(fd_i));
                 return ExecutionResult::ReturnVariable(fd_l_v);
             }
 
@@ -758,12 +767,12 @@ namespace javm::native {
 
             ExecutionResult setPriority0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto prio_v = param_vars[0];
-                auto prio = prio_v->GetValue<type::Integer>();
+                const auto prio = prio_v->GetValue<type::Integer>();
                 JAVM_LOG("[java.lang.Thread.setPriority0] called - priority: %d", prio);
 
                 auto thread_obj = this_var->GetAs<type::ClassInstance>();
                 auto eetop_v = thread_obj->GetField(u"eetop", u"J");
-                auto eetop = eetop_v->GetValue<type::Long>();
+                const auto eetop = eetop_v->GetValue<type::Long>();
 
                 native::SetThreadPriority(eetop, prio);
 
@@ -772,14 +781,14 @@ namespace javm::native {
 
             ExecutionResult isAlive(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto thread_obj = this_var->GetAs<type::ClassInstance>();
-                auto name_res = thread_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
-                if(name_res.IsInvalidOrThrown()) {
-                    return name_res;
+                const auto name_ret = thread_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
+                if(name_ret.IsInvalidOrThrown()) {
+                    return name_ret;
                 }
-                auto name_v = name_res.ret_var;
-                auto name = StringUtils::GetValue(name_v);
+                auto name_v = name_ret.ret_var;
+                const auto name = StringUtils::GetValue(name_v);
                 auto eetop_v = thread_obj->GetField(u"eetop", u"J");
-                auto eetop = eetop_v->GetValue<type::Long>();
+                const auto eetop = eetop_v->GetValue<type::Long>();
 
                 auto thr = ThreadUtils::GetThreadByHandle(eetop);
                 if(thr) {
@@ -797,17 +806,15 @@ namespace javm::native {
 
             ExecutionResult start0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto thr_obj = this_var->GetAs<type::ClassInstance>();
-                auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
-                if(name_res.IsInvalidOrThrown()) {
-                    return name_res;
+                const auto name_ret = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
+                if(name_ret.IsInvalidOrThrown()) {
+                    return name_ret;
                 }
-                auto name_v = name_res.ret_var;
-                auto name = StringUtils::GetValue(name_v);
-
-                JAVM_LOG("[java.lang.Thread.start0] called - thread name: '%s'", StrUtils::ToUtf8(name).c_str());
+                auto name_v = name_ret.ret_var;
+                const auto name = StringUtils::GetValue(name_v);
 
                 ThreadUtils::RegisterAndStartThread(this_var);
-
+                JAVM_LOG("[java.lang.Thread.start0] called - thread name: '%s'", StrUtils::ToUtf8(name).c_str());
                 return ExecutionResult::Void();
             }
 
@@ -833,11 +840,11 @@ namespace javm::native {
                 auto byte_arr_v = param_vars[0];
                 auto byte_arr = byte_arr_v->GetAs<type::Array>();
                 auto off_v = param_vars[1];
-                auto off = off_v->GetValue<type::Integer>();
+                const auto off = off_v->GetValue<type::Integer>();
                 auto len_v = param_vars[2];
-                auto len = len_v->GetValue<type::Integer>();
+                const auto len = len_v->GetValue<type::Integer>();
                 auto append_v = param_vars[3];
-                auto append = (bool)append_v->GetValue<type::Integer>();
+                const auto append = (bool)append_v->GetValue<type::Integer>();
 
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] called - Array: bytes[%d], Offset: %d, Length: %d, Append: %s", byte_arr->GetLength(), off, len, append ? "true" : "false");
 
@@ -845,25 +852,23 @@ namespace javm::native {
                 auto fd_fd_v = this_obj->GetField(u"fd", u"Ljava/io/FileDescriptor;");
                 auto fd_fd_obj = fd_fd_v->GetAs<type::ClassInstance>();
                 auto fd_v = fd_fd_obj->GetField(u"fd", u"I");
-                auto fd = fd_v->GetValue<type::Integer>();
+                const auto fd = fd_v->GetValue<type::Integer>();
 
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] FD: %d", fd);
 
                 const u32 proper_len = std::min((u32)len, (u32)byte_arr->GetLength());
 
-                u8 *tmpbuf = new u8[proper_len]();
-
+                auto tmpbuf = new u8[proper_len]();
                 for(u32 i = 0; i < proper_len; i++) {
                     auto byte_v = byte_arr->GetAt(i);
                     auto byte = (u8)byte_v->GetValue<type::Integer>();
                     tmpbuf[i] = byte;
                 }
 
-                int ret = write(fd, tmpbuf, proper_len);
+                const auto ret = write(fd, tmpbuf, proper_len);
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] Ret: %d", ret);
 
                 delete[] tmpbuf;
-
                 return ExecutionResult::Void();
             }
 
@@ -875,7 +880,7 @@ namespace javm::native {
                 auto stream_v = param_vars[0];
                 auto obj_v = param_vars[1];
                 auto cs_name_v = param_vars[2];
-                auto cs_name = StringUtils::GetValue(cs_name_v);
+                const auto cs_name = StringUtils::GetValue(cs_name_v);
                 JAVM_LOG("[sun.nio.cs.StreamEncoder.forOutputStreamWriter] called - Charset name: '%s'...", StrUtils::ToUtf8(cs_name).c_str());
                 auto se_class_type = vm::inner_impl::LocateClassTypeImpl(u"sun/nio/cs/StreamEncoder");
                 auto cs_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/nio/charset/Charset");
@@ -908,8 +913,10 @@ namespace javm::native {
 
             ExecutionResult findSignal(std::vector<Ptr<Variable>> param_vars) {
                 auto sig_v = param_vars[0];
-                auto sig = StringUtils::GetValue(sig_v);
+                const auto sig = StringUtils::GetValue(sig_v);
                 JAVM_LOG("[sun.misc.Signal.findSignal] called - signal: '%s'...", StrUtils::ToUtf8(sig).c_str());
+
+                // TODO: throw exception if signal not found
 
                 auto &sig_table = inner_impl::GetSignalTable();
                 auto it = sig_table.find(sig);

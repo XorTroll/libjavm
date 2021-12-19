@@ -1,4 +1,4 @@
-package javm.libnx;
+package javm.example.libnx;
 
 public class Main {
 
@@ -12,7 +12,6 @@ public class Main {
     }
 
     public static void main(String[] args) {
-
         Thread t = new Thread() {
             public void run() {
                 doThread();

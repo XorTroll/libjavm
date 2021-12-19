@@ -1,14 +1,11 @@
 .vscode/
-vm-test/
-other/
-*.jar
+dev/
 build/
 target/
 .settings/
 .classpath
 .project
+*.jar
 *.elf
 *.nacp
 *.nro
-*.nso
-*.pfs0

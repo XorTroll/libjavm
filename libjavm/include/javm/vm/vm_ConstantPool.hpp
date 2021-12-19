@@ -7,7 +7,6 @@
 namespace javm::vm {
 
     enum class ConstantPoolTag : u8 {
-
         Invalid = 0,
         Utf8 = 1,
         Integer = 3,
@@ -23,94 +22,87 @@ namespace javm::vm {
         InstanceMethodHandle = 15,
         InstanceMethodType = 16,
         InvokeDynamic = 18
-
     };
 
     class ConstantNameItem {
-
         private:
             u16 name_idx;
             String name;
 
         public:
-            u16 GetNameIndex() {
+            inline u16 GetNameIndex() {
                 return this->name_idx;
             }
 
-            void SetNameIndex(u16 idx) {
+            inline void SetNameIndex(const u16 idx) {
                 this->name_idx = idx;
             }
 
-            String GetName() {
+            inline String GetName() {
                 return this->name;
             }
 
-            bool HasName() {
+            inline bool HasName() {
                 return !this->name.empty();
             }
 
-            void SetName(const String &new_name) {
+            inline void SetName(const String &new_name) {
                 this->name = new_name;
             }
-
     };
 
     class ConstantDescriptorItem {
-
         private:
             u16 desc_idx;
             String desc;
 
         public:
-            u16 GetDescriptorIndex() {
+            inline u16 GetDescriptorIndex() {
                 return this->desc_idx;
             }
 
-            void SetDescriptorIndex(u16 idx) {
+            inline void SetDescriptorIndex(const u16 idx) {
                 this->desc_idx = idx;
             }
 
-            String GetDescriptor() {
+            inline String GetDescriptor() {
                 return this->desc;
             }
 
-            bool HasDescriptor() {
+            inline bool HasDescriptor() {
                 return !this->desc.empty();
             }
 
-            void SetDescriptor(const String &new_desc) {
+            inline void SetDescriptor(const String &new_desc) {
                 this->desc = new_desc;
             }
-
     };
 
     class ConstantStringItem {
-
         private:
             u16 str_idx;
             String str;
 
         public:
-            u16 GetStringIndex() {
+            inline u16 GetStringIndex() {
                 return this->str_idx;
             }
 
-            void SetStringIndex(u16 idx) {
+            inline void SetStringIndex(const u16 idx) {
                 this->str_idx = idx;
             }
 
-            String GetString() {
+            inline String GetString() {
                 return this->str;
             }
 
-            bool HasString() {
+            inline bool HasString() {
                 return !this->str.empty();
             }
 
-            void SetString(const String &new_str) {
+            inline void SetString(const String &new_str) {
                 this->str = new_str;
             }
-
     };
 
     class AccessFlagsItem {
@@ -119,11 +111,11 @@ namespace javm::vm {
             u16 access_flags;
 
         public:
-            u16 GetAccessFlags() {
+            inline u16 GetAccessFlags() {
                 return this->access_flags;
             }
 
-            void SetAccessFlags(u16 flags) {
+            inline void SetAccessFlags(const u16 flags) {
                 this->access_flags = flags;
             }
 
@@ -212,9 +204,9 @@ namespace javm::vm {
             InvokeDynamicData invoke_dynamic;
             
         public:
-            ConstantPoolItem() : empty(true), tag(ConstantPoolTag::Invalid) {}
+            ConstantPoolItem() : tag(ConstantPoolTag::Invalid), empty(true) {}
 
-            ConstantPoolItem(MemoryReader &reader) : empty(true), tag(ConstantPoolTag::Invalid) {
+            ConstantPoolItem(MemoryReader &reader) : tag(ConstantPoolTag::Invalid), empty(true) {
                 this->tag = static_cast<ConstantPoolTag>(reader.Read<u8>());
                 switch(this->tag) {
                     case ConstantPoolTag::Utf8: {
@@ -355,11 +347,11 @@ namespace javm::vm {
             std::vector<Ptr<ConstantPoolItem>> inner_pool;
 
         public:
-            Ptr<ConstantPoolItem> GetItemAt(u16 index, ConstantPoolTag expected_tag = ConstantPoolTag::Invalid) {
+            Ptr<ConstantPoolItem> GetItemAt(const u16 index, const ConstantPoolTag expected_tag = ConstantPoolTag::Invalid) {
                 if(index == 0) {
                     return nullptr;
                 }
-                auto actual_idx = index - 1;
+                const auto actual_idx = static_cast<u16>(index - 1);
                 if(actual_idx < this->inner_pool.size()) {
                     auto item = this->inner_pool.at(actual_idx);
                     // If we want to ensure the tag we expect is the one we find
@@ -376,16 +368,16 @@ namespace javm::vm {
                 return nullptr;
             }
 
-            void ForEachItem(std::function<void(Ptr<ConstantPoolItem>)> fn, bool skip_empty) {
+            void ForEachItem(std::function<void(Ptr<ConstantPoolItem>)> fn, const bool skip_empty) {
                 for(auto &item: this->inner_pool) {
-                    if(skip_empty && !PtrUtils::IsValid(item)) {
+                    if(skip_empty && !ptr::IsValid(item)) {
                         continue;
                     }
                     fn(item);
                 }
             }
 
-            void SetExpectedCount(size_t count) {
+            void SetExpectedCount(const size_t count) {
                 this->inner_pool.reserve(count);
             }
 
@@ -400,7 +392,6 @@ namespace javm::vm {
             inline void InsertEmptyItem() {
                 this->InsertItem(nullptr);
             }
-
     };
 
 }

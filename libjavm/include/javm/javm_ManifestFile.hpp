@@ -9,13 +9,12 @@
 namespace javm {
 
     class ManifestFile : public File {
-
         private:
             std::map<std::string, std::string> attributes;
 
             void Load() {
                 if(this->IsValid()) {
-                    char *manifest_str = new char[this->GetFileSize() + 1]();
+                    auto manifest_str = new char[this->GetFileSize() + 1]();
                     memcpy(manifest_str, this->GetFileData(), this->GetFileSize());
                     std::istringstream strm(manifest_str);
                     std::string tmpline;
@@ -46,22 +45,23 @@ namespace javm {
                 this->Load();
             }
             
-            ManifestFile(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns) {
+            ManifestFile(u8 *ptr, const size_t ptr_sz, const bool owns = false) : File(ptr, ptr_sz, owns) {
                 this->Load();
             }
 
-            bool HasAttribute(const String &name) {
-                return this->attributes.find(StrUtils::ToUtf8(name)) != this->attributes.end();
+            bool HasAttribute(const std::string &name) {
+                return this->attributes.find(name) != this->attributes.end();
             }
 
-            String FindAttribute(const String &name) {
-                auto it = this->attributes.find(StrUtils::ToUtf8(name));
+            String FindAttribute(const std::string &name) {
+                auto it = this->attributes.find(name);
                 if(it != this->attributes.end()) {
                     return StrUtils::FromUtf8(it->second);
                 }
-                return u"";
-            }
 
+                // TODO
+                return u"<no-attr>";
+            }
     };
 
 }

@@ -6,7 +6,6 @@
 namespace javm::vm {
 
     enum class AccessFlags : u16 {
-
         None = 0x0000,
         Public = 0x0001,
         Private = 0x0002,
@@ -28,11 +27,9 @@ namespace javm::vm {
         Enum = 0x4000,
         Miranda = 0x8000,
         ReflectMask = 0xFFFF,
-        
     };
 
     class AccessFlagUtils {
-
         private:
             static inline constexpr void AddFlag(AccessFlags &flag, AccessFlags new_f) {
                 auto flag16 = static_cast<u16>(flag);
@@ -47,18 +44,14 @@ namespace javm::vm {
                 (AddFlag(f, flags), ...);
                 return f;
             }
-
     };
 
     struct AttributeType {
-
         static inline constexpr auto Code = u"Code";
         static inline constexpr auto RuntimeVisibleAnnotations = u"RuntimeVisibleAnnotations";
-
     };
 
     struct AnnotationTagType {
-
         static inline constexpr char Byte = 'B';
         static inline constexpr char Char = 'C';
         static inline constexpr char Float = 'F';
@@ -72,7 +65,6 @@ namespace javm::vm {
         static inline constexpr char Class = 'c';
         static inline constexpr char Annotation = '@';
         static inline constexpr char Array = '[';
-
     };
 
 }

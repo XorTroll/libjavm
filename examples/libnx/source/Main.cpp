@@ -1,5 +1,4 @@
-
-// Define this to enable debug logs (~300k lines of output, only useful for development!)
+// Define this to enable debug logs (tons of output, only useful for development!)
 // #define JAVM_DEBUG_LOG
 
 #include <javm/javm_VM.hpp>
@@ -8,41 +7,42 @@
 #include <javm/rt/rt_JavaArchiveSource.hpp>
 using namespace javm;
 
-// Use threads/condvars/rmutexes for libnx
+// Use libnx-specific threads/sync
 #include <nx_LibnxThread.hpp>
 #include <nx_LibnxSync.hpp>
 
-void DoExit()  {
+PadState g_hid_pad;
 
-    // Let's make sure everything we've printed before gets shown
+void DoExit()  {
+    // Let's make sure everything we've printed so far gets shown
     consoleUpdate(nullptr);
 
+    // Wait until user presses A, then exit
     while(appletMainLoop()) {
-        hidScanInput();
-        if(hidKeysDown(CONTROLLER_P1_AUTO) & KEY_A) {
+        padUpdate(&g_hid_pad);
+
+        if(padGetButtonsDown(&g_hid_pad) & HidNpadButton_A) {
             break;
         }
     }
 
     consoleExit(nullptr);
-
     exit(0);
-
 }
 
 void CheckHandleException(vm::ExecutionResult ret) {
     if(ret.Is<vm::ExecutionStatus::Thrown>()) {
         auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
         auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
-        auto msg_v = throwable_obj->GetField("detailMessage", "Ljava/lang/String;");
-        auto msg = "Exception in thread \"" + thread->GetThreadName() + "\" " + vm::TypeUtils::FormatVariableType(throwable_var);
-        auto msg_str = vm::StringUtils::GetValue(msg_v);
+        auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
+        auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
+        const auto msg_str = vm::StringUtils::GetValue(msg_v);
         if(!msg_str.empty()) {
-            msg +=  + ": " + vm::StringUtils::GetValue(msg_v);
+            msg +=  + u": " + vm::StringUtils::GetValue(msg_v);
         }
-        printf("%s\n", msg.c_str());
+        printf("%s\n", StrUtils::ToUtf8(msg).c_str());
         for(auto call_info: thread->GetInvertedCallStack()) {
-            printf("    at %s.%s%s\n", call_info.caller_type->GetClassName().c_str(), call_info.invokable_name.c_str(), call_info.invokable_desc.c_str());
+            printf("    at %s.%s%s\n", StrUtils::ToUtf8(call_info.caller_type->GetClassName()).c_str(), StrUtils::ToUtf8(call_info.invokable_name).c_str(), StrUtils::ToUtf8(call_info.invokable_desc).c_str());
         }
         DoExit();
     }
@@ -53,30 +53,40 @@ void CheckHandleException(vm::ExecutionResult ret) {
 }
 
 int main(int argc, char **argv) {
-
     consoleInit(nullptr);
+    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    padInitializeDefault(&g_hid_pad);
 
-    // 1 - Add class sources (JARs, class files...)
-    auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/rt.jar"); // Java standard lib JAR (rt.jar)
-    auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/libnx-javm.jar"); // Entrypoint JAR
+    // 1) add class sources (JARs, class files...)
+    // Note: the following JAR files are expected to exist within sd:/javm-libnx/...
+    auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/rt.jar"); // Java standard library JAR (rt.jar)
+    auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/entry.jar"); // Entrypoint JAR
 
-    // 2 - initial VM preparation (called ONCE)
+    // 2) initial VM preparation (must be called ONCE)
     rt::InitializeVM();
 
-    // 3 - prepare execution - must be called here (before executing anything else) and after having called ResetExecution()
-    auto ret = rt::PrepareExecution();
+    // 3) prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
+    const auto ret = rt::PrepareExecution();
     CheckHandleException(ret);
+
+    // Create a Java string array (String[]) and populate it with some dummy values
+    constexpr const char *DummyArgs[] = { "a", "b", "c", "d", "1", "2", "3", "4" };
+    constexpr size_t DummyArgCount = sizeof(DummyArgs) / sizeof(const char*);
+    auto args_arr_v = vm::TypeUtils::NewArray(DummyArgCount, rt::LocateClassType(u"java/lang/String"));
+    auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
+    for(size_t i = 0; i < DummyArgCount; i++) {
+        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(DummyArgs[i])));
+    }
 
     if(main_jar->CanBeExecuted()) {
         auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
-        auto res = main_class_type->CallClassMethod("main", "([Ljava/lang/String;)V", vm::TypeUtils::Null());
-        CheckHandleException(res);
+        const auto ret = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
+        CheckHandleException(ret);
     }
     else {
-        printf("The JAR file can't be executed or is not an executable JAR.\n");
+        printf("The JAR file can't be executed or is not an executable JAR...\n");
     }
 
     DoExit();
-
     return 0;
 }

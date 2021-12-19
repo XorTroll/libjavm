@@ -1,25 +1,27 @@
+// Define this to enable debug logs (tons of output, only useful for development!)
+// #define JAVM_DEBUG_LOG
+
 #include <javm/javm_VM.hpp>
 
-// We will use JAR archives
+// We will use/load JAR archives
 #include <javm/rt/rt_JavaArchiveSource.hpp>
 using namespace javm;
 
-// An implementation for threads and another one for synchronization need to be included
-// By default, libjavm provides implementations for pthread-threading and standard C++'s sync stuff
+// Threading and sync implementations must be included:
 
-// Use pthread for threading
+// Use default threading implementation (pthread)
 #include <javm/extras/extras_PthreadThread.hpp>
 
-// Use std C++ for locking
+// Use default sync implementation (std C++)
 #include <javm/extras/extras_CppSync.hpp>
 
-void CheckHandleException(vm::ExecutionResult ret) {
+void CheckHandleException(const vm::ExecutionResult ret) {
     if(ret.Is<vm::ExecutionStatus::Thrown>()) {
         auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
         auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
         auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
-        auto msg_str = vm::StringUtils::GetValue(msg_v);
+        const auto msg_str = vm::StringUtils::GetValue(msg_v);
         if(!msg_str.empty()) {
             msg += u": " + msg_str;
         }
@@ -35,45 +37,44 @@ void CheckHandleException(vm::ExecutionResult ret) {
     }
 }
 
-// In this example, the program is called with Java's standard lib JAR (rt.jar) and another executable JAR to run it, plus optional arguments to be forwarded to the JAR
+// In this example, the program is called with Java's standard lib JAR (rt.jar) and another executable JAR to run it, plus optional arguments to be forwarded to Java code
 
 int main(int argc, char **argv) {
-
-    if(argc < 3) {
-        printf("Bad arguments - usage: sample <rt-jar> <main-jar> [<args-to-be-passed-for-jar-main>]\n");
+    constexpr auto ExpectedArgCount = 3;
+    if(argc < ExpectedArgCount) {
+        printf("Expected usage: sample <rt-jar-path> <main-jar-path> [<java-main-args>]\n");
         return 0;
     }
 
-    // 1 - Add class sources (JARs, class files...)
-    auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[1]); // Java standard lib JAR (rt.jar)
+    // 1) add class sources (JARs, class files...)
+    auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[1]); // Java standard library JAR (rt.jar)
     auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[2]); // Entrypoint JAR
 
-    // 2 - Initial VM preparation (called only ONCE)
+    // 2) initial VM preparation (must be called ONCE)
     rt::InitializeVM();
 
-    // 3 - Prepare execution - must be called here (before executing anything else) and after having called ResetExecution()
-    auto ret = rt::PrepareExecution();
+    // 3) prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
+    const auto ret = rt::PrepareExecution();
     CheckHandleException(ret);
 
-    int args_off = 3;
-    int args_len = argc - args_off;
+    const auto args_len = argc - ExpectedArgCount;
 
-    // Create a String array (String[]) and populate it
+    // Create a Java string array (String[]) and populate it
     auto args_arr_v = vm::TypeUtils::NewArray(args_len, rt::LocateClassType(u"java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
-    for(u32 i = 0; i < args_len; i++) {
-        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(argv[args_off + i])));
+    for(auto i = 0; i < args_len; i++) {
+        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(argv[ExpectedArgCount + i])));
     }
 
     if(main_jar->CanBeExecuted()) {
         // Call the JAR's main(String[]) method
         auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
-        auto res = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
-        CheckHandleException(res);
+        const auto ret = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
+        CheckHandleException(ret);
     }
     else {
         // The JAR failed to load or it doesn't specify a main class (is a JAR library)
-        printf("The JAR file can't be executed or is not an executable JAR.");
+        printf("The JAR file can't be executed or is not an executable JAR...\n");
     }
 
     return 0;

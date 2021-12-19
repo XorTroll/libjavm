@@ -10,15 +10,14 @@ namespace javm::extras {
     using PthreadEntry = void*(*)(void*);
 
     inline constexpr vm::type::Long CastFromPthread(pthread_t pthread) {
-        return (vm::type::Long)pthread;
+        return static_cast<vm::type::Long>(pthread);
     }
 
     inline constexpr pthread_t CastToPthread(vm::type::Long handle) {
-        return (pthread_t)handle;
+        return static_cast<pthread_t>(handle);
     }
 
     class PthreadThread : public native::Thread {
-
         private:
             bool existing;
             pthread_t pthread;
@@ -37,7 +36,7 @@ namespace javm::extras {
                 if(existing) {
                     return;
                 }
-                pthread_create(&this->pthread, nullptr, (PthreadEntry)entry_fn, reinterpret_cast<void*>(this));
+                pthread_create(&this->pthread, nullptr, reinterpret_cast<PthreadEntry>(entry_fn), reinterpret_cast<void*>(this));
             }
 
             virtual native::ThreadHandle GetHandle() override {
@@ -45,13 +44,9 @@ namespace javm::extras {
             }
 
             virtual bool IsAlive() override {
-                auto ret = pthread_kill(this->pthread, 0);
-                if(ret == 0) {
-                    return true;
-                }
-                return false;
+                const auto ret = pthread_kill(this->pthread, 0);
+                return (ret == 0);
             }
-
     };
 
 }
@@ -64,19 +59,19 @@ namespace javm::native {
     }
 
     Ptr<Thread> CreateThread() {
-        return PtrUtils::New<extras::PthreadThread>();
+        return ptr::New<extras::PthreadThread>();
     }
 
-    Ptr<Thread> CreateExistingThread(native::ThreadHandle handle) {
-        return PtrUtils::New<extras::PthreadThread>(handle);
+    Ptr<Thread> CreateExistingThread(const native::ThreadHandle handle) {
+        return ptr::New<extras::PthreadThread>(handle);
     }
 
-    Priority GetThreadPriority(ThreadHandle handle) {
+    Priority GetThreadPriority(const ThreadHandle handle) {
         // Stub
         return Thread::DefaultPriority;
     }
 
-    void SetThreadPriority(ThreadHandle handle, Priority prio) {
+    void SetThreadPriority(const ThreadHandle handle, const Priority prio) {
         // Stub
     }
 

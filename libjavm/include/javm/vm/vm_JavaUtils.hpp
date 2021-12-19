@@ -5,7 +5,6 @@
 namespace javm::vm {
 
     class ExceptionUtils {
-
         private:
             static Ptr<Variable> CreateThrowableByType(const String &class_name) {
                 auto class_type = inner_impl::LocateClassTypeImpl(class_name);
@@ -34,7 +33,7 @@ namespace javm::vm {
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto msg_v = inner_impl::CreateNewString(msg);
-                    auto ret = throwable_obj->CallConstructor(throwable_v, u"(Ljava/lang/String;)V", msg_v);
+                    const auto ret = throwable_obj->CallConstructor(throwable_v, u"(Ljava/lang/String;)V", msg_v);
                     if(!ret.IsInvalidOrThrown()) {
                         inner_impl::NotifyExceptionThrownImpl(throwable_v);
                         return ExecutionResult::Thrown();
@@ -42,7 +41,6 @@ namespace javm::vm {
                 }
                 return ExecutionResult::InvalidState();
             }
-
     };
 
     namespace inner_impl {
@@ -60,7 +58,6 @@ namespace javm::vm {
     }
 
     class StringUtils {
-
         public:
             static void Assign(Ptr<Variable> str_var, const String &native_str) {
                 if(str_var->CanGetAs<VariableType::ClassInstance>()) {
@@ -81,9 +78,11 @@ namespace javm::vm {
 
             static String GetValue(Ptr<Variable> str_var) {
                 if(!str_var) {
+                    // TODO
                     return u"<invalid-str-var>";
                 }
                 if(str_var->IsNull()) {
+                    // TODO
                     return u"<null>";
                 }
                 
@@ -97,8 +96,8 @@ namespace javm::vm {
 
                     for(u32 i = 0; i < arr_obj->GetLength(); i++) {
                         auto char_var = arr_obj->GetAt(i);
-                        auto char_val = char_var->GetValue<type::Character>();
-                        ret_str += (char16_t)char_val;
+                        const auto char_val = char_var->GetValue<type::Character>();
+                        ret_str += static_cast<char16_t>(char_val);
                     }
                 }
 

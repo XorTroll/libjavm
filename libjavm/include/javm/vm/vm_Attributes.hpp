@@ -6,7 +6,6 @@
 namespace javm::vm {
 
     class AttributeInfo : public ConstantNameItem {
-
         private:
             u32 length;
             u8 *attribute_data;
@@ -28,18 +27,16 @@ namespace javm::vm {
                 }
             }
 
-            u8 *GetInfo() {
+            inline u8 *GetInfo() {
                 return this->attribute_data;
             }
 
-            size_t GetInfoLength() {
+            inline size_t GetInfoLength() {
                 return this->length;
             }
-
     };
 
     class CodeAttributeData {
-
         private:
             u16 max_stack;
             u16 max_locals;
@@ -64,19 +61,19 @@ namespace javm::vm {
                 }
             }
 
-            u16 GetMaxLocals() {
+            inline u16 GetMaxLocals() {
                 return this->max_locals;
             }
 
-            u16 GetMaxStack() {
+            inline u16 GetMaxStack() {
                 return this->max_stack;
             }
 
-            size_t GetCodeLength() {
+            inline size_t GetCodeLength() {
                 return this->code_len;
             }
 
-            u8 *GetCode() {
+            inline u8 *GetCode() {
                 return this->code;
             }
     };
@@ -123,7 +120,6 @@ namespace javm::vm {
     };
 
     class RuntimeAnnotationsAttributeData {
-
         private:
             u32 len;
             std::vector<Annotation> annotations;
@@ -133,14 +129,14 @@ namespace javm::vm {
             Annotation ReadAnnotationImpl(MemoryReader &reader) {
                 Annotation annot = {};
                 annot.type_index = BE(reader.Read<u16>());
-                auto val_count = BE(reader.Read<u16>());
+                const auto val_count = BE(reader.Read<u16>());
                 JAVM_LOG("[annotations] Value count: %d", val_count);
                 for(u16 i = 0; i < val_count; i++) {
                     Value val = {};
                     val.name_index = BE(reader.Read<u16>());
                     val.tag = reader.Read<u8>();
                     JAVM_LOG("[annotations] Reading annotation of tag '%c'...", (char)val.tag);
-                    switch((char)val.tag) {
+                    switch(static_cast<char>(val.tag)) {
                         case AnnotationTagType::Byte: 
                         case AnnotationTagType::Char: 
                         case AnnotationTagType::Float: 
@@ -179,7 +175,7 @@ namespace javm::vm {
 
         public:
             RuntimeAnnotationsAttributeData(MemoryReader &reader) {
-                auto annot_count = BE(reader.Read<u16>());
+                const auto annot_count = BE(reader.Read<u16>());
                 JAVM_LOG("[annotations] Annotation count: %d", annot_count);
                 for(u16 i = 0; i < annot_count; i++) {
                     auto annot = ReadAnnotationImpl(reader);
@@ -197,7 +193,7 @@ namespace javm::vm {
                     }
                     for(auto &val: annot.values) {
                         JAVM_LOG("[annotations] Processing tag '%c'...", (char)val.tag);
-                        switch((char)val.tag) {
+                        switch(static_cast<char>(val.tag)) {
                             case AnnotationTagType::Byte:
                             case AnnotationTagType::Char:
                             case AnnotationTagType::Integer: 
@@ -273,7 +269,7 @@ namespace javm::vm {
                 }
             }
 
-            std::vector<Annotation> &GetAnnotations() {
+            inline std::vector<Annotation> &GetAnnotations() {
                 return this->annotations;
             }
 
@@ -283,13 +279,12 @@ namespace javm::vm {
                         return true;
                     }
                 }
+
                 return false;
             }
-
     };
 
     class AttributesItem {
-
         private:
             std::vector<AttributeInfo> attributes;
             std::vector<RuntimeAnnotationsAttributeData> annotation_infos;
@@ -305,7 +300,7 @@ namespace javm::vm {
             }
 
         public:
-            void SetAttributes(std::vector<AttributeInfo> attrs, ConstantPool &pool) {
+            void SetAttributes(const std::vector<AttributeInfo> &attrs, ConstantPool &pool) {
                 this->attributes = attrs;
                 this->ProcessAttributeInfoArray(pool);
                 this->ProcessAttributes(pool);
@@ -322,11 +317,11 @@ namespace javm::vm {
                 }
             }
 
-            std::vector<AttributeInfo> &GetAttributes() {
+            inline std::vector<AttributeInfo> &GetAttributes() {
                 return this->attributes;
             }
 
-            std::vector<RuntimeAnnotationsAttributeData> &GetRuntimeAttributeAnnotations() {
+            inline std::vector<RuntimeAnnotationsAttributeData> &GetRuntimeAttributeAnnotations() {
                 return this->annotation_infos;
             }
 
@@ -340,25 +335,23 @@ namespace javm::vm {
                 }
                 return false;
             }
-
     };
 
     class FieldInfo : public ConstantNameItem, public ConstantDescriptorItem, public AccessFlagsItem, public AttributesItem {
-
         public:
             FieldInfo(MemoryReader &reader, ConstantPool &pool) {
                 this->SetAccessFlags(BE(reader.Read<u16>()));
                 this->SetNameIndex(BE(reader.Read<u16>()));
                 this->SetDescriptorIndex(BE(reader.Read<u16>()));
+
                 std::vector<AttributeInfo> attrs;
-                auto attribute_count = BE(reader.Read<u16>());
+                const auto attribute_count = BE(reader.Read<u16>());
                 attrs.reserve(attribute_count);
                 for(u32 i = 0; i < attribute_count; i++) {
                     attrs.emplace_back(reader);
                 }
                 this->SetAttributes(attrs, pool);
             }
-
     };
 
 }

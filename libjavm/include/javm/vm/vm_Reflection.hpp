@@ -5,7 +5,6 @@
 namespace javm::vm {
 
     class ReflectionType {
-
         private:
             VariableType type;
             Ptr<ClassType> base_type;
@@ -36,11 +35,11 @@ namespace javm::vm {
             }
 
         public:
-            ReflectionType(Ptr<ClassType> class_type, u32 array_dimensions = 0) : type(VariableType::ClassInstance), base_type(class_type), array_dimensions(array_dimensions) {
+            ReflectionType(Ptr<ClassType> class_type, const u32 array_dimensions = 0) : type(VariableType::ClassInstance), base_type(class_type), array_dimensions(array_dimensions) {
                 this->DoMakeTypeName();
             }
 
-            ReflectionType(VariableType primitive_type, u32 array_dimensions = 0) : type(primitive_type), array_dimensions(array_dimensions) {
+            ReflectionType(VariableType primitive_type, const u32 array_dimensions = 0) : type(primitive_type), array_dimensions(array_dimensions) {
                 this->DoMakeTypeName();
             }
 
@@ -76,10 +75,9 @@ namespace javm::vm {
                 return this->base_type;
             }
 
-            String GetTypeName() {
+            inline String GetTypeName() {
                 return this->type_name;
             }
-
     };
 
     namespace inner_impl {
@@ -93,7 +91,6 @@ namespace javm::vm {
     }
 
     class ReflectionUtils {
-
         private:
             static Ptr<ReflectionType> EnsureType(Ptr<ReflectionType> ref_type) {
                 auto &table = inner_impl::GetReflectionTypeTable();
@@ -118,7 +115,7 @@ namespace javm::vm {
                 // Try to find a primitive type
                 auto pr_type = TypeTraits::GetFieldAnyType(name_copy);
                 if(pr_type != VariableType::Invalid) {
-                    return PtrUtils::New<ReflectionType>(pr_type, array_dimensions);
+                    return ptr::New<ReflectionType>(pr_type, array_dimensions);
                 }
                 // Otherwise, search for a class type
                 else {
@@ -131,7 +128,7 @@ namespace javm::vm {
                     // Plain class type, without 'L' and ';'
                     auto class_type = inner_impl::LocateClassTypeImpl(ClassUtils::MakeSlashClassName(name_copy));
                     if(class_type) {
-                        return PtrUtils::New<ReflectionType>(class_type, array_dimensions);
+                        return ptr::New<ReflectionType>(class_type, array_dimensions);
                     }
                 }
                 return nullptr;
@@ -147,10 +144,10 @@ namespace javm::vm {
                 if(ref_type) {
                     return EnsureType(ref_type);
                 }
+
                 JAVM_LOG("Invalid found reflection type...");
                 return nullptr;
             }
-
     };
 
 }

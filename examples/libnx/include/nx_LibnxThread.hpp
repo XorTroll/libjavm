@@ -5,18 +5,22 @@
 
 // Threading implementation
 
-#define R_TRY(rc) { auto _tmp_rc = (rc); if(R_FAILED(_tmp_rc)) { fatalThrow(_tmp_rc); } }
+#define R_TRY(rc) { \
+    const auto _tmp_rc = (rc); \
+    if(R_FAILED(_tmp_rc)) { \
+        diagAbortWithResult(_tmp_rc); \
+    } \
+}
 
 namespace nx {
 
     class LibnxThread : public native::Thread {
-
         private:
             bool existing;
             ::Thread thread;
 
             inline constexpr vm::type::Long GetHandleImpl() {
-                return (vm::type::Long)thread.handle;
+                return static_cast<vm::type::Long>(thread.handle);
             }
 
         public:
@@ -44,12 +48,11 @@ namespace nx {
             }
 
             virtual bool IsAlive() override {
-                u32 tmp_prio = 0;
-                auto res = svcGetThreadPriority(&tmp_prio, this->thread.handle);
-                // If the thread has ended, the handle should make this call fail :P
-                return R_SUCCEEDED(res);
+                // If the thread has ended, its handle should no longer be valid, making this SVC fail
+                s32 tmp_prio = 0;
+                const auto rc = svcGetThreadPriority(&tmp_prio, this->thread.handle);
+                return R_SUCCEEDED(rc);
             }
-
     };
 
 }
@@ -57,24 +60,23 @@ namespace nx {
 namespace javm::native {
 
     ThreadHandle GetCurrentThreadHandle() {
-        auto handle = threadGetCurHandle();
-        return (ThreadHandle)handle;
+        return static_cast<ThreadHandle>(threadGetCurHandle());
     }
 
     Ptr<Thread> CreateThread() {
-        return PtrUtils::New<nx::LibnxThread>();
+        return ptr::New<nx::LibnxThread>();
     }
 
-    Ptr<Thread> CreateExistingThread(native::ThreadHandle handle) {
-        return PtrUtils::New<nx::LibnxThread>(handle);
+    Ptr<Thread> CreateExistingThread(const ThreadHandle handle) {
+        return ptr::New<nx::LibnxThread>(handle);
     }
 
-    Priority GetThreadPriority(ThreadHandle handle) {
+    Priority GetThreadPriority(const ThreadHandle handle) {
         // Stub
         return Thread::DefaultPriority;
     }
 
-    void SetThreadPriority(ThreadHandle handle, Priority prio) {
+    void SetThreadPriority(const ThreadHandle handle, const Priority prio) {
         // Stub
     }
 

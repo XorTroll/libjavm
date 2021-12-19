@@ -12,8 +12,9 @@ namespace javm {
 
     }
 
-    class StrUtils {
+    // TODO: change to a javm::str::* namespace?
 
+    class StrUtils {
         public:
             static inline String FromUtf8(const std::string &str) {
                 return inner_impl::g_str_convert.from_bytes(str);
@@ -24,11 +25,10 @@ namespace javm {
             }
 
             template<typename T>
-            static inline String From(T t) {
+            static inline String From(const T t) {
                 auto utf8_str = std::to_string(t);
                 return FromUtf8(utf8_str);
             }
-
     };
 
 }

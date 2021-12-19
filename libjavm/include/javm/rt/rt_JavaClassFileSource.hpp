@@ -5,7 +5,6 @@
 namespace javm::rt {
 
     class JavaClassFileSource : public ClassSource, public File, public vm::AttributesItem {
-
         public:
             static constexpr u32 Magic = 0xCAFEBABE;
 
@@ -98,11 +97,11 @@ namespace javm::rt {
                 }
                 this->minor = BE(reader.Read<u16>());
                 this->major = BE(reader.Read<u16>());
-                u16 const_count = BE(reader.Read<u16>());
+                const auto const_count = BE(reader.Read<u16>());
                 this->pool.SetExpectedCount(const_count);
 
-                for(u16 i = 1; i < const_count; i++) {
-                    auto info = PtrUtils::New<vm::ConstantPoolItem>(reader);
+                for(auto i = 1; i < const_count; i++) {
+                    auto info = ptr::New<vm::ConstantPoolItem>(reader);
                     bool extra_item = (info->GetTag() == vm::ConstantPoolTag::Long) || (info->GetTag() == vm::ConstantPoolTag::Double);
                     this->pool.InsertItem(info);
                     if(extra_item) {
@@ -116,7 +115,7 @@ namespace javm::rt {
 
                 this->access_flags = BE(reader.Read<u16>());
 
-                u16 this_class_index = BE(reader.Read<u16>());
+                const auto this_class_index = BE(reader.Read<u16>());
                 auto this_class_data_item = this->pool.GetItemAt(this_class_index, vm::ConstantPoolTag::Class);
                 if(!this_class_data_item) {
                     return;
@@ -124,17 +123,17 @@ namespace javm::rt {
                 auto this_class_data = this_class_data_item->GetClassData();
                 this->class_name = this_class_data.processed_name;
 
-                u16 super_class_index = BE(reader.Read<u16>());
+                const auto super_class_index = BE(reader.Read<u16>());
                 auto super_class_data_item = this->pool.GetItemAt(super_class_index, vm::ConstantPoolTag::Class);
                 if(super_class_data_item) {
                     auto super_class_data = super_class_data_item->GetClassData();
                     this->super_class_name = super_class_data.processed_name;
                 }
 
-                u16 iface_count = BE(reader.Read<u16>());
+                const auto iface_count = BE(reader.Read<u16>());
                 this->interfaces.reserve(iface_count);
-                for(u16 i = 0; i < iface_count; i++) {
-                    u16 iface_index = BE(reader.Read<u16>());
+                for(auto i = 0; i < iface_count; i++) {
+                    const auto iface_index = BE(reader.Read<u16>());
                     auto iface_class_item = this->pool.GetItemAt(iface_index, vm::ConstantPoolTag::Class);
                     if(iface_class_item) {
                         auto iface_class_data = iface_class_item->GetClassData();
@@ -142,23 +141,23 @@ namespace javm::rt {
                     }
                 }
 
-                u16 field_count = BE(reader.Read<u16>());
+                const auto field_count = BE(reader.Read<u16>());
                 this->fields.reserve(field_count);
-                for(u16 i = 0; i < field_count; i++) {
+                for(auto i = 0; i < field_count; i++) {
                     auto &info_ref = this->fields.emplace_back(reader, this->pool);
                 }
 
-                u16 method_count = BE(reader.Read<u16>());
+                const auto method_count = BE(reader.Read<u16>());
                 this->methods.reserve(method_count);
-                for(u16 i = 0; i < method_count; i++) {
+                for(auto i = 0; i < method_count; i++) {
                     auto &info_ref = this->methods.emplace_back(reader, this->pool);
                 }
 
                 std::vector<vm::AttributeInfo> attrs;
 
-                u16 attr_count = BE(reader.Read<u16>());
+                const auto attr_count = BE(reader.Read<u16>());
                 attrs.reserve(attr_count);
-                for(u16 i = 0; i < attr_count; i++) {
+                for(auto i = 0; i < attr_count; i++) {
                     attrs.emplace_back(reader);
                 }
 
@@ -183,7 +182,7 @@ namespace javm::rt {
                 this->Load();
             }
             
-            JavaClassFileSource(u8 *ptr, size_t ptr_sz, bool owns = false) : File(ptr, ptr_sz, owns) {
+            JavaClassFileSource(u8 *ptr, const size_t ptr_sz, const bool owns = false) : File(ptr, ptr_sz, owns) {
                 this->Load();
             }
 
@@ -209,14 +208,14 @@ namespace javm::rt {
                     for(auto &method: this->methods) {
                         invokables.push_back(this->ConvertFromFieldInfo(method));
                     }
-                    this->cached_class_type = PtrUtils::New<vm::ClassType>(this->class_name, this->super_class_name, this->interfaces, new_fields, invokables, this->access_flags, this->pool);
+                    this->cached_class_type = ptr::New<vm::ClassType>(this->class_name, this->super_class_name, this->interfaces, new_fields, invokables, this->access_flags, this->pool);
                     return this->cached_class_type;
                 }
                 return nullptr;
             }
 
             virtual void ResetCachedClassTypes() override {
-                PtrUtils::Destroy(this->cached_class_type);
+                ptr::Destroy(this->cached_class_type);
             }
 
             virtual std::vector<Ptr<vm::ClassType>> GetClassTypes() override {
@@ -227,7 +226,6 @@ namespace javm::rt {
                 }
                 return list;
             }
-
     };
 
 }

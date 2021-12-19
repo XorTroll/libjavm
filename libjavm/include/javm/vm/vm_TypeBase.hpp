@@ -14,7 +14,6 @@ namespace javm::vm {
     struct NullObject {};
 
     enum class VariableType {
-
         Invalid,
         Byte,
         Boolean,
@@ -27,14 +26,12 @@ namespace javm::vm {
         ClassInstance,
         Array,
         NullObject
-
     };
 
     namespace type {
 
         // C++ <-> Java types, only ones usable to create a Variable object.
-
-        // All these 5 types are basically treated as 32-bit signed integers :P
+        // (All the first 5 types below are basically treated as 32-bit signed integers)
 
         using Byte = int;
         using Boolean = int;
@@ -53,13 +50,11 @@ namespace javm::vm {
     }
 
     enum class ExecutionStatus {
-
         Invalid,
         ContinueExecution, // Continue reading instructions
         VoidReturn,
         VariableReturn,
         Thrown,
-
     };
 
     struct ExecutionResult {
@@ -67,11 +62,11 @@ namespace javm::vm {
         Ptr<Variable> ret_var; // nullptr if void return, variable if var returned, throwable var if thrown
 
         template<ExecutionStatus Status>
-        inline constexpr bool Is() {
+        inline constexpr bool Is() const {
             return this->status == Status;
         }
 
-        inline constexpr bool IsInvalidOrThrown() {
+        inline constexpr bool IsInvalidOrThrown() const {
             return this->Is<ExecutionStatus::Invalid>() || this->Is<ExecutionStatus::Thrown>();
         }
 
@@ -100,14 +95,14 @@ namespace javm::vm {
     namespace inner_impl {
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteStaticCode(u8 *code_ptr, u16 max_locals, ConstantPool pool, JArgs &&...java_args);
+        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, JArgs &&...java_args);
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteCode(u8 *code_ptr, u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args);
+        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args);
 
         Ptr<ClassType> LocateClassTypeImpl(const String &class_name);
 
-        inline Ptr<Variable> NewDefaultVariableImpl(VariableType type);
+        inline Ptr<Variable> NewDefaultVariableImpl(const VariableType type);
 
         Ptr<Variable> CreateNewString(const String &native_str);
 
@@ -128,13 +123,13 @@ namespace javm::vm {
 
     }
 
-    // Separated from TypeUtils to solve potential circular dependencies :P
+    // Separated from TypeUtils to solve potential circular dependencies
 
     struct ExtendedVariableType {
         VariableType type;
         Ptr<ClassType> class_type;
 
-        static ExtendedVariableType MakeSimpleType(VariableType type) {
+        static ExtendedVariableType MakeSimpleType(const VariableType type) {
             return ExtendedVariableType { type, nullptr };
         }
 
@@ -145,14 +140,11 @@ namespace javm::vm {
         inline constexpr bool IsClassType() {
             return this->type == VariableType::ClassInstance;
         }
-
     };
 
     class TypeTraits {
-
         private:
-            static inline std::map<VariableType, String> g_primitive_type_name_table =
-            {
+            static const inline std::map<VariableType, String> PrimitiveTypeNameTable = {
                 { VariableType::Byte, u"byte" },
                 { VariableType::Boolean, u"boolean" },
                 { VariableType::Short, u"short" },
@@ -163,8 +155,7 @@ namespace javm::vm {
                 { VariableType::Double, u"double" },
             };
 
-            static inline std::map<VariableType, String> g_primitive_type_table =
-            {
+            static const inline std::map<VariableType, String> PrimitiveTypeDescriptorTable = {
                 { VariableType::Byte, u"B" },
                 { VariableType::Boolean, u"Z" },
                 { VariableType::Short, u"S" },
@@ -176,28 +167,28 @@ namespace javm::vm {
             };
 
         public:
-
             static bool IsPrimitiveType(const String &class_name) {
-                for(auto &[type, name]: g_primitive_type_name_table) {
+                for(auto &[type, name]: PrimitiveTypeNameTable) {
                     if(name == class_name) {
                         return true;
                     }
                 }
+
                 auto class_copy = class_name;
                 while(class_copy.front() == u'[') {
                     class_copy.erase(0, 1);
                 }
-                for(auto &[type, name]: g_primitive_type_table) {
+                for(auto &[type, name]: PrimitiveTypeDescriptorTable) {
                     if(name == class_copy) {
                         return true;
                     }
                 }
+
                 return false;
             }
 
             template<typename T>
             static inline constexpr VariableType DetermineVariableType() {
-
                 #define _JAVM_DETERMINE_TYPE_BASE(type_name) \
                 if constexpr(std::is_same_v<T, type::type_name>) { \
                     return VariableType::type_name; \
@@ -223,7 +214,6 @@ namespace javm::vm {
                 #undef _JAVM_DETERMINE_TYPE_INTG_BASE
 
                 return VariableType::Invalid;
-
             }
 
             template<typename T>
@@ -236,7 +226,7 @@ namespace javm::vm {
             }
 
             static VariableType GetFieldNameType(const String &descriptor) {
-                for(auto &[type, name] : g_primitive_type_name_table) {
+                for(auto &[type, name] : PrimitiveTypeNameTable) {
                     if(name == descriptor) {
                         return type;
                     }
@@ -245,7 +235,7 @@ namespace javm::vm {
             }
 
             static VariableType GetFieldDescriptorType(const String &descriptor) {
-                for(auto &[type, name] : g_primitive_type_table) {
+                for(auto &[type, name] : PrimitiveTypeDescriptorTable) {
                     if(name == descriptor) {
                         return type;
                     }
@@ -298,23 +288,25 @@ namespace javm::vm {
             }
 
             static String GetDescriptorForPrimitiveType(VariableType type) {
-                if(g_primitive_type_table.find(type) != g_primitive_type_table.end()) {
-                    return g_primitive_type_table[type];
+                if(PrimitiveTypeDescriptorTable.find(type) != PrimitiveTypeDescriptorTable.end()) {
+                    return PrimitiveTypeDescriptorTable.at(type);
                 }
-                return u"";
+
+                // TODO
+                return u"<no-desc>";
             }
 
             static String GetNameForPrimitiveType(VariableType type) {
-                if(g_primitive_type_name_table.find(type) != g_primitive_type_name_table.end()) {
-                    return g_primitive_type_name_table[type];
+                if(PrimitiveTypeNameTable.find(type) != PrimitiveTypeNameTable.end()) {
+                    return PrimitiveTypeNameTable.at(type);
                 }
-                return u"";
-            }
 
+                // TODO
+                return u"<no-name>";
+            }
     };
 
     class ClassUtils {
-
         public:
             static String MakeSlashClassName(const String &input_name) {
                 auto copy = input_name;
@@ -335,7 +327,6 @@ namespace javm::vm {
                 }
                 return false;
             }
-
     };
 
 }

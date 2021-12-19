@@ -9,7 +9,7 @@ namespace javm::vm {
     namespace inner_impl {
 
         static inline PropertyTable g_system_property_table = {
-            // TODO
+            // TODO: leave these/other default values, force the dev to populate them...?
             { u"java.vm.specification.version", u"1.8-demo" },
             { u"path.separator", u":" },
             { u"file.encoding.pkg", u"sun.io" },
@@ -34,7 +34,8 @@ namespace javm::vm {
 
     static inline void SetSystemProperty(const String &name, const String &value) {
         auto &system_props = GetSystemPropertyTable();
-        // Remove if already set (allowing to redefine properties)
+
+        // Remove if already set, aka allow redefininf properties
         auto it = system_props.find(name);
         if(it != system_props.end()) {
             system_props.erase(it);

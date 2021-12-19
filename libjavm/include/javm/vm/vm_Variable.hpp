@@ -78,7 +78,7 @@ namespace javm::vm {
             template<typename T>
             T GetValue() {
                 auto obj = this->GetAs<T>();
-                return PtrUtils::GetValue(obj);
+                return ptr::GetValue(obj);
             }
 
             template<typename T>
@@ -128,7 +128,7 @@ namespace javm::vm {
                 if(g_null_ref_var) {
                     return g_null_ref_var;
                 }
-                g_null_ref_var = PtrUtils::New<Variable>(PtrUtils::New<NullObject>());
+                g_null_ref_var = ptr::New<Variable>(ptr::New<NullObject>());
                 return g_null_ref_var;
             }
 
@@ -169,7 +169,7 @@ namespace javm::vm {
                 static_assert(!std::is_same_v<T, type::ClassInstance>, "Invalid type");
                 static_assert(!std::is_same_v<T, type::Array>, "Invalid type");
 
-                return PtrUtils::New<Variable>(PtrUtils::New<T>(t));
+                return ptr::New<Variable>(ptr::New<T>(t));
             }
 
             template<typename T>
@@ -181,7 +181,7 @@ namespace javm::vm {
 
                 #define _JAVM_DEFAULT_VALUE_IMPL(type_name, val) \
                 if constexpr(std::is_same_v<T, type::type_name>) { \
-                    return PtrUtils::New<Variable>(PtrUtils::New<T>(val)); \
+                    return ptr::New<Variable>(ptr::New<T>(val)); \
                 }
 
                 _JAVM_DEFAULT_VALUE_IMPL(Byte, 0)
@@ -212,7 +212,7 @@ namespace javm::vm {
 
                 #define _JAVM_DEFAULT_VALUE_IMPL(type_name, val) \
                 if(type == VariableType::type_name) { \
-                    return PtrUtils::New<Variable>(PtrUtils::New<type::type_name>(val)); \
+                    return ptr::New<Variable>(ptr::New<type::type_name>(val)); \
                 }
 
                 _JAVM_DEFAULT_VALUE_IMPL(Byte, 0)
@@ -230,13 +230,13 @@ namespace javm::vm {
             }
 
             static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type) {
-                auto class_var = PtrUtils::New<Variable>(PtrUtils::New<type::ClassInstance>(class_type));
+                auto class_var = ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
                 return class_var;
             }
 
             template<typename ...JArgs>
             static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
-                auto class_var = PtrUtils::New<Variable>(PtrUtils::New<type::ClassInstance>(class_type));
+                auto class_var = ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
                 
                 auto class_obj = class_var->GetAs<type::ClassInstance>();
                 class_obj->CallConstructor(class_var, init_descriptor, java_args...);
@@ -245,26 +245,26 @@ namespace javm::vm {
             }
 
             static inline Ptr<Variable> NewArray(u32 length, VariableType type) {
-                return PtrUtils::New<Variable>(PtrUtils::New<type::Array>(type, length));
+                return ptr::New<Variable>(ptr::New<type::Array>(type, length));
             }
 
             static inline Ptr<Variable> NewArray(u32 length, Ptr<ClassType> type) {
-                return PtrUtils::New<Variable>(PtrUtils::New<type::Array>(type, length));
+                return ptr::New<Variable>(ptr::New<type::Array>(type, length));
             }
 
             template<typename ...JArgs>
             static inline Ptr<Variable> NewArray(VariableType type, JArgs &&...java_args) {
-                auto arr_obj = PtrUtils::New<type::Array>(type, sizeof...(JArgs));
+                auto arr_obj = ptr::New<type::Array>(type, sizeof...(JArgs));
                 u32 idx = 0;
                 (SetInArray(java_args, arr_obj, idx), ...);
-                return PtrUtils::New<Variable>(arr_obj);
+                return ptr::New<Variable>(arr_obj);
             }
 
             template<typename ...JArgs>
             static inline Ptr<Variable> NewMultiArray(VariableType type, std::vector<u32> dimension_lengths) {
                 auto arr_len = dimension_lengths.front();
                 dimension_lengths.erase(dimension_lengths.begin());
-                return PtrUtils::New<Variable>(PtrUtils::New<type::Array>(arr_len, dimension_lengths, type));
+                return ptr::New<Variable>(ptr::New<type::Array>(arr_len, dimension_lengths, type));
             }
 
             static inline Ptr<Variable> True() {

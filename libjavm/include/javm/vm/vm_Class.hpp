@@ -9,25 +9,24 @@
 namespace javm::vm {
 
     class ClassBaseField : public AccessFlagsItem, public AttributesItem {
-
         private:
             NameAndTypeData nat_data;
 
         public:
-            ClassBaseField(NameAndTypeData nat, u16 flags, std::vector<AttributeInfo> attrs, ConstantPool &pool) : nat_data(nat) {
+            ClassBaseField(const NameAndTypeData nat, const u16 flags, const std::vector<AttributeInfo> &attrs, ConstantPool &pool) : nat_data(nat) {
                 this->SetAccessFlags(flags);
                 this->SetAttributes(attrs, pool);
             }
 
-            NameAndTypeData GetNameAndType() {
+            inline NameAndTypeData GetNameAndType() {
                 return this->nat_data;
             }
 
-            String GetName() {
+            inline String GetName() {
                 return this->nat_data.processed_name;
             }
 
-            String GetDescriptor() {
+            inline String GetDescriptor() {
                 return this->nat_data.processed_desc;
             }
 
@@ -41,38 +40,34 @@ namespace javm::vm {
                         return true;
                     }
                 }
+
                 return false;
             }
-
     };
 
     class ClassField : public ClassBaseField {
-
         private:
             Ptr<Variable> var;
 
         public:
             using ClassBaseField::ClassBaseField;
 
-            void SetVariable(Ptr<Variable> new_var) {
+            inline void SetVariable(Ptr<Variable> new_var) {
                 this->var = new_var;
             }
 
-            Ptr<Variable> GetVariable() {
+            inline Ptr<Variable> GetVariable() {
                 return this->var;
             }
 
             inline bool HasVariable() {
-                return PtrUtils::IsValid(this->var);
+                return ptr::IsValid(this->var);
             }
-
     };
 
     class ClassInvokable : public ClassBaseField {
-
         public:
             using ClassBaseField::ClassBaseField;
-
     };
 
     namespace inner_impl {
@@ -84,7 +79,6 @@ namespace javm::vm {
     }
 
     class ExecutionScopeGuard {
-
         public:
             ExecutionScopeGuard(Ptr<ClassType> type, const String &name, const String &descriptor) {
                 inner_impl::ThreadNotifyExecutionStartImpl(type, name, descriptor);
@@ -97,25 +91,21 @@ namespace javm::vm {
             ~ExecutionScopeGuard() {
                 inner_impl::ThreadNotifyExecutionEndImpl();
             }
-
     };
 
     class MonitoredItem {
-
         protected:
             Ptr<Monitor> monitor;
 
         public:
-            MonitoredItem() : monitor(PtrUtils::New<Monitor>()) {}
+            MonitoredItem() : monitor(ptr::New<Monitor>()) {}
 
             Ptr<Monitor> GetMonitor() {
                 return this->monitor;
             }
-
     };
 
     class ClassType : public AccessFlagsItem, public MonitoredItem {
-
         private:
             String class_name;
             String super_class_name;
@@ -128,7 +118,7 @@ namespace javm::vm {
             ConstantPool pool;
 
         public:
-            ClassType(const String &name, const String &super_name, std::vector<String> interface_names, std::vector<ClassBaseField> fields, std::vector<ClassBaseField> invokables, u16 flags, ConstantPool pool) : MonitoredItem(), class_name(name), super_class_name(super_name), interface_class_names(interface_names), fields(fields), invokables(invokables), static_block_called(false), static_block_enabled(true), pool(pool) {
+            ClassType(const String &name, const String &super_name, const std::vector<String> &interface_names, const std::vector<ClassBaseField> &fields, const std::vector<ClassBaseField> &invokables, const u16 flags, ConstantPool pool) : MonitoredItem(), class_name(name), super_class_name(super_name), interface_class_names(interface_names), fields(fields), invokables(invokables), static_block_called(false), static_block_enabled(true), pool(pool) {
                 this->SetAccessFlags(flags);
                 for(auto &field: this->fields) {
                     if(field.HasFlag<AccessFlags::Static>()) {
@@ -139,15 +129,15 @@ namespace javm::vm {
                 }
             }
 
-            String GetClassName() {
+            inline String GetClassName() {
                 return this->class_name;
             }
 
-            String GetSuperClassName() {
+            inline String GetSuperClassName() {
                 return this->super_class_name;
             }
 
-            bool HasSuperClass() {
+            inline bool HasSuperClass() {
                 return !this->super_class_name.empty();
             }
 
@@ -162,19 +152,19 @@ namespace javm::vm {
                 return nullptr;
             }
 
-            std::vector<String> &GetInterfaceClassNames() {
+            inline std::vector<String> &GetInterfaceClassNames() {
                 return this->interface_class_names;
             }
 
-            bool HasInterfaces() {
+            inline bool HasInterfaces() {
                 return !this->interface_class_names.empty();
             }
 
-            std::vector<ClassBaseField> &GetRawFields() {
+            inline std::vector<ClassBaseField> &GetRawFields() {
                 return this->fields;
             }
 
-            std::vector<ClassBaseField> &GetRawInvokables() {
+            inline std::vector<ClassBaseField> &GetRawInvokables() {
                 return this->invokables;
             }
 
@@ -212,11 +202,11 @@ namespace javm::vm {
                 return false;
             }
 
-            void EnableStaticInitializer() {
+            inline void EnableStaticInitializer() {
                 this->static_block_enabled = true;
             }
             
-            void DisableStaticInitializer() {
+            inline void DisableStaticInitializer() {
                 this->static_block_enabled = false;
             }
 
@@ -225,7 +215,7 @@ namespace javm::vm {
                 if(this->HasSuperClass()) {
                     auto super_class = this->GetSuperClassType();
                     if(super_class) {
-                        auto ret = super_class->EnsureStaticInitializerCalled();
+                        const auto ret = super_class->EnsureStaticInitializerCalled();
                         if(ret.IsInvalidOrThrown()) {
                             return ret;
                         }
@@ -240,7 +230,7 @@ namespace javm::vm {
                             return ExecutionResult::Void();
                         }
                         JAVM_LOG("[clinit] Calling static init of '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
-                        auto ret = this->CallClassMethod(u"<clinit>", u"()V");
+                        const auto ret = this->CallClassMethod(u"<clinit>", u"()V");
                         JAVM_LOG("[clinit] Done '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
                         return ret;
                     }
@@ -248,21 +238,21 @@ namespace javm::vm {
                 return ExecutionResult::Void();
             }
 
-            std::vector<ClassBaseField> &GetFields() {
+            inline std::vector<ClassBaseField> &GetFields() {
                 return this->fields;
             }
 
-            std::vector<ClassBaseField> &GetInvokables() {
+            inline std::vector<ClassBaseField> &GetInvokables() {
                 return this->invokables;
             }
 
-            ConstantPool &GetConstantPool() {
+            inline ConstantPool &GetConstantPool() {
                 return this->pool;
             }
 
-            ExecutionResult CallClassMethod(const String &name, const String &descriptor, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult CallClassMethod(const String &name, const String &descriptor, const std::vector<Ptr<Variable>> &param_vars) {
                 // Ensure static initializer is or has been called
-                auto ret = this->EnsureStaticInitializerCalled();
+                const auto ret = this->EnsureStaticInitializerCalled();
                 if(ret.IsInvalidOrThrown()) {
                     return ret;
                 }
@@ -287,7 +277,7 @@ namespace javm::vm {
                                         if(is_sync) {
                                             this->monitor->Enter();
                                         }
-                                        auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), this->pool, param_vars);
+                                        const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), this->pool, param_vars);
                                         if(is_sync) {
                                             this->monitor->Leave();
                                         }
@@ -325,13 +315,13 @@ namespace javm::vm {
 
             template<typename ...JArgs>
             ExecutionResult CallClassMethod(const String &name, const String &descriptor, JArgs &&...java_args) {
-                std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
+                const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
                 return this->CallClassMethod(name, descriptor, param_vars);
             }
 
             Ptr<Variable> GetStaticField(const String &name, const String &descriptor) {
                 // Just in case, call the static initializer if it hasn't been called yet
-                auto ret = this->EnsureStaticInitializerCalled();
+                const auto ret = this->EnsureStaticInitializerCalled();
                 if(ret.IsInvalidOrThrown()) {
                     return nullptr;
                 }
@@ -361,7 +351,7 @@ namespace javm::vm {
 
             void SetStaticField(const String &name, const String &descriptor, Ptr<Variable> var) {
                 // Just in case, call the static initializer if it hasn't been called yet
-                auto ret = this->EnsureStaticInitializerCalled();
+                const auto ret = this->EnsureStaticInitializerCalled();
                 if(ret.IsInvalidOrThrown()) {
                     return;
                 }
@@ -391,20 +381,20 @@ namespace javm::vm {
                 return false;
             }
 
-            Ptr<Variable> GetStaticFieldByUnsafeOffset(type::Integer offset) {
+            Ptr<Variable> GetStaticFieldByUnsafeOffset(const type::Integer offset) {
                 for(u32 i = 0; i < this->static_fields.size(); i++) {
                     auto &field = this->static_fields[i];
-                    if(i == offset) {
+                    if(i == static_cast<u32>(offset)) {
                         return this->GetStaticField(field.GetName(), field.GetDescriptor());
                     }
                 }
                 return nullptr;
             }
 
-            void SetStaticFieldByUnsafeOffset(type::Integer offset, Ptr<Variable> var) {
+            void SetStaticFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
                 for(u32 i = 0; i < this->static_fields.size(); i++) {
                     auto &field = this->static_fields[i];
-                    if(i == offset) {
+                    if(i == static_cast<u32>(offset)) {
                         this->SetStaticField(field.GetName(), field.GetDescriptor(), var);
                     }
                 }
@@ -424,11 +414,9 @@ namespace javm::vm {
                 }
                 return false;
             }
-
     };
 
     class ClassInstance : public MonitoredItem {
-
         private:
             Ptr<ClassType> class_type;
             Ptr<ClassInstance> super_class_instance;
@@ -441,13 +429,13 @@ namespace javm::vm {
                 if(type->HasSuperClass()) {
                     auto super_class_type = type->GetSuperClassType();
                     if(super_class_type) {
-                        this->super_class_instance = PtrUtils::New<ClassInstance>(super_class_type);
+                        this->super_class_instance = ptr::New<ClassInstance>(super_class_type);
                     }
                 }
                 for(auto &intf_name: type->GetInterfaceClassNames()) {
                     auto intf_type = inner_impl::LocateClassTypeImpl(intf_name);
                     if(intf_type) {
-                        auto intf_instance = PtrUtils::New<ClassInstance>(intf_type);
+                        auto intf_instance = ptr::New<ClassInstance>(intf_type);
                         this->interface_instances.push_back(intf_instance);
                     }
                 }
@@ -464,19 +452,19 @@ namespace javm::vm {
                 }
             }
 
-            Ptr<ClassType> GetClassType() {
+            inline Ptr<ClassType> GetClassType() {
                 return this->class_type;
             }
 
-            bool HasSuperClass() {
-                return PtrUtils::IsValid(this->super_class_instance);
+            inline bool HasSuperClass() {
+                return ptr::IsValid(this->super_class_instance);
             }
 
-            std::vector<ClassInvokable> GetMethods() {
+            inline std::vector<ClassInvokable> GetMethods() {
                 return this->methods;
             }
 
-            Ptr<ClassInstance> GetSuperClassInstance() {
+            inline Ptr<ClassInstance> GetSuperClassInstance() {
                 return this->super_class_instance;
             }
 
@@ -610,26 +598,26 @@ namespace javm::vm {
                 return false;
             }
 
-            Ptr<Variable> GetFieldByUnsafeOffset(type::Integer offset) {
+            Ptr<Variable> GetFieldByUnsafeOffset(const type::Integer offset) {
                 for(u32 i = 0; i < this->member_fields.size(); i++) {
                     auto &field = this->member_fields[i];
-                    if(i == offset) {
+                    if(i == static_cast<u32>(offset)) {
                         return this->GetField(field.GetName(), field.GetDescriptor());
                     }
                 }
                 return nullptr;
             }
 
-            void SetFieldByUnsafeOffset(type::Integer offset, Ptr<Variable> var) {
+            void SetFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
                 for(u32 i = 0; i < this->member_fields.size(); i++) {
                     auto &field = this->member_fields[i];
-                    if(i == offset) {
+                    if(i == static_cast<u32>(offset)) {
                         this->SetField(field.GetName(), field.GetDescriptor(), var);
                     }
                 }
             }
 
-            ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, const std::vector<Ptr<Variable>> &param_vars) {
                 for(auto &fn: this->methods) {
                     if(fn.GetName() == name) {
                         if(fn.GetDescriptor() == descriptor) {
@@ -650,7 +638,7 @@ namespace javm::vm {
                                     if(is_sync) {
                                         this->monitor->Enter();
                                     }
-                                    auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), this_as_var, this->class_type->GetConstantPool(), param_vars);
+                                    const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), this_as_var, this->class_type->GetConstantPool(), param_vars);
                                     if(is_sync) {
                                         this->monitor->Leave();
                                     }
@@ -671,7 +659,7 @@ namespace javm::vm {
 
             template<typename ...JArgs>
             ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, JArgs &&...java_args) {
-                std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
+                const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
                 return this->CallInstanceMethod(name, descriptor, this_as_var, param_vars);
             }
 
@@ -679,7 +667,6 @@ namespace javm::vm {
             inline ExecutionResult CallConstructor(Ptr<Variable> this_as_var, const String &descriptor, JArgs &&...java_args) {
                 return this->CallInstanceMethod(u"<init>", descriptor, this_as_var, java_args...);
             }
-
     };
 
 }

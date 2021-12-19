@@ -9,7 +9,6 @@ namespace javm::vm {
     // TODO: multi arrays
 
     class Array {
-
         private:
             VariableType type;
             Ptr<ClassType> class_type;
@@ -30,11 +29,11 @@ namespace javm::vm {
             }
 
         public:
-            Array(VariableType type, u32 length) : type(type), array_length(length) {
+            Array(VariableType type, const u32 length) : type(type), array_length(length) {
                 this->Reset();
             }
 
-            Array(Ptr<ClassType> type, u32 length) : type(VariableType::ClassInstance), class_type(type), array_length(length) {
+            Array(Ptr<ClassType> type, const u32 length) : type(VariableType::ClassInstance), class_type(type), array_length(length) {
                 this->Reset();
             }
 
@@ -76,7 +75,7 @@ namespace javm::vm {
                 return this->array_length;
             }
 
-            Ptr<Variable> GetAt(u32 idx) {
+            Ptr<Variable> GetAt(const u32 idx) {
                 if(idx < this->array_length) {
                     auto arr_v = this->inner_array[idx];
                     // If value not set, make a default one and return it
@@ -89,12 +88,11 @@ namespace javm::vm {
                 return nullptr;
             }
 
-            void SetAt(u32 idx, Ptr<Variable> var) {
+            void SetAt(const u32 idx, Ptr<Variable> var) {
                 if(idx < this->array_length) {
                     this->inner_array[idx] = var;
                 }
             }
-
     };
 
 }

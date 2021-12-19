@@ -6,7 +6,6 @@
 namespace javm::vm {
 
     class ExecutionFrame {
-
         private:
             enum class VariableStackMode {
                 FixedSize, // Locals
@@ -14,29 +13,30 @@ namespace javm::vm {
             };
 
             class VariableStack {
-
                 private:
                     std::vector<Ptr<Variable>> inner_list;
                     VariableStackMode stack_mode;
 
                 public:
-                    VariableStack(VariableStackMode mode) : stack_mode(mode) {}
+                    VariableStack(const VariableStackMode mode) : stack_mode(mode) {}
 
-                    void ResetFill(Ptr<Variable> this_var, u16 length) {
+                    void ResetFill(Ptr<Variable> this_var, const u16 length) {
                         if(this->stack_mode != VariableStackMode::FixedSize) {
                             return;
                         }
+
+                        auto len = length;
                         if(this_var) {
-                            length++;
+                            len++;
                         }
                         this->inner_list.clear();
-                        this->inner_list.reserve(length);
-                        for(u16 i = 0; i < length; i++) {
+                        this->inner_list.reserve(len);
+                        for(u16 i = 0; i < len; i++) {
                             this->inner_list.push_back(nullptr);
                         }
                     }
 
-                    Ptr<Variable> GetAt(u32 idx) {
+                    Ptr<Variable> GetAt(const u32 idx) {
                         if(this->stack_mode != VariableStackMode::FixedSize) {
                             return nullptr;
                         }
@@ -46,7 +46,7 @@ namespace javm::vm {
                         return nullptr;
                     }
 
-                    void SetAt(u32 idx, Ptr<Variable> var) {
+                    void SetAt(const u32 idx, Ptr<Variable> var) {
                         if(this->stack_mode != VariableStackMode::FixedSize) {
                             return;
                         }
@@ -73,26 +73,25 @@ namespace javm::vm {
                         }
                         this->inner_list.push_back(var);
                     }
-
             };
 
         private:
             VariableStack stack;
             VariableStack locals;
             ConstantPool exec_pool;
-            u8 *code_ptr;
+            const u8 *code_ptr;
             u32 code_offset;
 
         public:
-            ExecutionFrame(u8 *raw_code, u16 max_locals, ConstantPool pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), code_ptr(raw_code), code_offset(0) {
+            ExecutionFrame(const u8 *raw_code, const u16 max_locals, ConstantPool pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), code_ptr(raw_code), code_offset(0) {
                 this->locals.ResetFill(this_var, max_locals);
             }
 
-            ConstantPool &GetThisConstantPool() {
+            inline ConstantPool &GetThisConstantPool() {
                 return this->exec_pool;
             }
 
-            Ptr<Variable> GetLocalAt(u32 idx) {
+            Ptr<Variable> GetLocalAt(const u32 idx) {
                 auto v = this->locals.GetAt(idx);
                 if(!v) {
                     JAVM_LOG("Getting empty local var at [%d]...", idx);
@@ -100,7 +99,7 @@ namespace javm::vm {
                 return v;
             }
 
-            void SetLocalAt(u32 idx, Ptr<Variable> var) {
+            void SetLocalAt(const u32 idx, Ptr<Variable> var) {
                 if(!var) {
                     JAVM_LOG("Setting empty local var at [%d]...", idx);
                 }
@@ -122,7 +121,7 @@ namespace javm::vm {
             }
 
             template<typename T>
-            T ReadCode(bool forward = true) {
+            T ReadCode(const bool forward = true) {
                 T t = T();
                 if(this->code_ptr == nullptr) {
                     return t;
@@ -135,7 +134,7 @@ namespace javm::vm {
                 return t;
             }
 
-            u32 &GetCodePosition() {
+            inline u32 &GetCodePosition() {
                 return this->code_offset;
             }
     };

@@ -31,64 +31,66 @@ namespace javm {
 
     template<typename N>
     inline constexpr N BE(N n) {
-        N tmpn = n;
-        u8 *nbuf = (u8*)&n;
-        u8 *tmpbuf = (u8*)&tmpn;
-        for(auto i = 0; i < sizeof(N); i++) {
-            tmpbuf[i] = nbuf[sizeof(N) - (i + 1)];
+        auto be_n = n;
+        
+        auto n_ptr = reinterpret_cast<u8*>(&n);
+        auto be_n_ptr = reinterpret_cast<u8*>(&be_n);
+        for(size_t i = 0; i < sizeof(N); i++) {
+            be_n_ptr[i] = n_ptr[sizeof(N) - (i + 1)];
         }
-        return tmpn;
+
+        return be_n;
     }
 
-    // Using shared pointers to dispose components properly
+    // Using shared pointers to automatically dispose objects/etc properly
 
     template<typename T>
     using Ptr = std::shared_ptr<T>;
 
-    // In Java, Strings are UTF-16!
+    // In Java, Strings are UTF-16
 
     using String = std::u16string;
 
-    class PtrUtils {
+    namespace ptr {
 
-        public:
-            template<typename T, typename ...Args>
-            static inline Ptr<T> New(Args &&...args) {
-                return std::make_shared<T>(args...);
-            }
+        template<typename T, typename ...Args>
+        inline Ptr<T> New(Args &&...args) {
+            return std::make_shared<T>(args...);
+        }
 
-            template<typename T>
-            static inline T GetValue(Ptr<T> ptr) {
-                return *ptr.get();
-            }
+        template<typename T>
+        inline T GetValue(Ptr<T> ptr) {
+            return *ptr.get();
+        }
 
-            template<typename T>
-            static inline void SetValue(Ptr<T> ptr, T val) {
-                *ptr.get() = val;
-            }
+        template<typename T>
+        inline void SetValue(Ptr<T> ptr, T val) {
+            *ptr.get() = val;
+        }
 
-            template<typename T>
-            static inline bool IsValid(Ptr<T> ptr) {
-                return bool(ptr);
-            }
+        template<typename T>
+        inline bool IsValid(Ptr<T> ptr) {
+            return bool(ptr);
+        }
 
-            template<typename T>
-            static inline bool Equal(Ptr<T> ptr1, Ptr<T> ptr2) {
-                return ptr1.get() == ptr2.get();
-            }
+        template<typename T>
+        inline bool Equal(Ptr<T> ptr1, Ptr<T> ptr2) {
+            return ptr1.get() == ptr2.get();
+        }
 
-            template<typename T>
-            static inline void Destroy(Ptr<T> &ptr_ref) {
-                if(ptr_ref) {
-                    ptr_ref.reset();
-                    ptr_ref = nullptr;
-                }
+        template<typename T>
+        inline void Destroy(Ptr<T> &ptr_ref) {
+            if(ptr_ref) {
+                ptr_ref.reset();
+                ptr_ref = nullptr;
             }
+        }
 
-            template<typename T, typename U>
-            static inline Ptr<T> CastTo(Ptr<U> ptr) {
-                return std::dynamic_pointer_cast<T>(ptr);
-            }
-    };
+        template<typename T, typename U>
+        inline Ptr<T> CastTo(Ptr<U> ptr) {
+            return std::dynamic_pointer_cast<T>(ptr);
+        }
+
+    }
 
 }
