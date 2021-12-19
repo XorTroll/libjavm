@@ -6,7 +6,7 @@
 
 namespace javm::vm {
 
-    // TODO: multi arrays
+    // TODO: multi-dimensional array support
     // Note: the inner object inside an array is only used to call Object methods and for its monitor
 
     namespace inner_impl {
@@ -51,7 +51,7 @@ namespace javm::vm {
             }
 
             inline bool IsClassInstanceArray() {
-                return (this->type == VariableType::ClassInstance) && this->class_type;
+                return (this->type == VariableType::ClassInstance) && ptr::IsValid(this->class_type);
             }
 
             inline Ptr<ClassType> GetClassType() {

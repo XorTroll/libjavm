@@ -105,7 +105,7 @@ namespace javm::native {
                 else if(this_var->CanGetAs<VariableType::Array>()) {
                     auto this_array = this_var->GetAs<type::Array>();
                     JAVM_LOG("[java.lang.Object.getClass] called - array type name: '%s'", StrUtils::ToUtf8(this_array->GetClassType()->GetClassName()).c_str());
-                    auto ref_type = ReflectionUtils::FindArrayType(this_array->GetClassType()->GetClassName(), this_array->GetDimensions());
+                    auto ref_type = ReflectionUtils::FindArrayType(this_array);
                     JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }

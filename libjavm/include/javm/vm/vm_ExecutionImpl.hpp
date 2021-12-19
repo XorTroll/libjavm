@@ -1151,6 +1151,7 @@ namespace javm::vm {
 
                                 auto [this_var, param_vars] = ExecutionUtils::LoadInstanceMethodParameters(frame, fn_desc);
                                 JAVM_LOG("[invoke] Parameter count: %ld + this...", param_vars.size());
+                                JAVM_LOG("[invoke] T this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str());
                                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                                     auto this_var_obj = this_var->GetAs<type::ClassInstance>();
                                     Ptr<ClassInstance> this_var_obj_c = nullptr;
@@ -1185,7 +1186,7 @@ namespace javm::vm {
                                 else if(this_var->CanGetAs<VariableType::Array>()) {
                                     auto this_array = this_var->GetAs<type::Array>();
 
-                                    JAVM_LOG("[invoke] This array type: '%s'...", StrUtils::ToUtf8(this_array->GetClassType()->GetClassName()).c_str());
+                                    JAVM_LOG("[invoke] This array type: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str());
                                     const auto ret = this_array->CallInstanceMethod(fn_name, fn_desc, this_var, param_vars);
                                     if(ret.IsInvalidOrThrown()) {
                                         JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());

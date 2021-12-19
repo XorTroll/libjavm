@@ -423,7 +423,6 @@ namespace javm::vm {
             std::vector<Ptr<ClassInstance>> interface_instances;
             std::vector<ClassField> member_fields;
             std::vector<ClassInvokable> methods;
-            Ptr<Array> array_instance;
 
         public:
             ClassInstance(Ptr<ClassType> type) : class_type(type) {
@@ -455,10 +454,6 @@ namespace javm::vm {
 
             inline Ptr<ClassType> GetClassType() {
                 return this->class_type;
-            }
-
-            inline bool IsCastedArray() {
-                return ptr::IsValid(this->array_instance);
             }
 
             inline bool HasSuperClass() {

@@ -91,6 +91,8 @@ namespace javm::vm {
             return g_reflection_type_table;
         }
 
+        // TODO: make use of this table to lookup cached reflection types!
+
     }
 
     class ReflectionUtils {
@@ -170,10 +172,18 @@ namespace javm::vm {
                 return nullptr;
             }
 
-            static Ptr<ReflectionType> FindArrayType(const String &name, const u32 dimensions) {
-                auto ref_type = CreateArrayType(name, dimensions);
-                if(ref_type) {
-                    return EnsureType(ref_type);
+            static Ptr<ReflectionType> FindArrayType(Ptr<Array> &array) {
+                if(array->IsClassInstanceArray()) {
+                    auto ref_type = CreateArrayType(array->GetClassType()->GetClassName(), array->GetDimensions());
+                    if(ref_type) {
+                        return EnsureType(ref_type);
+                    }
+                }
+                else {
+                    auto ref_type = ptr::New<ReflectionType>(array->GetVariableType(), array->GetDimensions());
+                    if(ref_type) {
+                        return EnsureType(ref_type);
+                    }
                 }
 
                 JAVM_LOG("Invalid found reflection array type...");
