@@ -6,7 +6,6 @@
 namespace javm {
 
     // Simple but useful wrapper to read a binary file
-    // Unlike the rest of the library, this type uses std::string FWIW
 
     class File {
         private:
@@ -53,11 +52,8 @@ namespace javm {
                 return this->file_size;
             }
 
-            bool IsValid() {
-                if(this->file_size <= 0) {
-                    return false;
-                }
-                return this->file_ptr != nullptr;
+            inline bool IsValid() {
+                return (this->file_ptr != nullptr) && (this->file_size > 0);
             }
 
             inline std::string GetFilePath() {

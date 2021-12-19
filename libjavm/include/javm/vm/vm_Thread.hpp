@@ -26,7 +26,7 @@ namespace javm::vm {
         public:
             ThreadAccessor(Ptr<native::Thread> thr_obj) : thread_obj(thr_obj), exception_thrown(false) {}
 
-            ThreadHandle GetThreadHandle() {
+            inline ThreadHandle GetThreadHandle() {
                 return this->thread_obj->GetHandle();
             }
 
@@ -51,7 +51,7 @@ namespace javm::vm {
                 return this->cached_name;
             }
 
-            Ptr<Variable> GetJavaThreadInstance() {
+            inline Ptr<Variable> GetJavaThreadInstance() {
                 return this->thread_obj->GetJavaThreadVariable();
             }
 
@@ -73,7 +73,7 @@ namespace javm::vm {
                 this->exception_thrown = true;
             }
 
-            CallInfo GetCurrentCallInfo() {
+            inline CallInfo GetCurrentCallInfo() {
                 return this->call_stack.back();
             }
 
@@ -147,7 +147,7 @@ namespace javm::vm {
             return nullptr;
         }
 
-        static Ptr<ThreadAccessor> GetThreadByHandleImpl(native::ThreadHandle handle) {
+        static Ptr<ThreadAccessor> GetThreadByHandleImpl(const native::ThreadHandle handle) {
             ScopedMonitorLock lk(g_thread_table_lock);
             for(auto &thr: g_thread_table) {
                 if(thr->GetThreadHandle() == handle) {
@@ -227,7 +227,7 @@ namespace javm::vm {
                 return inner_impl::GetCurrentThreadImpl();
             }
 
-            static inline Ptr<ThreadAccessor> GetThreadByHandle(native::ThreadHandle handle) {
+            static inline Ptr<ThreadAccessor> GetThreadByHandle(const native::ThreadHandle handle) {
                 return inner_impl::GetThreadByHandleImpl(handle);
             }
 

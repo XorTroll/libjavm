@@ -35,7 +35,7 @@ namespace javm::vm {
     static inline void SetSystemProperty(const String &name, const String &value) {
         auto &system_props = GetSystemPropertyTable();
 
-        // Remove if already set, aka allow redefininf properties
+        // Remove if already set, aka allow redefining properties
         auto it = system_props.find(name);
         if(it != system_props.end()) {
             system_props.erase(it);

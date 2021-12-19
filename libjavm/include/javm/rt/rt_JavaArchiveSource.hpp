@@ -47,14 +47,14 @@ namespace javm::rt {
                 return this->main_class_name;
             }
 
-            bool CanBeExecuted() {
+            inline bool CanBeExecuted() {
                 if(!this->IsValid()) {
                     return false;
                 }
                 return !this->main_class_name.empty();
             }
 
-            bool IsArchiveValid() {
+            inline bool IsArchiveValid() {
                 return this->IsValid() && this->archive_valid;
             }
 

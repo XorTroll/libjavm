@@ -21,7 +21,10 @@ namespace javm::vm {
         NameAndType = 12,
         InstanceMethodHandle = 15,
         InstanceMethodType = 16,
-        InvokeDynamic = 18
+        InvokeDynamic = 18,
+
+        Min = 1,
+        Max = 18,
     };
 
     class ConstantNameItem {
@@ -185,7 +188,6 @@ namespace javm::vm {
     };
 
     class ConstantPoolItem {
-
         private:
             ConstantPoolTag tag;
             bool empty;
@@ -277,72 +279,69 @@ namespace javm::vm {
                 }
             }
 
-            ConstantPoolTag GetTag() {
+            inline ConstantPoolTag GetTag() {
                 return this->tag;
             }
 
-            Utf8Data &GetUtf8Data() {
+            inline Utf8Data &GetUtf8Data() {
                 return this->utf8;
             }
 
-            IntegerData &GetIntegerData() {
+            inline IntegerData &GetIntegerData() {
                 return this->integer;
             }
 
-            FloatData &GetFloatData() {
+            inline FloatData &GetFloatData() {
                 return this->flt;
             }
             
-            LongData &GetLongData() {
+            inline LongData &GetLongData() {
                 return this->lng;
             }
 
-            DoubleData &GetDoubleData() {
+            inline DoubleData &GetDoubleData() {
                 return this->dbl;
             }
 
-            ClassData &GetClassData() {
+            inline ClassData &GetClassData() {
                 return this->clss;
             }
 
-            StringData &GetStringData() {
+            inline StringData &GetStringData() {
                 return this->string;
             }
 
-            FieldMethodRefData &GetFieldMethodRefData() {
+            inline FieldMethodRefData &GetFieldMethodRefData() {
                 return this->field_method;
             }
 
-            NameAndTypeData &GetNameAndTypeData() {
+            inline NameAndTypeData &GetNameAndTypeData() {
                 return this->name_and_type;
             }
 
-            InstanceMethodHandleData &GetInstanceMethodHandleData() {
+            inline InstanceMethodHandleData &GetInstanceMethodHandleData() {
                 return this->method_handle;
             }
 
-            InstanceMethodTypeData &GetInstanceMethodTypeData() {
+            inline InstanceMethodTypeData &GetInstanceMethodTypeData() {
                 return this->method_type;
             }
 
-            InvokeDynamicData &GetInvokeDynamicData() {
+            inline InvokeDynamicData &GetInvokeDynamicData() {
                 return this->invoke_dynamic;
             }
 
             inline constexpr bool IsEmpty() {
-                u8 tag_8 = static_cast<u8>(this->tag);
-                if(tag_8 < 1) {
+                const auto tag_8 = static_cast<u8>(this->tag);
+                if((tag_8 < static_cast<u8>(ConstantPoolTag::Min)) || (tag_8 > static_cast<u8>(ConstantPoolTag::Max))) {
                     return true;
                 }
-                if(tag_8 > 18) {
-                    return true;
-                }
+                
                 return this->empty;
             }
     };
 
     class ConstantPool {
-
         private:
             std::vector<Ptr<ConstantPoolItem>> inner_pool;
 
@@ -377,15 +376,15 @@ namespace javm::vm {
                 }
             }
 
-            void SetExpectedCount(const size_t count) {
+            inline void SetExpectedCount(const size_t count) {
                 this->inner_pool.reserve(count);
             }
 
-            size_t GetItemCount() {
+            inline size_t GetItemCount() {
                 return this->inner_pool.size();
             }
 
-            void InsertItem(Ptr<ConstantPoolItem> item) {
+            inline void InsertItem(Ptr<ConstantPoolItem> item) {
                 this->inner_pool.push_back(item);
             }
 

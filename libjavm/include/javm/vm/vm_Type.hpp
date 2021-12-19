@@ -7,54 +7,62 @@
 namespace javm::vm {
 
     // TODO: multi arrays
+    // Note: the inner object inside an array is only used to call Object methods and for its monitor
+
+    namespace inner_impl {
+
+        Ptr<ClassType> FindClassTypeImpl(const String &name);
+
+    }
 
     class Array {
         private:
             VariableType type;
             Ptr<ClassType> class_type;
             std::vector<Ptr<Variable>> inner_array;
-            u32 array_length;
+            u32 length;
+            u32 dimensions;
+            Ptr<ClassInstance> inner_object;
 
-            Ptr<Variable> MakeDefaultVariable() {
+            inline Ptr<Variable> MakeDefaultVariable() {
                 return inner_impl::NewDefaultVariableImpl(this->type);
             }
 
             void Reset() {
-                // test
-                if(this->array_length > 255) {
-                    this->array_length = 255;
-                }
-                this->inner_array.resize(static_cast<unsigned>(this->array_length));
+                this->inner_array.resize(static_cast<unsigned>(this->length));
                 JAVM_LOG("Array resize - new size: %ld", this->inner_array.size());
             }
 
+            static inline Ptr<ClassInstance> CreateInnerObject() {
+                return ptr::New<ClassInstance>(inner_impl::FindClassTypeImpl(u"java/lang/Object"));
+            }
+
         public:
-            Array(VariableType type, const u32 length) : type(type), array_length(length) {
+            Array(VariableType type, const u32 length) : type(type), length(length), dimensions(1), inner_object(CreateInnerObject()) {
                 this->Reset();
             }
 
-            Array(Ptr<ClassType> type, const u32 length) : type(VariableType::ClassInstance), class_type(type), array_length(length) {
+            Array(Ptr<ClassType> type, const u32 length) : type(VariableType::ClassInstance), class_type(type), length(length), dimensions(1), inner_object(CreateInnerObject()) {
                 this->Reset();
             }
 
-            VariableType GetVariableType() {
+            inline VariableType GetVariableType() {
                 return this->type;
             }
 
-            bool IsClassInstanceArray() {
-                if(this->type == VariableType::ClassInstance) {
-                    if(this->class_type) {
-                        return true;
-                    }
-                }
-                return false;
+            inline bool IsClassInstanceArray() {
+                return (this->type == VariableType::ClassInstance) && this->class_type;
             }
 
-            Ptr<ClassType> GetClassType() {
+            inline Ptr<ClassType> GetClassType() {
                 return this->class_type;
             }
 
-            bool CanCastTo(const String &class_name) {
+            inline Ptr<ClassInstance> GetObjectInstance() {
+                return this->inner_object;
+            }
+
+            inline bool CanCastTo(const String &class_name) {
                 if(this->class_type) {
                     if(ClassUtils::EqualClassNames(class_name, this->class_type->GetClassName())) {
                         return true;
@@ -71,12 +79,16 @@ namespace javm::vm {
                 return false;
             }
 
-            u32 GetLength() {
-                return this->array_length;
+            inline u32 GetLength() {
+                return this->length;
+            }
+
+            inline u32 GetDimensions() {
+                return this->dimensions;
             }
 
             Ptr<Variable> GetAt(const u32 idx) {
-                if(idx < this->array_length) {
+                if(idx < this->length) {
                     auto arr_v = this->inner_array[idx];
                     // If value not set, make a default one and return it
                     if(!arr_v) {
@@ -88,10 +100,14 @@ namespace javm::vm {
                 return nullptr;
             }
 
-            void SetAt(const u32 idx, Ptr<Variable> var) {
-                if(idx < this->array_length) {
+            inline void SetAt(const u32 idx, Ptr<Variable> var) {
+                if(idx < this->length) {
                     this->inner_array[idx] = var;
                 }
+            }
+
+            inline ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, const std::vector<Ptr<Variable>> &param_vars) {
+                return this->inner_object->CallInstanceMethod(name, descriptor, this_as_var, param_vars);
             }
     };
 

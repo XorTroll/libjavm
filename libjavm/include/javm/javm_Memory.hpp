@@ -15,8 +15,8 @@ namespace javm {
             MemoryReader(const u8 *ptr, const size_t len) : inner_ptr(ptr), ptr_size(len), offset(0) {}
 
             template<typename T>
-            T Read(bool forward = true) {
-                T t = *(T*)(&this->inner_ptr[this->offset]);
+            T Read(const bool forward = true) {
+                const auto t = *reinterpret_cast<const T*>(&this->inner_ptr[this->offset]);
                 if(forward) {
                     this->offset += sizeof(T);
                 }

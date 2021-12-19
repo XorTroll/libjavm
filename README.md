@@ -32,7 +32,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ArrayTest`: pass!
 
-- `ArrayTest1`: fail (multi-dimension arrays aren't implemented yet)
+- `ArrayTest1`: fail (multi-dimensional arrays aren't implemented yet)
 
 - `ArrayTest2`: fail (we need to handle OOB array accesses)
 
@@ -42,7 +42,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ClassCastTest`: fail (unrelated classes can be casted right now, class casting must be corrected)
 
-- `ClassNameTest`: fail (makes the VM crash...? needs more work)
+- `ClassNameTest`: fail (part of the test passes but multi-dimensional arrays aren't implemented yet)
 
 - `CovScriptJNITest`: fail (works as expected but we should throw a different exception)
 

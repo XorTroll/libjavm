@@ -102,49 +102,99 @@ namespace javm::native {
                     JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }
-                return ExecutionResult::ReturnVariable(TypeUtils::Null());
+                else if(this_var->CanGetAs<VariableType::Array>()) {
+                    auto this_array = this_var->GetAs<type::Array>();
+                    JAVM_LOG("[java.lang.Object.getClass] called - array type name: '%s'", StrUtils::ToUtf8(this_array->GetClassType()->GetClassName()).c_str());
+                    auto ref_type = ReflectionUtils::FindArrayType(this_array->GetClassType()->GetClassName(), this_array->GetDimensions());
+                    JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
+                    return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
+                }
+                
+                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
             ExecutionResult hashCode(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+                // TODO: consider better hash code (not just the object pointer as an i32...)
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
-                    // TODO: consider better hash code (not just the object pointer as an i32...)
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
                     const auto this_obj_ptr = reinterpret_cast<uintptr_t>(this_obj.get());
                     const auto hash_code = static_cast<type::Integer>(this_obj_ptr);
                     JAVM_LOG("[java.lang.Object.hashCode] called - hash code: %d", hash_code);
                     return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
                 }
-                else {
-                    JAVM_LOG("[java.lang.Object.getClass] Variable isn't class instance...");
-                    // TODO: handle these situations
+                else if(this_var->CanGetAs<VariableType::Array>()) {
+                    auto this_array = this_var->GetAs<type::Array>();
+                    auto array_obj = this_array->GetObjectInstance();
+                    const auto array_obj_ptr = reinterpret_cast<uintptr_t>(array_obj.get());
+                    const auto hash_code = static_cast<type::Integer>(array_obj_ptr);
+                    JAVM_LOG("[java.lang.Object.hashCode] called - array hash code: %d", hash_code);
+                    return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
                 }
-                return ExecutionResult::Void();
+                
+                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
             ExecutionResult notify(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
-                JAVM_LOG("[java.lang.Object.notify] called...");
-                auto this_obj = this_var->GetAs<type::ClassInstance>();
-                auto monitor = this_obj->GetMonitor();
-                monitor->Notify();
-                return ExecutionResult::Void();
+                if(this_var->CanGetAs<VariableType::ClassInstance>()) {
+                    auto this_obj = this_var->GetAs<type::ClassInstance>();
+                    auto monitor = this_obj->GetMonitor();
+                    monitor->Notify();
+                    JAVM_LOG("[java.lang.Object.notify] called...");
+                    return ExecutionResult::Void();
+                }
+                else if(this_var->CanGetAs<VariableType::Array>()) {
+                    auto this_array = this_var->GetAs<type::Array>();
+                    auto array_obj = this_array->GetObjectInstance();
+                    auto monitor = array_obj->GetMonitor();
+                    monitor->Notify();
+                    JAVM_LOG("[java.lang.Object.notify] called on array...");
+                    return ExecutionResult::Void();
+                }
+
+                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
             ExecutionResult notifyAll(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
-                JAVM_LOG("[java.lang.Object.notifyAll] called...");
-                auto this_obj = this_var->GetAs<type::ClassInstance>();
-                auto monitor = this_obj->GetMonitor();
-                monitor->NotifyAll();
-                return ExecutionResult::Void();
+                if(this_var->CanGetAs<VariableType::ClassInstance>()) {
+                    auto this_obj = this_var->GetAs<type::ClassInstance>();
+                    auto monitor = this_obj->GetMonitor();
+                    monitor->NotifyAll();
+                    JAVM_LOG("[java.lang.Object.notifyAll] called...");
+                    return ExecutionResult::Void();
+                }
+                else if(this_var->CanGetAs<VariableType::Array>()) {
+                    auto this_array = this_var->GetAs<type::Array>();
+                    auto array_obj = this_array->GetObjectInstance();
+                    auto monitor = array_obj->GetMonitor();
+                    monitor->NotifyAll();
+                    JAVM_LOG("[java.lang.Object.notifyAll] called on array...");
+                    return ExecutionResult::Void();
+                }
+
+                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
             ExecutionResult wait(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
                 auto timeout_v = param_vars[0];
                 const auto timeout = timeout_v->GetValue<type::Long>();
-                JAVM_LOG("[java.lang.Object.wait] called...");
-                auto this_obj = this_var->GetAs<type::ClassInstance>();
-                auto monitor = this_obj->GetMonitor();
-                monitor->WaitFor(timeout);
-                return ExecutionResult::Void();
+
+                if(this_var->CanGetAs<VariableType::ClassInstance>()) {
+                    auto this_obj = this_var->GetAs<type::ClassInstance>();
+                    auto monitor = this_obj->GetMonitor();
+                    monitor->WaitFor(timeout);
+                    JAVM_LOG("[java.lang.Object.wait] called...");
+                    return ExecutionResult::Void();
+                }
+                else if(this_var->CanGetAs<VariableType::Array>()) {
+                    auto this_array = this_var->GetAs<type::Array>();
+                    auto array_obj = this_array->GetObjectInstance();
+                    auto monitor = array_obj->GetMonitor();
+                    monitor->WaitFor(timeout);
+                    JAVM_LOG("[java.lang.Object.wait] called on array...");
+                    return ExecutionResult::Void();
+                }
+
+                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
         }
@@ -856,17 +906,17 @@ namespace javm::native {
 
                 JAVM_LOG("[java.io.FileOutputStream.writeBytes] FD: %d", fd);
 
-                const u32 proper_len = std::min((u32)len, (u32)byte_arr->GetLength());
+                const auto proper_len = std::min(static_cast<u32>(len), byte_arr->GetLength());
 
                 auto tmpbuf = new u8[proper_len]();
                 for(u32 i = 0; i < proper_len; i++) {
                     auto byte_v = byte_arr->GetAt(i);
-                    auto byte = (u8)byte_v->GetValue<type::Integer>();
+                    const auto byte = static_cast<u8>(byte_v->GetValue<type::Integer>());
                     tmpbuf[i] = byte;
                 }
 
                 const auto ret = write(fd, tmpbuf, proper_len);
-                JAVM_LOG("[java.io.FileOutputStream.writeBytes] Ret: %d", ret);
+                JAVM_LOG("[java.io.FileOutputStream.writeBytes] Ret: %ld", ret);
 
                 delete[] tmpbuf;
                 return ExecutionResult::Void();

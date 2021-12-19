@@ -17,14 +17,13 @@ namespace javm::vm {
     }
 
     class ExecutionUtils {
-
         public:
             static u32 GetFunctionDescriptorParameterCount(const String &descriptor) {
                 auto tmp = descriptor.substr(descriptor.find_first_of(u'(') + 1);
                 tmp = tmp.substr(0, tmp.find_last_of(u')'));
                 bool parsing_class = false;
                 u32 count = 0;
-                for(auto &ch: tmp) {
+                for(const auto &ch: tmp) {
                     if(ch == u'[') {
                         // Array, so not a new parameter
                         continue;
@@ -79,15 +78,15 @@ namespace javm::vm {
     namespace exec_impl {
 
         static ExecutionResult HandleInstructionImpl(ExecutionFrame &frame) {
-            Instruction inst = static_cast<Instruction>(frame.ReadCode<u8>());
+            const auto inst = static_cast<Instruction>(frame.ReadCode<u8>());
             JAVM_LOG("Got instruction: 0x%X", static_cast<u8>(inst));
 
             auto &pos = frame.GetCodePosition();
 
             #define _JAVM_LOAD_INSTRUCTION(instr, idx) \
             case Instruction::instr: { \
-                    const auto index = idx; \
-                    auto var = frame.GetLocalAt((u32)index); \
+                    const auto index = static_cast<u32>(idx); \
+                    auto var = frame.GetLocalAt(index); \
                     JAVM_LOG("[*load] Loaded: '%s' at locals[%d]", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str(), index); \
                     if(var->CanGetAs<VariableType::Integer>()) { \
                         JAVM_LOG("[*load] Integer value: %d", var->GetValue<type::Integer>()); \
@@ -100,10 +99,10 @@ namespace javm::vm {
             
             #define _JAVM_STORE_INSTRUCTION(instr, idx) \
             case Instruction::instr: { \
-                    const auto index = idx; \
+                    const auto index = static_cast<u32>(idx); \
                     auto var = frame.PopStack(); \
                     JAVM_LOG("[*store] Stored: '%s' at locals[%d]", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str(), index); \
-                    frame.SetLocalAt((u32)index, var); \
+                    frame.SetLocalAt(index, var); \
                     break; \
                 }
             
@@ -116,42 +115,42 @@ namespace javm::vm {
                     JAVM_LOG("[ldc-base] Tag: %d", static_cast<u32>(const_item->GetTag())); \
                     switch(const_item->GetTag()) { \
                         case ConstantPoolTag::Integer: { \
-                            type::Integer value = const_item->GetIntegerData().integer; \
+                            const auto value = const_item->GetIntegerData().integer; \
                             JAVM_LOG("[ldc-base] Int value: '%d'", value); \
                             auto var = TypeUtils::NewPrimitiveVariable<type::Integer>(value); \
                             frame.PushStack(var); \
                             break; \
                         } \
                         case ConstantPoolTag::Float: { \
-                            type::Float value = const_item->GetFloatData().flt; \
+                            const auto value = const_item->GetFloatData().flt; \
                             JAVM_LOG("[ldc-base] Float value: '%f'", value); \
                             auto var = TypeUtils::NewPrimitiveVariable<type::Float>(value); \
                             frame.PushStack(var); \
                             break; \
                         } \
                         case ConstantPoolTag::Long: { \
-                            type::Long value = const_item->GetLongData().lng; \
+                            const auto value = const_item->GetLongData().lng; \
                             JAVM_LOG("[ldc-base] Long value: '%ld'", value); \
                             auto var = TypeUtils::NewPrimitiveVariable<type::Long>(value); \
                             frame.PushStack(var); \
                             break; \
                         } \
                         case ConstantPoolTag::Double: { \
-                            type::Double value = const_item->GetDoubleData().dbl; \
+                            const auto value = const_item->GetDoubleData().dbl; \
                             JAVM_LOG("[ldc-base] Double value: '%f'", value); \
                             auto var = TypeUtils::NewPrimitiveVariable<type::Double>(value); \
                             frame.PushStack(var); \
                             break; \
                         } \
                         case ConstantPoolTag::String: { \
-                            auto str = const_item->GetStringData().processed_string; \
+                            const auto str = const_item->GetStringData().processed_string; \
                             JAVM_LOG("[ldc-base] String value: '%s'", StrUtils::ToUtf8(str).c_str()); \
                             auto str_var = StringUtils::CreateNew(str); \
                             frame.PushStack(str_var); \
                             break; \
                         } \
                         case ConstantPoolTag::Class: { \
-                            auto type_name = const_item->GetClassData().processed_name; \
+                            const auto type_name = const_item->GetClassData().processed_name; \
                             JAVM_LOG("[ldc-base] Type name: '%s'", StrUtils::ToUtf8(type_name).c_str()); \
                             auto ref_type = ReflectionUtils::FindTypeByName(type_name); \
                             if(ref_type) { \
@@ -159,7 +158,7 @@ namespace javm::vm {
                                 frame.PushStack(class_v); \
                             } \
                             else { \
-                                ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unsupported constant pool item"); \
+                                ExceptionUtils::ThrowInternalException(u"Invalid or unsupported constant pool item"); \
                             } \
                             break; \
                         } \
@@ -168,13 +167,13 @@ namespace javm::vm {
                     } \
                 } \
                 else { \
-                    ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unsupported constant pool item"); \
+                    ExceptionUtils::ThrowInternalException(u"Invalid or unsupported constant pool item"); \
                 } \
             }
 
             #define _JAVM_LDC_INSTRUCTION(instr, idx) \
             case Instruction::instr: { \
-                    auto index = idx; \
+                    const auto index = idx; \
                     _JAVM_LDC_BASE(index) \
                     break; \
                 }
@@ -183,9 +182,9 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto index_var = frame.PopStack(); \
                     auto index_obj = index_var->GetAs<type::Integer>(); \
-                    auto index = ptr::GetValue(index_obj); \
+                    const auto index = ptr::GetValue(index_obj); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Negative array index"); \
+                        return ExceptionUtils::ThrowInternalException(u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -196,11 +195,11 @@ namespace javm::vm {
                                 frame.PushStack(inner_var); \
                             } \
                             else { \
-                                return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array index"); \
+                                return ExceptionUtils::ThrowInternalException(u"Invalid array index"); \
                             } \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array item"); \
+                            return ExceptionUtils::ThrowInternalException(u"Invalid array item"); \
                         } \
                     } \
                     break; \
@@ -211,9 +210,9 @@ namespace javm::vm {
                     auto value = frame.PopStack(); \
                     auto index_var = frame.PopStack(); \
                     auto index_obj = index_var->GetAs<type::Integer>(); \
-                    auto index = ptr::GetValue(index_obj); \
+                    const auto index = ptr::GetValue(index_obj); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Negative array index"); \
+                        return ExceptionUtils::ThrowInternalException(u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
@@ -222,7 +221,7 @@ namespace javm::vm {
                             array_obj->SetAt(index, value); \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid array index"); \
+                            return ExceptionUtils::ThrowInternalException(u"Invalid array index"); \
                         } \
                     } \
                     break; \
@@ -231,9 +230,9 @@ namespace javm::vm {
             #define _JAVM_OPERATOR_INSTRUCTION(instr, typ, op) \
             case Instruction::instr: { \
                     auto var2 = frame.PopStack(); \
-                    auto var2_val = var2->GetValue<typ>(); \
+                    const auto var2_val = var2->GetValue<typ>(); \
                     auto var1 = frame.PopStack(); \
-                    auto var1_val = var1->GetValue<typ>(); \
+                    const auto var1_val = var1->GetValue<typ>(); \
                     auto res_var = TypeUtils::NewPrimitiveVariable<typ>(var1_val op var2_val); \
                     frame.PushStack(res_var); \
                     break; \
@@ -242,12 +241,12 @@ namespace javm::vm {
             #define _JAVM_DIV_INSTRUCTION(instr, typ) \
             case Instruction::instr: { \
                     auto var2 = frame.PopStack(); \
-                    auto var2_val = var2->GetValue<typ>(); \
+                    const auto var2_val = var2->GetValue<typ>(); \
                     if(var2_val == 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/ArithmeticException", u"Divide by zero"); \
+                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/ArithmeticException", u"/ by zero"); \
                     } \
                     auto var1 = frame.PopStack(); \
-                    auto var1_val = var1->GetValue<typ>(); \
+                    const auto var1_val = var1->GetValue<typ>(); \
                     auto res_var = TypeUtils::NewPrimitiveVariable<typ>(var1_val / var2_val); \
                     frame.PushStack(res_var); \
                     break; \
@@ -257,7 +256,7 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto var = frame.PopStack(); \
                     auto var_obj = var->GetAs<type>(); \
-                    auto var_val = ptr::GetValue(var_obj); \
+                    const auto var_val = ptr::GetValue(var_obj); \
                     auto res_var = TypeUtils::NewPrimitiveVariable<type>(-var_val); \
                     frame.PushStack(res_var); \
                     break; \
@@ -267,7 +266,7 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto var = frame.PopStack(); \
                     auto var_obj = var->GetAs<t1>(); \
-                    auto var_val = ptr::GetValue(var_obj); \
+                    const auto var_val = ptr::GetValue(var_obj); \
                     auto res_var = TypeUtils::NewPrimitiveVariable<t2>((t2)var_val); \
                     frame.PushStack(res_var); \
                     break; \
@@ -277,10 +276,10 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto var2 = frame.PopStack(); \
                     auto var2_obj = var2->GetAs<typ>(); \
-                    auto var2_val = ptr::GetValue(var2_obj); \
+                    const auto var2_val = ptr::GetValue(var2_obj); \
                     auto var1 = frame.PopStack(); \
                     auto var1_obj = var1->GetAs<typ>(); \
-                    auto var1_val = ptr::GetValue(var1_obj); \
+                    const auto var1_val = ptr::GetValue(var1_obj); \
                     if(var2_val > var1_val) { \
                         JAVM_LOG("[cmp]  %ld > %ld", var1_val, var2_val); \
                         auto res_var = TypeUtils::NewPrimitiveVariable<type::Integer>(-1); \
@@ -303,10 +302,10 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto var2 = frame.PopStack(); \
                     auto var2_obj = var2->GetAs<typ>(); \
-                    auto var2_val = ptr::GetValue(var2_obj); \
+                    const auto var2_val = ptr::GetValue(var2_obj); \
                     auto var1 = frame.PopStack(); \
                     auto var1_obj = var1->GetAs<typ>(); \
-                    auto var1_val = ptr::GetValue(var1_obj); \
+                    const auto var1_val = ptr::GetValue(var1_obj); \
                     if(std::isnan(var1_val) || std::isnan(var2_val)) { \
                         JAVM_LOG("[fdcmp]  %f or %f is NaN!?", var1_val, var2_val); \
                         auto res_var = TypeUtils::NewPrimitiveVariable<type::Integer>(nanv); \
@@ -411,15 +410,15 @@ namespace javm::vm {
                     break;
                 }
                 case Instruction::BIPUSH: {
-                    auto byte = frame.ReadCode<u8>();
-                    auto i = TypeUtils::NewPrimitiveVariable<type::Integer>((type::Integer)byte);
-                    frame.PushStack(i);
+                    const auto byte = frame.ReadCode<u8>();
+                    auto i_v = TypeUtils::NewPrimitiveVariable<type::Integer>(static_cast<type::Integer>(byte));
+                    frame.PushStack(i_v);
                     break;
                 }
                 case Instruction::SIPUSH: {
-                    auto shrt = BE(frame.ReadCode<i16>());
-                    auto i = TypeUtils::NewPrimitiveVariable<type::Integer>((type::Integer)shrt);
-                    frame.PushStack(i);
+                    const auto shrt = BE(frame.ReadCode<i16>());
+                    auto i_v = TypeUtils::NewPrimitiveVariable<type::Integer>(static_cast<type::Integer>(shrt));
+                    frame.PushStack(i_v);
                     break;
                 }
                 _JAVM_LDC_INSTRUCTION(LDC, frame.ReadCode<u8>())
@@ -620,10 +619,10 @@ namespace javm::vm {
                 case Instruction::FREM: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Float>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Float>();
-                    auto var1_val = ptr::GetValue(var1_obj);
+                    const auto var1_val = ptr::GetValue(var1_obj);
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Float>(fmodf(var1_val, var2_val));
                     frame.PushStack(res_var);
                     break;
@@ -631,10 +630,10 @@ namespace javm::vm {
                 case Instruction::DREM: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Double>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Double>();
-                    auto var1_val = ptr::GetValue(var1_obj);
+                    const auto var1_val = ptr::GetValue(var1_obj);
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Double>(fmod(var1_val, var2_val));
                     frame.PushStack(res_var);
                     break;
@@ -646,11 +645,11 @@ namespace javm::vm {
                 case Instruction::ISHL: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Integer>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x1F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x1F;
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Integer>(var1_val << tmp);
                     frame.PushStack(res_var);
                     break;
@@ -658,11 +657,11 @@ namespace javm::vm {
                 case Instruction::LSHL: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Long>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x3F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x3F;
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Long>(var1_val << tmp);
                     frame.PushStack(res_var);
                     break;
@@ -670,11 +669,11 @@ namespace javm::vm {
                 case Instruction::ISHR: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Integer>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x1F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x1F;
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Integer>(var1_val >> tmp);
                     frame.PushStack(res_var);
                     break;
@@ -682,11 +681,11 @@ namespace javm::vm {
                 case Instruction::LSHR: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Long>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x3F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x3F;
                     auto res_var = TypeUtils::NewPrimitiveVariable<type::Long>(var1_val >> tmp);
                     frame.PushStack(res_var);
                     break;
@@ -694,11 +693,11 @@ namespace javm::vm {
                 case Instruction::IUSHR: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Integer>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x1F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x1F;
                     if(var1_val >= 0) {
                         auto res_var = TypeUtils::NewPrimitiveVariable<type::Integer>(var1_val >> tmp);
                         frame.PushStack(res_var);
@@ -712,11 +711,11 @@ namespace javm::vm {
                 case Instruction::LUSHR: {
                     auto var2 = frame.PopStack();
                     auto var2_obj = var2->GetAs<type::Integer>();
-                    auto var2_val = ptr::GetValue(var2_obj);
+                    const auto var2_val = ptr::GetValue(var2_obj);
                     auto var1 = frame.PopStack();
                     auto var1_obj = var1->GetAs<type::Long>();
-                    auto var1_val = ptr::GetValue(var1_obj);
-                    auto tmp = var2_val & 0x3F;
+                    const auto var1_val = ptr::GetValue(var1_obj);
+                    const auto tmp = var2_val & 0x3F;
                     if(var1_val >= 0) {
                         auto res_var = TypeUtils::NewPrimitiveVariable<type::Long>(var1_val >> tmp);
                         frame.PushStack(res_var);
@@ -766,9 +765,9 @@ namespace javm::vm {
                 _JAVM_FDCMP_INSTRUCTION(DCMPG, type::Double, 1)
 
                 #define _JAVM_IF_INSTRUCTION(op) \
-                i16 branch = BE(frame.ReadCode<i16>()); \
+                const auto branch = BE(frame.ReadCode<i16>()); \
                 auto var = frame.PopStack(); \
-                auto var_val = var->GetValue<type::Integer>(); \
+                const auto var_val = var->GetValue<type::Integer>(); \
                 if(var_val op 0) { \
                     pos -= 3; \
                     pos += branch; \
@@ -800,11 +799,11 @@ namespace javm::vm {
                 }
 
                 #define _JAVM_ICMP_INSTRUCTION(op) \
-                i16 branch = BE(frame.ReadCode<i16>()); \
+                const auto branch = BE(frame.ReadCode<i16>()); \
                 auto var2 = frame.PopStack(); \
-                auto var2_val = var2->GetValue<type::Integer>(); \
+                const auto var2_val = var2->GetValue<type::Integer>(); \
                 auto var1 = frame.PopStack(); \
-                auto var1_val = var1->GetValue<type::Integer>(); \
+                const auto var1_val = var1->GetValue<type::Integer>(); \
                 JAVM_LOG("[icmp] %d " #op " %d", var1_val, var2_val); \
                 if(var1_val op var2_val) { \
                     pos -= 3; \
@@ -839,7 +838,7 @@ namespace javm::vm {
                     auto var2 = frame.PopStack();
                     auto var1 = frame.PopStack();
                     JAVM_LOG("[acmpeq] %s == %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
-                    i16 branch = BE(frame.ReadCode<i16>());
+                    const auto branch = BE(frame.ReadCode<i16>());
                     if(ptr::Equal(var1, var2)) {
                         pos -= 3;
                         pos += branch;
@@ -850,7 +849,7 @@ namespace javm::vm {
                     auto var2 = frame.PopStack();
                     auto var1 = frame.PopStack();
                     JAVM_LOG("[acmpne] %s != %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
-                    i16 branch = BE(frame.ReadCode<i16>());
+                    const auto branch = BE(frame.ReadCode<i16>());
                     if(!ptr::Equal(var1, var2)) {
                         pos -= 3;
                         pos += branch;
@@ -858,7 +857,7 @@ namespace javm::vm {
                     break;
                 }
                 case Instruction::GOTO: {
-                    i16 branch = BE(frame.ReadCode<i16>());
+                    const auto branch = BE(frame.ReadCode<i16>());
                     pos -= 3;
                     pos += branch;
                     break;
@@ -866,33 +865,34 @@ namespace javm::vm {
                 case Instruction::JSR:
                 case Instruction::RET: {
                     // Old instructions, not implementing them
+                    // TODO: throw exception?
                     break;
                 }
                 // TODO: TABLESWITCH
                 case Instruction::LOOKUPSWITCH: {
                     auto prev_pos = pos - 1;
-                    auto orig_prev_pos = prev_pos;
+                    const auto orig_prev_pos = prev_pos;
                     if((prev_pos % 4) != 0) {
                         prev_pos += (4 - prev_pos % 4);
                     }
                     else {
                         prev_pos += 4;
                     }
-                    auto orig_pos = pos;
+                    const auto orig_pos = pos;
                     // Change position
                     pos = prev_pos;
                     auto default_byte = BE(frame.ReadCode<u32>());
                     auto count = BE(frame.ReadCode<u32>());
                     std::map<u32, u32> table;
                     for(u32 i = 0; i < count; i++) {
-                        auto value = BE(frame.ReadCode<u32>());
-                        auto val_pos = BE(frame.ReadCode<u32>());
+                        const auto value = BE(frame.ReadCode<u32>());
+                        const auto val_pos = BE(frame.ReadCode<u32>());
                         table.insert(std::make_pair(value, val_pos));
                     }
                     // Restore position
                     pos = orig_pos;
                     auto top_v = frame.PopStack();
-                    auto top = top_v->GetValue<type::Integer>();
+                    const auto top = top_v->GetValue<type::Integer>();
                     auto it = table.find(top);
                     if(it != table.end()) {
                         pos = it->second + orig_prev_pos;
@@ -932,12 +932,12 @@ namespace javm::vm {
                         auto const_class_item = const_pool.GetItemAt(const_field_data.class_index, ConstantPoolTag::Class);
                         if(const_class_item) {
                             auto const_class_data = const_class_item->GetClassData();
-                            auto class_name = const_class_data.processed_name;
+                            const auto class_name = const_class_data.processed_name;
                             auto field_nat_item = const_pool.GetItemAt(const_field_data.name_and_type_index, ConstantPoolTag::NameAndType);
                             if(field_nat_item) {
                                 auto field_nat_data = field_nat_item->GetNameAndTypeData();
-                                auto field_name = field_nat_data.processed_name;
-                                auto field_desc = field_nat_data.processed_desc;
+                                const auto field_name = field_nat_data.processed_name;
+                                const auto field_desc = field_nat_data.processed_desc;
 
                                 JAVM_LOG("[getstatic] Get static field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
 
@@ -976,12 +976,12 @@ namespace javm::vm {
                         auto const_class_item = const_pool.GetItemAt(const_field_data.class_index, ConstantPoolTag::Class);
                         if(const_class_item) {
                             auto const_class_data = const_class_item->GetClassData();
-                            auto class_name = const_class_data.processed_name;
+                            const auto class_name = const_class_data.processed_name;
                             auto field_nat_item = const_pool.GetItemAt(const_field_data.name_and_type_index, ConstantPoolTag::NameAndType);
                             if(field_nat_item) {
                                 auto field_nat_data = field_nat_item->GetNameAndTypeData();
-                                auto field_name = field_nat_data.processed_name;
-                                auto field_desc = field_nat_data.processed_desc;
+                                const auto field_name = field_nat_data.processed_name;
+                                const auto field_desc = field_nat_data.processed_desc;
 
                                 JAVM_LOG("[putstatic] Set static field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
                                 JAVM_LOG("[putstatic] Static field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str());
@@ -1022,12 +1022,12 @@ namespace javm::vm {
                             auto const_class_item = const_pool.GetItemAt(const_field_data.class_index, ConstantPoolTag::Class);
                             if(const_class_item) {
                                 auto const_class_data = const_class_item->GetClassData();
-                                auto class_name = const_class_data.processed_name;
+                                const auto class_name = const_class_data.processed_name;
                                 auto field_nat_item = const_pool.GetItemAt(const_field_data.name_and_type_index, ConstantPoolTag::NameAndType);
                                 if(field_nat_item) {
                                     auto field_nat_data = field_nat_item->GetNameAndTypeData();
-                                    auto field_name = field_nat_data.processed_name;
-                                    auto field_desc = field_nat_data.processed_desc;
+                                    const auto field_name = field_nat_data.processed_name;
+                                    const auto field_desc = field_nat_data.processed_desc;
 
                                     JAVM_LOG("[getfield] Get field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
 
@@ -1074,12 +1074,12 @@ namespace javm::vm {
                             auto const_class_item = const_pool.GetItemAt(const_field_data.class_index, ConstantPoolTag::Class);
                             if(const_class_item) {
                                 auto const_class_data = const_class_item->GetClassData();
-                                auto class_name = const_class_data.processed_name;
+                                const auto class_name = const_class_data.processed_name;
                                 auto field_nat_item = const_pool.GetItemAt(const_field_data.name_and_type_index, ConstantPoolTag::NameAndType);
                                 if(field_nat_item) {
                                     auto field_nat_data = field_nat_item->GetNameAndTypeData();
-                                    auto field_name = field_nat_data.processed_name;
-                                    auto field_desc = field_nat_data.processed_desc;
+                                    const auto field_name = field_nat_data.processed_name;
+                                    const auto field_desc = field_nat_data.processed_desc;
 
                                     JAVM_LOG("[putfield] Set field '%s' ('%s') of '%s'...", StrUtils::ToUtf8(field_name).c_str(), StrUtils::ToUtf8(field_desc).c_str(), StrUtils::ToUtf8(class_name).c_str());
                                     JAVM_LOG("[putfield] Field: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(field_var)).c_str());
@@ -1130,12 +1130,12 @@ namespace javm::vm {
                         auto const_class_item = const_pool.GetItemAt(const_fn_data.class_index, ConstantPoolTag::Class);
                         if(const_class_item) {
                             auto const_class_data = const_class_item->GetClassData();
-                            auto class_name = const_class_data.processed_name;
+                            const auto class_name = const_class_data.processed_name;
                             auto const_fn_nat_item = const_pool.GetItemAt(const_fn_data.name_and_type_index, ConstantPoolTag::NameAndType);
                             if(const_fn_nat_item) {
                                 auto const_fn_nat_data = const_fn_nat_item->GetNameAndTypeData();
-                                auto fn_name = const_fn_nat_data.processed_name;
-                                auto fn_desc = const_fn_nat_data.processed_desc;
+                                const auto fn_name = const_fn_nat_data.processed_name;
+                                const auto fn_desc = const_fn_nat_data.processed_desc;
 
                                 if(is_virtual) {
                                     JAVM_LOG("[invokevirtual]");
@@ -1163,45 +1163,60 @@ namespace javm::vm {
                                     JAVM_LOG("[invoke] This type: '%s'...", StrUtils::ToUtf8(this_var_obj->GetClassType()->GetClassName()).c_str());
                                     JAVM_LOG("[invoke] Detected instance type: '%s'...", StrUtils::ToUtf8(this_var_obj_c->GetClassType()->GetClassName()).c_str());
                                     if(this_var_obj_c) {
-                                        auto result = this_var_obj_c->CallInstanceMethod(fn_name, fn_desc, this_var, param_vars);
-                                        if(result.IsInvalidOrThrown()) {
+                                        const auto ret = this_var_obj_c->CallInstanceMethod(fn_name, fn_desc, this_var, param_vars);
+                                        if(ret.IsInvalidOrThrown()) {
                                             JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
-                                            return result;
+                                            return ret;
                                         }
-                                        if(result.Is<ExecutionStatus::VariableReturn>()) {
-                                            auto ret_var = result.ret_var;
-                                            if(ret_var) {
-                                                frame.PushStack(ret_var);
+                                        if(ret.Is<ExecutionStatus::VariableReturn>()) {
+                                            if(ret.ret_var) {
+                                                JAVM_LOG("[invoke] Return var type: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str());
+                                                frame.PushStack(ret.ret_var);
                                             }
                                             else {
-                                                JAVM_LOG("Invalid method return value...");
+                                                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
                                             }
                                         }
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                                        return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                                    }
+                                }
+                                else if(this_var->CanGetAs<VariableType::Array>()) {
+                                    auto this_array = this_var->GetAs<type::Array>();
+
+                                    JAVM_LOG("[invoke] This array type: '%s'...", StrUtils::ToUtf8(this_array->GetClassType()->GetClassName()).c_str());
+                                    const auto ret = this_array->CallInstanceMethod(fn_name, fn_desc, this_var, param_vars);
+                                    if(ret.IsInvalidOrThrown()) {
+                                        JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
+                                        return ret;
+                                    }
+                                    if(ret.Is<ExecutionStatus::VariableReturn>()) {
+                                        if(ret.ret_var) {
+                                            JAVM_LOG("[invoke] Return var type: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str());
+                                            frame.PushStack(ret.ret_var);
+                                        }
+                                        else {
+                                            return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
+                                        }
                                     }
                                 }
                                 else {
-                                    if(this_var->IsNull()) {
-                                        JAVM_LOG("Invalid class object - is null...");
-                                    }
-                                    else {
-                                        JAVM_LOG("Invalid class object...");
-                                    }
+                                    return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
                                 }
                                 JAVM_LOG("[invoke] Done '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                             }
                             else {
-                                JAVM_LOG("Invalid const pool item NAT...?");
+                                return ExceptionUtils::ThrowInternalException(u"Invalid const pool NAT item");
                             }
                         }
                         else {
                             JAVM_LOG("Invalid const pool item Class...?");
+                            return ExceptionUtils::ThrowInternalException(u"Invalid const pool Class item");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid const pool item FieldRef...? - id: %d, count: %ld", index, const_pool.GetItemCount());
+                        return ExceptionUtils::ThrowInternalException(u"Invalid const pool FieldRef item");
                     }
 
                     break;
@@ -1216,12 +1231,12 @@ namespace javm::vm {
                         auto const_class_item = const_pool.GetItemAt(const_fn_data.class_index, ConstantPoolTag::Class);
                         if(const_class_item) {
                             auto const_class_data = const_class_item->GetClassData();
-                            auto class_name = const_class_data.processed_name;
+                            const auto class_name = const_class_data.processed_name;
                             auto const_fn_nat_item = const_pool.GetItemAt(const_fn_data.name_and_type_index, ConstantPoolTag::NameAndType);
                             if(const_fn_nat_item) {
                                 auto const_fn_nat_data = const_fn_nat_item->GetNameAndTypeData();
-                                auto fn_name = const_fn_nat_data.processed_name;
-                                auto fn_desc = const_fn_nat_data.processed_desc;
+                                const auto fn_name = const_fn_nat_data.processed_name;
+                                const auto fn_desc = const_fn_nat_data.processed_desc;
 
                                 JAVM_LOG("[invokestatic] Executing '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
 
@@ -1229,15 +1244,14 @@ namespace javm::vm {
                                 if(class_type) {
                                     auto param_vars = ExecutionUtils::LoadClassMethodParameters(frame, fn_desc);
                                     JAVM_LOG("[invokestatic] Parameter count: %ld...", param_vars.size());
-                                    auto result = class_type->CallClassMethod(fn_name, fn_desc, param_vars);
-                                    if(result.IsInvalidOrThrown()) {
+                                    const auto ret = class_type->CallClassMethod(fn_name, fn_desc, param_vars);
+                                    if(ret.IsInvalidOrThrown()) {
                                         JAVM_LOG("Invalid/thrown execution of '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
-                                        return result;
+                                        return ret;
                                     }
-                                    if(result.Is<ExecutionStatus::VariableReturn>()) {
-                                        auto ret_var = result.ret_var;
-                                        if(ret_var) {
-                                            frame.PushStack(ret_var);
+                                    if(ret.Is<ExecutionStatus::VariableReturn>()) {
+                                        if(ret.ret_var) {
+                                            frame.PushStack(ret.ret_var);
                                         }
                                         else {
                                             JAVM_LOG("Invalid instance method return value...");
@@ -1272,13 +1286,13 @@ namespace javm::vm {
                     auto const_class_item = const_pool.GetItemAt(index, ConstantPoolTag::Class);
                     if(const_class_item) {
                         auto const_class_data = const_class_item->GetClassData();
-                        auto class_name = const_class_data.processed_name;
+                        const auto class_name = const_class_data.processed_name;
 
                         JAVM_LOG("[NEW] new '%s'...", StrUtils::ToUtf8(class_name).c_str());
 
                         auto class_type = rt::LocateClassType(class_name);
                         if(class_type) {
-                            auto ret = class_type->EnsureStaticInitializerCalled();
+                            const auto ret = class_type->EnsureStaticInitializerCalled();
                             if(ret.IsInvalidOrThrown()) {
                                 return ret;
                             }
@@ -1300,12 +1314,12 @@ namespace javm::vm {
                     auto len_var = frame.PopStack();
 
                     if(len_var->CanGetAs<VariableType::Integer>()) {
-                        auto len_val = len_var->GetValue<type::Integer>();
+                        const auto len_val = len_var->GetValue<type::Integer>();
                         if(len_val >= 0) {
                             auto val_type = GetVariableTypeFromNewArrayType(static_cast<NewArrayType>(type));
                             if(val_type != VariableType::Invalid) {
-                                auto arr_val = TypeUtils::NewArray(len_val, val_type);
-                                frame.PushStack(arr_val);
+                                auto arr_v = TypeUtils::NewArray(len_val, val_type);
+                                frame.PushStack(arr_v);
                             }
                             else {
                                 JAVM_LOG("Invalid array type...");
@@ -1329,23 +1343,23 @@ namespace javm::vm {
                     auto const_class_item = const_pool.GetItemAt(index, ConstantPoolTag::Class);
                     if(const_class_item) {
                         auto const_class_data = const_class_item->GetClassData();
-                        auto class_name = const_class_data.processed_name;
+                        const auto class_name = const_class_data.processed_name;
 
                         JAVM_LOG("[anewarray] Class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
                         auto class_type = rt::LocateClassType(class_name);
                         JAVM_LOG("[anewarray] Got class: '%s'", StrUtils::ToUtf8(class_name).c_str());
                         if(class_type) {
-                            auto ret = class_type->EnsureStaticInitializerCalled();
+                            const auto ret = class_type->EnsureStaticInitializerCalled();
                             if(ret.IsInvalidOrThrown()) {
                                 return ret;
                             }
                             if(len_var->CanGetAs<VariableType::Integer>()) {
-                                auto len_val = len_var->GetValue<type::Integer>();
+                                const auto len_val = len_var->GetValue<type::Integer>();
                                 if(len_val >= 0) {
                                     JAVM_LOG("[anewarray] Array length: %d", len_val);
-                                    auto arr_var = TypeUtils::NewArray(len_val, class_type);
-                                    JAVM_LOG("[anewarray] Created array! '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(arr_var)).c_str());
-                                    frame.PushStack(arr_var);
+                                    auto arr_v = TypeUtils::NewArray(len_val, class_type);
+                                    JAVM_LOG("[anewarray] Created array! '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(arr_v)).c_str());
+                                    frame.PushStack(arr_v);
                                 }
                                 else {
                                     JAVM_LOG("Array length < 0: %d", len_val);
@@ -1369,41 +1383,40 @@ namespace javm::vm {
                     auto arr_var = frame.PopStack();
                     if(arr_var->CanGetAs<VariableType::Array>()) {
                         auto arr_obj = arr_var->GetAs<type::Array>();
-                        
-                        auto arr_len = arr_obj->GetLength();
+                        const auto arr_len = arr_obj->GetLength();
 
                         JAVM_LOG("[arraylength] -> Array: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(arr_var)).c_str());
                         JAVM_LOG("[arraylength] -> Length: %d...", arr_obj->GetLength());
 
-                        auto len_var = TypeUtils::NewPrimitiveVariable<type::Integer>(arr_len);
-                        frame.PushStack(len_var);
+                        auto len_v = TypeUtils::NewPrimitiveVariable<type::Integer>(arr_len);
+                        frame.PushStack(len_v);
                     }
                     else {
-                        JAVM_LOG("Invalid array object...");
+                        return ExceptionUtils::ThrowInternalException(u"Invalid array object");
                     }
 
                     break;
                 }
                 case Instruction::ATHROW: {
-                    // TODO - proper exception handling
+                    // TODO - proper exception handling?
                     auto throwable_var = frame.PopStack();
                     JAVM_LOG("[athrow] Throwable object: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(throwable_var)).c_str());
                     auto throwable_obj = throwable_var->GetAs<type::ClassInstance>();
-                    auto msg = throwable_obj->CallInstanceMethod(u"getMessage", u"()Ljava/lang/String;", throwable_var);
-                    auto msg_str = StringUtils::GetValue(msg.ret_var);
+                    const auto msg_ret = throwable_obj->CallInstanceMethod(u"getMessage", u"()Ljava/lang/String;", throwable_var);
+                    const auto msg_str = StringUtils::GetValue(msg_ret.ret_var);
                     JAVM_LOG("[athrow] Thrown message: '%s'", StrUtils::ToUtf8(msg_str).c_str());
                     inner_impl::NotifyExceptionThrownImpl(throwable_var);
                     return ExecutionResult::Thrown();
                 }
                 case Instruction::CHECKCAST: {
-                    u16 index = BE(frame.ReadCode<u16>());
+                    const auto index = BE(frame.ReadCode<u16>());
                     auto var = frame.PopStack();
 
                     auto &const_pool = frame.GetThisConstantPool();
                     auto const_class_item = const_pool.GetItemAt(index, ConstantPoolTag::Class);
                     if(const_class_item) {
                         auto const_class_data = const_class_item->GetClassData();
-                        auto class_name = const_class_data.processed_name;
+                        const auto class_name = const_class_data.processed_name;
 
                         JAVM_LOG("[checkcast] class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
 
@@ -1414,7 +1427,7 @@ namespace javm::vm {
                                 frame.PushStack(var);
                             }
                             else {
-                                JAVM_LOG("-exception- invalid object cast...");
+                                return ExceptionUtils::ThrowInternalException(u"Invalid object cast");
                             }
                         }
                         else if(var->CanGetAs<VariableType::NullObject>()) {
@@ -1423,19 +1436,26 @@ namespace javm::vm {
                         else if(var->CanGetAs<VariableType::Array>()) {
                             auto arr_obj = var->GetAs<type::Array>();
                             auto class_type = arr_obj->GetClassType();
-                            if(class_type->CanCastTo(TypeUtils::GetBaseClassName(class_name))) {
-                                frame.PushStack(var);
+
+                            auto c_c_t = ReflectionUtils::FindTypeByName(class_name);
+                            if(c_c_t->IsArray()) {
+                                if(class_type->CanCastTo(TypeUtils::GetBaseClassName(class_name))) {
+                                    frame.PushStack(var);
+                                }
+                                else {
+                                    return ExceptionUtils::ThrowInternalException(u"Invalid array cast");
+                                }
                             }
                             else {
-                                JAVM_LOG("-exception- invalid array cast...");
+                                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Casting array of '%s' to non-array type '%s'...", StrUtils::ToUtf8(class_type->GetClassName()).c_str(), StrUtils::ToUtf8(class_name).c_str()));
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid var type: %d", static_cast<u32>(var->GetType()));
+                            return ExceptionUtils::ThrowInternalException(u"Invalid var type");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid const pool item");
+                        return ExceptionUtils::ThrowInternalException(u"Invalid constant pool item");
                     }
 
                     break;
@@ -1448,22 +1468,19 @@ namespace javm::vm {
                     auto const_class_item = const_pool.GetItemAt(index, ConstantPoolTag::Class);
                     if(const_class_item) {
                         auto const_class_data = const_class_item->GetClassData();
-                        auto class_name = const_class_data.processed_name;
+                        const auto class_name = const_class_data.processed_name;
 
                         if(var->CanGetAs<VariableType::ClassInstance>()) {
                             auto var_obj = var->GetAs<type::ClassInstance>();
                             if(var_obj->GetClassType()->CanCastTo(class_name)) {
-                                auto ret_var = TypeUtils::NewPrimitiveVariable<type::Integer>(1);
-                                frame.PushStack(ret_var);
+                                frame.PushStack(TypeUtils::True());
                             }
                             else {
-                                auto ret_var = TypeUtils::NewPrimitiveVariable<type::Integer>(0);
-                                frame.PushStack(ret_var);
+                                frame.PushStack(TypeUtils::False());
                             }
                         }
                         else if(var->CanGetAs<VariableType::NullObject>()) {
-                            auto ret_var = TypeUtils::NewPrimitiveVariable<type::Integer>(0);
-                            frame.PushStack(ret_var);
+                            frame.PushStack(TypeUtils::False());
                         }
                     }
 
@@ -1477,7 +1494,7 @@ namespace javm::vm {
                         monitor->Enter();
                     }
                     else {
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid monitor enter");
+                        return ExceptionUtils::ThrowInternalException(u"Invalid monitor enter");
                     }
 
                     break;
@@ -1490,14 +1507,14 @@ namespace javm::vm {
                         monitor->Leave();
                     }
                     else {
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid monitor leave");
+                        return ExceptionUtils::ThrowInternalException(u"Invalid monitor leave");
                     }
 
                     break;
                 }
                 case Instruction::IFNULL: {
                    auto var = frame.PopStack();
-                    i16 branch = BE(frame.ReadCode<i16>());
+                    const auto branch = BE(frame.ReadCode<i16>());
                     if(var->CanGetAs<VariableType::NullObject>()) {
                         pos -= 3;
                         pos += branch;
@@ -1506,7 +1523,7 @@ namespace javm::vm {
                 }
                 case Instruction::IFNONNULL: {
                     auto var = frame.PopStack();
-                    i16 branch = BE(frame.ReadCode<i16>());
+                    const auto branch = BE(frame.ReadCode<i16>());
                     if(!var->CanGetAs<VariableType::NullObject>()) {
                         pos -= 3;
                         pos += branch;
@@ -1516,11 +1533,12 @@ namespace javm::vm {
                 case Instruction::GOTO_W:
                 case Instruction::JSR_W: {
                     // Old instructions, not implementing them
+                    // TODO: throw?
                     break;
                 }
                 
                 default:
-                    return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/Exception", u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
+                    return ExceptionUtils::ThrowInternalException(u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
             }
             return ExecutionResult::ContinueCodeExecution();
         }
@@ -1529,22 +1547,22 @@ namespace javm::vm {
 
     namespace inner_impl {
 
-        inline void SetLocalParametersImpl(ExecutionFrame &frame, std::vector<Ptr<Variable>> param_vars, u32 i_base) {
-            u32 i = i_base;
+        inline void SetLocalParametersImpl(ExecutionFrame &frame, const std::vector<Ptr<Variable>> &param_vars, const u32 i_base) {
+            auto i = i_base;
             for(auto param: param_vars) {
                 frame.SetLocalAt(i, param);
                 i++;
-                if(param->CanGetAs<VariableType::Long>() || param->CanGetAs<VariableType::Double>()) {
+                if(param->IsBigComputationalType()) {
                     i++;
                 }
             }
         }
         
-        inline void SetLocalStaticParameters(ExecutionFrame &frame, std::vector<Ptr<Variable>> param_vars) {
+        inline void SetLocalStaticParameters(ExecutionFrame &frame, const std::vector<Ptr<Variable>> &param_vars) {
             SetLocalParametersImpl(frame, param_vars, 0);
         }
 
-        inline void SetLocalParameters(ExecutionFrame &frame, Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+        inline void SetLocalParameters(ExecutionFrame &frame, Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
             frame.SetLocalAt(0, this_var);
             SetLocalParametersImpl(frame, param_vars, 1);
         }
@@ -1565,9 +1583,9 @@ namespace javm::vm {
         }
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, std::vector<Ptr<Variable>> param_vars) {
+        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
-            for(auto param: param_vars) {
+            for(auto &param: param_vars) {
                 // Longs and doubles take extra spaces
                 if(param->CanGetAs<VariableType::Long>() || param->CanGetAs<VariableType::Double>()) {
                     max_locals_val++;
@@ -1580,14 +1598,14 @@ namespace javm::vm {
 
         template<typename ...JArgs>
         inline ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, JArgs &&...java_args) {
-            std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
+            const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
             return ExecuteStaticCode(code_ptr, max_locals, pool, param_vars);
         }
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, std::vector<Ptr<Variable>> param_vars) {
+        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
-            for(auto param: param_vars) {
+            for(auto &param: param_vars) {
                 // Longs and doubles take extra spaces
                 if(param->CanGetAs<VariableType::Long>() || param->CanGetAs<VariableType::Double>()) {
                     max_locals_val++;
@@ -1600,7 +1618,7 @@ namespace javm::vm {
 
         template<typename ...JArgs>
         inline ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args) {
-            std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
+            const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
             return ExecuteCode(code_ptr, max_locals, this_var, pool, param_vars);
         }
 

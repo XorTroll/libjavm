@@ -221,7 +221,7 @@ namespace javm::vm {
                 return DetermineVariableType<T>() != VariableType::Invalid;
             }
 
-            static inline constexpr bool IsPrimitiveVariableType(VariableType type) {
+            static inline constexpr bool IsPrimitiveVariableType(const VariableType type) {
                 return (type != VariableType::Invalid) && (type != VariableType::ClassInstance) && (type != VariableType::Array) && (type != VariableType::NullObject);
             }
 
@@ -277,7 +277,7 @@ namespace javm::vm {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Double);
                 }
                 if(descriptor.front() == u'[') {
-                    // array - TODO
+                    // TODO: array
                     return ExtendedVariableType::MakeSimpleType(VariableType::Array);
                 }
                 if(descriptor.front() == u'L') {
@@ -292,7 +292,7 @@ namespace javm::vm {
                     return PrimitiveTypeDescriptorTable.at(type);
                 }
 
-                // TODO
+                // TODO: handle this
                 return u"<no-desc>";
             }
 
@@ -301,7 +301,7 @@ namespace javm::vm {
                     return PrimitiveTypeNameTable.at(type);
                 }
 
-                // TODO
+                // TODO: handle this
                 return u"<no-name>";
             }
     };

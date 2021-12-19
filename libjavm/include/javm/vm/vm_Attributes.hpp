@@ -274,7 +274,7 @@ namespace javm::vm {
             }
 
             bool HasAnnotation(const String &type) {
-                for(auto &annot: this->annotations) {
+                for(const auto &annot: this->annotations) {
                     if(annot.processed_type == type) {
                         return true;
                     }

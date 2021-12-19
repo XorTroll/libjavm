@@ -6,7 +6,6 @@
 namespace javm::vm {
 
     class Variable {
-
         private:
             VariableType type;
             Ptr<type::Integer> common_int_val;
@@ -18,7 +17,6 @@ namespace javm::vm {
             Ptr<type::NullObject> null_val;
 
         public:
-
             #define _JAVM_VAR_CTOR(type_name, val_name) Variable(Ptr<type::type_name> val) : type(VariableType::type_name), val_name(val) {}
 
             _JAVM_VAR_CTOR(Integer, common_int_val)
@@ -38,7 +36,7 @@ namespace javm::vm {
                 return this->CanGetAs<VariableType::Long>() || this->CanGetAs<VariableType::Double>();
             }
 
-            VariableType GetType() {
+            inline VariableType GetType() {
                 return this->type;
             }
 
@@ -47,7 +45,7 @@ namespace javm::vm {
             }
 
             template<typename T>
-            Ptr<T> GetAs() {
+            inline Ptr<T> GetAs() {
                 static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
                 constexpr auto v_type = TypeTraits::DetermineVariableType<T>();
                 
@@ -76,16 +74,17 @@ namespace javm::vm {
             }
 
             template<typename T>
-            T GetValue() {
+            inline T GetValue() {
                 auto obj = this->GetAs<T>();
                 return ptr::GetValue(obj);
             }
 
             template<typename T>
-            void SetAs(Ptr<T> val) {
+            inline void SetAs(Ptr<T> val) {
                 static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
                 const auto v_type = TypeTraits::DetermineVariableType<T>();
                 if(v_type != this->type) {
+                    // TODO: critical error!
                     return;
                 }
                 if constexpr(v_type == VariableType::Integer) {
@@ -110,11 +109,9 @@ namespace javm::vm {
                     this->null_val = val;
                 }
             }
-
     };
 
     class TypeUtils {
-
         private:
             static inline Ptr<Variable> g_null_ref_var;
             static inline std::vector<Ptr<Variable>> g_cached_class_types;
@@ -125,10 +122,10 @@ namespace javm::vm {
             }
 
             static inline Ptr<Variable> GetNullVariableImpl() {
-                if(g_null_ref_var) {
-                    return g_null_ref_var;
+                if(!g_null_ref_var) {
+                    g_null_ref_var = ptr::New<Variable>(ptr::New<NullObject>());
                 }
-                g_null_ref_var = ptr::New<Variable>(ptr::New<NullObject>());
+                
                 return g_null_ref_var;
             }
 
@@ -149,7 +146,7 @@ namespace javm::vm {
             }
 
         public:
-            static inline bool IsPrimitiveType(VariableType type) {
+            static inline bool IsPrimitiveType(const VariableType type) {
                 if(type != VariableType::Invalid) {
                     if(type != VariableType::ClassInstance) {
                         if(type != VariableType::Array) {
@@ -163,7 +160,7 @@ namespace javm::vm {
             // Variable creation
 
             template<typename T>
-            static inline Ptr<Variable> NewPrimitiveVariable(T t) {
+            static inline Ptr<Variable> NewPrimitiveVariable(const T t) {
                 static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
                 // Primitive implies no class or array
                 static_assert(!std::is_same_v<T, type::ClassInstance>, "Invalid type");
@@ -199,7 +196,7 @@ namespace javm::vm {
                 return Null();
             }
 
-            static inline Ptr<Variable> NewDefaultVariable(VariableType type) {
+            static inline Ptr<Variable> NewDefaultVariable(const VariableType type) {
                 if(type == VariableType::Invalid) {
                     return nullptr;
                 }
@@ -244,11 +241,11 @@ namespace javm::vm {
                 return class_var;
             }
 
-            static inline Ptr<Variable> NewArray(u32 length, VariableType type) {
+            static inline Ptr<Variable> NewArray(const u32 length, const VariableType type) {
                 return ptr::New<Variable>(ptr::New<type::Array>(type, length));
             }
 
-            static inline Ptr<Variable> NewArray(u32 length, Ptr<ClassType> type) {
+            static inline Ptr<Variable> NewArray(const u32 length, Ptr<ClassType> type) {
                 return ptr::New<Variable>(ptr::New<type::Array>(type, length));
             }
 
@@ -330,8 +327,8 @@ namespace javm::vm {
                         else {
                             base_s += TypeTraits::GetNameForPrimitiveType(arr_obj->GetVariableType());
                         }
-                        auto len = arr_obj->GetLength();
-                        auto base = base_s + u"[" + StrUtils::From(len) + u"]";
+                        const auto len = arr_obj->GetLength();
+                        const auto base = base_s + u"[" + StrUtils::From(len) + u"]";
                         return base;
                     }
                 }
@@ -345,7 +342,7 @@ namespace javm::vm {
                 if(var->IsNull()) {
                     return u"<null>";
                 }
-                auto type = var->GetType();
+                const auto type = var->GetType();
                 if(IsPrimitiveType(type)) {
                     switch(type) {
                         case VariableType::Integer:
@@ -398,12 +395,11 @@ namespace javm::vm {
                 }
                 return ClassUtils::MakeSlashClassName(name_copy);
             }
-
     };
 
     namespace inner_impl {
 
-        inline Ptr<Variable> NewDefaultVariableImpl(VariableType type) {
+        inline Ptr<Variable> NewDefaultVariableImpl(const VariableType type) {
             return TypeUtils::NewDefaultVariable(type);
         }
 

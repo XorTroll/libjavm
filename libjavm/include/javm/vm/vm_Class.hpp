@@ -423,6 +423,7 @@ namespace javm::vm {
             std::vector<Ptr<ClassInstance>> interface_instances;
             std::vector<ClassField> member_fields;
             std::vector<ClassInvokable> methods;
+            Ptr<Array> array_instance;
 
         public:
             ClassInstance(Ptr<ClassType> type) : class_type(type) {
@@ -454,6 +455,10 @@ namespace javm::vm {
 
             inline Ptr<ClassType> GetClassType() {
                 return this->class_type;
+            }
+
+            inline bool IsCastedArray() {
+                return ptr::IsValid(this->array_instance);
             }
 
             inline bool HasSuperClass() {
@@ -621,7 +626,7 @@ namespace javm::vm {
                 for(auto &fn: this->methods) {
                     if(fn.GetName() == name) {
                         if(fn.GetDescriptor() == descriptor) {
-                            auto class_name = this->class_type->GetClassName();
+                            const auto class_name = this->class_type->GetClassName();
                             if(native::HasNativeInstanceMethod(class_name, name, descriptor)) {
                                 auto native_fn = native::FindNativeInstanceMethod(class_name, name, descriptor);
                                 return native_fn(this_as_var, param_vars);

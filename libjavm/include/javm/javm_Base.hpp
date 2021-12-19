@@ -8,6 +8,8 @@
 #include <map>
 #include <climits>
 
+// TODO: enable logging by log types...?
+
 #ifndef JAVM_LOG
 #ifdef JAVM_DEBUG_LOG
 #define JAVM_LOG(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
@@ -64,7 +66,7 @@ namespace javm {
         }
 
         template<typename T>
-        inline void SetValue(Ptr<T> ptr, T val) {
+        inline void SetValue(Ptr<T> ptr, const T val) {
             *ptr.get() = val;
         }
 

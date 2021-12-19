@@ -31,7 +31,7 @@ namespace javm::vm {
 
     class AccessFlagUtils {
         private:
-            static inline constexpr void AddFlag(AccessFlags &flag, AccessFlags new_f) {
+            static inline constexpr void AddFlag(AccessFlags &flag, const AccessFlags new_f) {
                 auto flag16 = static_cast<u16>(flag);
                 flag16 |= static_cast<u16>(new_f);
                 flag = static_cast<AccessFlags>(flag16);

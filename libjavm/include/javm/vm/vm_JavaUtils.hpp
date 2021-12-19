@@ -41,6 +41,10 @@ namespace javm::vm {
                 }
                 return ExecutionResult::InvalidState();
             }
+
+            static inline ExecutionResult ThrowInternalException(const String &msg) {
+                return ThrowWithTypeAndMessage(u"java/lang/RuntimeException", u"[JAVM-INTERNAL] " + msg);
+            }
     };
 
     namespace inner_impl {
@@ -155,7 +159,6 @@ namespace javm::vm {
             static inline Ptr<Variable> CreateNewUtf8(const std::string &native_str) {
                 return CreateNew(StrUtils::FromUtf8(native_str));
             }
-
     };
 
     namespace inner_impl {
