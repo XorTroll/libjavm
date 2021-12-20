@@ -77,6 +77,50 @@ namespace javm::vm {
 
     namespace exec_impl {
 
+        void PopulateArrayDimension(const u32 dimensions, const std::vector<u32> &lengths, Ptr<ClassType> class_type, const VariableType type, Ptr<Variable> &cur_array, const u32 cur_dimension_idx = 0) {
+            const auto dim_len = lengths.at(cur_dimension_idx);
+            if(cur_dimension_idx == 0) {
+                if(class_type) {
+                    cur_array = TypeUtils::NewArray(dim_len, class_type, dimensions - cur_dimension_idx);
+                }
+                else {
+                    cur_array = TypeUtils::NewArray(dim_len, type, dimensions - cur_dimension_idx);
+                }
+                PopulateArrayDimension(dimensions, lengths, class_type, type, cur_array, cur_dimension_idx + 1);
+            }
+            else if(cur_dimension_idx < (dimensions - 1)) {
+                auto cur_array_obj = cur_array->GetAs<type::Array>();
+                for(u32 i = 0; i < cur_array_obj->GetLength(); i++) {
+                    Ptr<Variable> array;
+                    if(class_type) {
+                        array = TypeUtils::NewArray(dim_len, class_type, dimensions - cur_dimension_idx);
+                    }
+                    else {
+                        array = TypeUtils::NewArray(dim_len, type, dimensions - cur_dimension_idx);
+                    }
+
+                    PopulateArrayDimension(dimensions, lengths, class_type, type, array, cur_dimension_idx + 1);
+                    cur_array_obj->SetAt(i, array);
+                }
+            }
+            else {
+                // Last dimension to populate (?)
+
+                auto cur_array_obj = cur_array->GetAs<type::Array>();
+                for(u32 i = 0; i < cur_array_obj->GetLength(); i++) {
+                    Ptr<Variable> array;
+                    if(class_type) {
+                        array = TypeUtils::NewArray(dim_len, class_type);
+                    }
+                    else {
+                        array = TypeUtils::NewArray(dim_len, type);
+                    }
+
+                    cur_array_obj->SetAt(i, array);
+                }
+            }
+        }
+
         static ExecutionResult HandleInstructionImpl(ExecutionFrame &frame) {
             const auto inst = static_cast<Instruction>(frame.ReadCode<u8>());
             JAVM_LOG("Got instruction: 0x%X", static_cast<u8>(inst));
@@ -1180,7 +1224,7 @@ namespace javm::vm {
                                         }
                                     }
                                     else {
-                                        return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                                        return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable 1: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
                                     }
                                 }
                                 else if(this_var->CanGetAs<VariableType::Array>()) {
@@ -1203,7 +1247,7 @@ namespace javm::vm {
                                     }
                                 }
                                 else {
-                                    return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                                    return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable 2: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
                                 }
                                 JAVM_LOG("[invoke] Done '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                             }
@@ -1212,7 +1256,6 @@ namespace javm::vm {
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid const pool item Class...?");
                             return ExceptionUtils::ThrowInternalException(u"Invalid const pool Class item");
                         }
                     }
@@ -1513,8 +1556,59 @@ namespace javm::vm {
 
                     break;
                 }
+                case Instruction::MULTIANEWARRAY: {
+                    const auto index = BE(frame.ReadCode<u16>());
+                    const auto dimensions = frame.ReadCode<u8>();
+
+                    auto &const_pool = frame.GetThisConstantPool();
+                    auto const_class_item = const_pool.GetItemAt(index, ConstantPoolTag::Class);
+                    if(const_class_item) {
+                        auto const_class_data = const_class_item->GetClassData();
+                        const auto class_name = const_class_data.processed_name;
+                        const auto base_type_name = TypeUtils::GetBaseClassName(class_name);
+
+                        std::vector<u32> lens;
+                        lens.reserve(dimensions);
+                        for(u32 i = 0; i < dimensions; i++) {
+                            auto len_var = frame.PopStack();
+                            const auto len_val = len_var->GetValue<type::Integer>();
+                            lens.insert(lens.begin(), len_val);
+                        }
+                        Ptr<Variable> base_arr_v;
+
+                        if(TypeTraits::IsPrimitiveType(base_type_name)) {
+                            const auto type = TypeTraits::GetFieldDescriptorType(base_type_name);
+                            JAVM_LOG("[multianewarray] Primitive type name: '%s'", StrUtils::ToUtf8(TypeTraits::GetNameForPrimitiveType(type)).c_str());
+
+                            PopulateArrayDimension(dimensions, lens, nullptr, type, base_arr_v);
+                        }
+                        else {
+                            JAVM_LOG("[multianewarray] Full array type name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                            JAVM_LOG("[multianewarray] Class name: '%s'", StrUtils::ToUtf8(base_type_name).c_str());
+                            auto class_type = rt::LocateClassType(base_type_name);
+                            if(class_type) {
+                                const auto ret = class_type->EnsureStaticInitializerCalled();
+                                if(ret.IsInvalidOrThrown()) {
+                                    return ret;
+                                }
+
+                                PopulateArrayDimension(dimensions, lens, class_type, VariableType::Invalid, base_arr_v);
+                            }
+                            else {
+                                return ExceptionUtils::ThrowInternalException(u"Invalid array class type...");
+                            }
+                        }
+
+                        JAVM_LOG("[multianewarray] Created multi array! '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(base_arr_v)).c_str());
+                        frame.PushStack(base_arr_v);
+                    }
+                    else {
+                        return ExceptionUtils::ThrowInternalException(u"Invalid constant pool item...");
+                    }
+                    break;
+                }
                 case Instruction::IFNULL: {
-                   auto var = frame.PopStack();
+                    auto var = frame.PopStack();
                     const auto branch = BE(frame.ReadCode<i16>());
                     if(var->CanGetAs<VariableType::NullObject>()) {
                         pos -= 3;

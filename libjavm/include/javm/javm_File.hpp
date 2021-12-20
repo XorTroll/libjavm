@@ -25,9 +25,14 @@ namespace javm {
                     rewind(f);
                     if(f_size > 0) {
                         this->file_ptr = new u8[f_size]();
-                        fread(this->file_ptr, 1, f_size, f);
-                        this->file_size = f_size;
-                        this->owns_ptr = true;
+                        if(fread(this->file_ptr, f_size, 1, f) == 1) {
+                            this->file_size = f_size;
+                            this->owns_ptr = true;
+                        }
+                        else {
+                            delete[] file_ptr;
+                            file_ptr = nullptr;
+                        }
                     }
                     fclose(f);
                 }

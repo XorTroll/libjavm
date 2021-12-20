@@ -287,7 +287,7 @@ namespace javm::vm {
                 return ExtendedVariableType::MakeSimpleType(VariableType::NullObject);
             }
 
-            static String GetDescriptorForPrimitiveType(VariableType type) {
+            static String GetDescriptorForPrimitiveType(const VariableType type) {
                 if(PrimitiveTypeDescriptorTable.find(type) != PrimitiveTypeDescriptorTable.end()) {
                     return PrimitiveTypeDescriptorTable.at(type);
                 }
@@ -296,7 +296,7 @@ namespace javm::vm {
                 return u"<no-desc>";
             }
 
-            static String GetNameForPrimitiveType(VariableType type) {
+            static String GetNameForPrimitiveType(const VariableType type) {
                 if(PrimitiveTypeNameTable.find(type) != PrimitiveTypeNameTable.end()) {
                     return PrimitiveTypeNameTable.at(type);
                 }

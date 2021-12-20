@@ -201,8 +201,8 @@ namespace javm::vm {
         INSTANCEOF = 0xC1,
         MONITORENTER = 0xC2,
         MONITOREXIT = 0xC3,
-        WIDE = 0xC4,
-        MULTIANEWARRAY = 0xC5, // TODO
+        WIDE = 0xC4, // TODO
+        MULTIANEWARRAY = 0xC5,
         IFNULL = 0xC6,
         IFNONNULL = 0xC7,
         GOTO_W = 0xC8, // Again, old opcode

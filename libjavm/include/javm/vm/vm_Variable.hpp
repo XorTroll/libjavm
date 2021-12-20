@@ -241,12 +241,12 @@ namespace javm::vm {
                 return class_var;
             }
 
-            static inline Ptr<Variable> NewArray(const u32 length, const VariableType type) {
-                return ptr::New<Variable>(ptr::New<type::Array>(type, length));
+            static inline Ptr<Variable> NewArray(const u32 length, const VariableType type, const u32 dimension = 1) {
+                return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
             }
 
-            static inline Ptr<Variable> NewArray(const u32 length, Ptr<ClassType> type) {
-                return ptr::New<Variable>(ptr::New<type::Array>(type, length));
+            static inline Ptr<Variable> NewArray(const u32 length, Ptr<ClassType> type, const u32 dimension = 1) {
+                return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
             }
 
             template<typename ...JArgs>
@@ -305,10 +305,12 @@ namespace javm::vm {
                 if(!var) {
                     return u"<invalid>";
                 }
+
                 auto type = var->GetType();
                 if(var->IsNull()) {
                     return u"<null>";
                 }
+
                 if(IsPrimitiveType(type)) {
                     return TypeTraits::GetNameForPrimitiveType(type);
                 }
@@ -319,6 +321,9 @@ namespace javm::vm {
                     }
                     else if(type == VariableType::Array) {
                         auto arr_obj = var->GetAs<type::Array>();
+                        const auto arr_dims = arr_obj->GetDimensions();
+                        const auto arr_len = arr_obj->GetLength();
+
                         String base_s;
                         if(arr_obj->IsClassInstanceArray()) {
                             auto cls_type = arr_obj->GetClassType();
@@ -327,9 +332,19 @@ namespace javm::vm {
                         else {
                             base_s += TypeTraits::GetNameForPrimitiveType(arr_obj->GetVariableType());
                         }
-                        const auto len = arr_obj->GetLength();
-                        const auto base = base_s + u"[" + StrUtils::From(len) + u"]";
-                        return base;
+
+                        Ptr<Array> cur_array_obj = nullptr;
+                        for(u32 i = 0; i < arr_dims; i++) {
+                            if(i == 0) {
+                                cur_array_obj = arr_obj;
+                            }
+                            else {
+                                cur_array_obj = cur_array_obj->GetAt(0)->GetAs<type::Array>();
+                            }
+                            base_s += u"[" + StrUtils::From(cur_array_obj->GetLength()) + u"]";
+                        }
+                        
+                        return base_s;
                     }
                 }
                 return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
@@ -393,6 +408,8 @@ namespace javm::vm {
                 if(name_copy.back() == u';') {
                     name_copy.pop_back();
                 }
+
+                JAVM_LOG("GetBaseClassName - copy: '%s'", StrUtils::ToUtf8(name_copy).c_str());
                 return ClassUtils::MakeSlashClassName(name_copy);
             }
     };

@@ -95,18 +95,18 @@ namespace javm::native {
             }
 
             ExecutionResult getClass(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+                JAVM_LOG("[java.lang.Object.getClass] called - array type name: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str());
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
-                    JAVM_LOG("[java.lang.Object.getClass] called - class type name: '%s'", StrUtils::ToUtf8(this_obj->GetClassType()->GetClassName()).c_str());
                     auto ref_type = ReflectionUtils::FindTypeByName(this_obj->GetClassType()->GetClassName());
                     JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }
                 else if(this_var->CanGetAs<VariableType::Array>()) {
                     auto this_array = this_var->GetAs<type::Array>();
-                    JAVM_LOG("[java.lang.Object.getClass] called - array type name: '%s'", StrUtils::ToUtf8(this_array->GetClassType()->GetClassName()).c_str());
+                    
                     auto ref_type = ReflectionUtils::FindArrayType(this_array);
-                    JAVM_LOG("[java.lang.Object.getClass] reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
+                    JAVM_LOG("[java.lang.Object.getClass] array reflection type name: '%s'", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }
                 

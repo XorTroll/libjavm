@@ -24,7 +24,7 @@ Check the [examples](examples) directory for some example programs using this li
 
 ## Comparison with JRE
 
-The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 18 out of 28 tests are successfully passed (comparing their output with JRE):
+The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 19 out of 28 tests are successfully passed (comparing their output with JRE):
 
 - `ArgumentTest`: pass!
 
@@ -32,7 +32,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ArrayTest`: pass!
 
-- `ArrayTest1`: fail (multi-dimensional arrays aren't implemented yet)
+- `ArrayTest1`: fail (JRE throws certain exceptions we currently don't)
 
 - `ArrayTest2`: fail (we need to handle OOB array accesses)
 
@@ -42,7 +42,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ClassCastTest`: fail (unrelated classes can be casted right now, class casting must be corrected)
 
-- `ClassNameTest`: fail (part of the test passes but multi-dimensional arrays aren't implemented yet)
+- `ClassNameTest`: pass!
 
 - `CovScriptJNITest`: fail (works as expected but we should throw a different exception)
 
@@ -82,9 +82,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 ## TO-DO list
 
-- Implement `invokedynamic`, `wide`, `tableswitch`, `multianewarray` opcodes
-
-- Properly support multi-dimension arrays (`multianewarray`)
+- Implement `invokedynamic`, `wide`, `tableswitch` opcodes
 
 - Implement not implemented native methods (only implemented basic ones to get past initialization, for now)
 

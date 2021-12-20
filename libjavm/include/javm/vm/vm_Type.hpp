@@ -29,8 +29,8 @@ namespace javm::vm {
             }
 
             void Reset() {
-                this->inner_array.resize(static_cast<unsigned>(this->length));
-                JAVM_LOG("Array resize - new size: %ld", this->inner_array.size());
+                this->inner_array.resize(this->length);
+                // JAVM_LOG("Array resize - new size: %ld", this->inner_array.size());
             }
 
             static inline Ptr<ClassInstance> CreateInnerObject() {
@@ -38,11 +38,11 @@ namespace javm::vm {
             }
 
         public:
-            Array(VariableType type, const u32 length) : type(type), length(length), dimensions(1), inner_object(CreateInnerObject()) {
+            Array(VariableType type, const u32 length, const u32 dimensions = 1) : type(type), length(length), dimensions(dimensions), inner_object(CreateInnerObject()) {
                 this->Reset();
             }
 
-            Array(Ptr<ClassType> type, const u32 length) : type(VariableType::ClassInstance), class_type(type), length(length), dimensions(1), inner_object(CreateInnerObject()) {
+            Array(Ptr<ClassType> type, const u32 length, const u32 dimensions = 1) : type(VariableType::ClassInstance), class_type(type), length(length), dimensions(dimensions), inner_object(CreateInnerObject()) {
                 this->Reset();
             }
 
@@ -51,7 +51,11 @@ namespace javm::vm {
             }
 
             inline bool IsClassInstanceArray() {
-                return (this->type == VariableType::ClassInstance) && ptr::IsValid(this->class_type);
+                return ptr::IsValid(this->class_type);
+            }
+
+            inline bool IsMultiArray() {
+                return this->dimensions > 1;
             }
 
             inline Ptr<ClassType> GetClassType() {
