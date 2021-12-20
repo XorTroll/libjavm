@@ -24,7 +24,7 @@ Check the [examples](examples) directory for some example programs using this li
 
 ## Comparison with JRE
 
-The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 21 out of 28 tests are successfully passed (comparing their output with JRE):
+The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 22 out of 28 tests are successfully passed (comparing their output with JRE):
 
 - `ArgumentTest`: pass!
 
@@ -32,7 +32,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ArrayTest`: pass!
 
-- `ArrayTest1`: pass! (although small differencies between stack trace msgs)
+- `ArrayTest1`: pass! (although small differencies between stack traces)
 
 - `ArrayTest2`: pass!
 
@@ -44,7 +44,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ClassNameTest`: pass!
 
-- `CovScriptJNITest`: fail (works as expected but we should throw a different exception)
+- `CovScriptJNITest`: pass!
 
 - `ExceptionTest`: pass!
 

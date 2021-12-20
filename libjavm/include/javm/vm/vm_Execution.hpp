@@ -123,12 +123,12 @@ namespace javm::vm {
 
             template<typename T>
             T ReadCode(const bool forward = true) {
-                T t = T();
+                auto t = T();
                 if(this->code_ptr == nullptr) {
                     return t;
                 }
 
-                memcpy(&t, (T*)&this->code_ptr[this->code_offset], sizeof(T));
+                memcpy(&t, reinterpret_cast<const T*>(&this->code_ptr[this->code_offset]), sizeof(T));
                 if(forward) {
                     this->code_offset += sizeof(T);
                 }

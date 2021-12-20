@@ -51,7 +51,6 @@ namespace javm::vm {
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     if(msg.empty()) {
-                        auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                         const auto ret = throwable_obj->CallConstructor(throwable_v, u"()V");
                         if(ret.IsInvalidOrThrown()) {
                             return nullptr;

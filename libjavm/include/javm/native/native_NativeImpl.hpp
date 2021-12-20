@@ -797,6 +797,8 @@ namespace javm::native {
                 auto stack_trace_elem_v = TypeUtils::NewClassVariable(rt::LocateClassType(u"java/lang/StackTraceElement"));
                 auto stack_trace_elem_obj = stack_trace_elem_v->GetAs<type::ClassInstance>();
 
+                // TODO: properly get this info, stop using placeholders
+
                 const auto declaring_class_name = ClassUtils::MakeDotClassName(call_info.caller_type->GetClassName());
                 const auto method_name = call_info.invokable_name;
                 const auto file_name = u"dummy-file.java";

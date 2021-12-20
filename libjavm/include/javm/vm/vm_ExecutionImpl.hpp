@@ -78,7 +78,7 @@ namespace javm::vm {
 
                 if(!ignore_exc_table) {
                     auto &const_pool = frame.GetThisConstantPool();
-                    auto jumped_to_exc_table_entry = false;
+                    JAVM_LOG("[VM-THROW] Exception table entry size: %ld", frame.GetAvailableExceptionTableEntries().size());
                     for(const auto active_exc: frame.GetAvailableExceptionTableEntries()) {
                         auto const_class_item = const_pool.GetItemAt(active_exc.catch_exc_type_index, ConstantPoolTag::Class);
                         if(const_class_item) {
@@ -152,8 +152,7 @@ namespace javm::vm {
                 }
             }
             else {
-                // Last dimension to populate (?)
-
+                // Last dimension to populate
                 auto cur_array_obj = cur_array->GetAs<type::Array>();
                 for(u32 i = 0; i < cur_array_obj->GetLength(); i++) {
                     Ptr<Variable> array;
@@ -981,8 +980,8 @@ namespace javm::vm {
                     const auto orig_pos = pos;
                     // Change position
                     pos = prev_pos;
-                    auto default_byte = BE(frame.ReadCode<u32>());
-                    auto count = BE(frame.ReadCode<u32>());
+                    const auto default_byte = BE(frame.ReadCode<u32>());
+                    const auto count = BE(frame.ReadCode<u32>());
                     std::map<u32, u32> table;
                     for(u32 i = 0; i < count; i++) {
                         const auto value = BE(frame.ReadCode<u32>());
@@ -1048,19 +1047,19 @@ namespace javm::vm {
                                     frame.PushStack(var);
                                 }
                                 else {
-                                    JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                                    return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str()));
                                 }
                             }
                             else {
-                                JAVM_LOG("Invalid const pool item NAT...?");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item NAT...?");
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid const pool item Class...?");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item Class...?");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid const pool item FieldRef...?");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item FieldRef...?");
                     }
 
                     break;
@@ -1091,19 +1090,19 @@ namespace javm::vm {
                                     class_type->SetStaticField(field_name, field_desc, var);
                                 }
                                 else {
-                                    JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                                    return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str()));
                                 }
                             }
                             else {
-                                JAVM_LOG("Invalid const pool item NAT...?");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item NAT...?");
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid const pool item Class...?");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item Class...?");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid const pool item FieldRef...?");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item FieldRef...?");
                     }
 
                     break;
@@ -1138,23 +1137,27 @@ namespace javm::vm {
                                         frame.PushStack(field_var);
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                                        return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str()));
                                     }
                                 }
                                 else {
-                                    JAVM_LOG("Invalid const pool item NAT...?");
+                                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item NAT...?");
                                 }
                             }
                             else {
-                                JAVM_LOG("Invalid const pool item Class...?");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item Class...?");
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid const pool item FieldRef...?");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item FieldRef...?");
                         }
                     }
+                    else if(var->IsNull()) {
+                        // Trying to get a field from a null object
+                        return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException");
+                    }
                     else {
-                        JAVM_LOG("Invalid class object...");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid class object...");
                     }
 
                     break;
@@ -1189,23 +1192,23 @@ namespace javm::vm {
                                         var_obj_c->SetField(field_name, field_desc, field_var);
                                     }
                                     else {
-                                        JAVM_LOG("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                                        return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid class name: '%s'", StrUtils::ToUtf8(class_name).c_str()));
                                     }
                                 }
                                 else {
-                                    JAVM_LOG("Invalid const pool item NAT...?");
+                                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item NAT...?");
                                 }
                             }
                             else {
-                                JAVM_LOG("Invalid const pool item Class...?");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item Class...?");
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid const pool item FieldRef...?");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool item FieldRef...?");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid class object...");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid class object...");
                     }
 
                     break;
@@ -1522,7 +1525,7 @@ namespace javm::vm {
                                 frame.PushStack(var);
                             }
                             else {
-                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid object cast");
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/ClassCastException", StrUtils::Format("%s cannot be cast to %s", StrUtils::ToUtf8(ClassUtils::MakeDotClassName(var_obj->GetClassType()->GetClassName())).c_str(), StrUtils::ToUtf8(ClassUtils::MakeDotClassName(class_name)).c_str()));
                             }
                         }
                         else if(var->CanGetAs<VariableType::NullObject>()) {

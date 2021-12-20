@@ -265,12 +265,14 @@ namespace javm::vm {
                                     return native_fn(param_vars);
                                 }
                                 else if(fn.HasFlag<AccessFlags::Native>()) {
-                                    return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/RuntimeException", u"Native class method not implemented: " + this->class_name + u" - " + name + descriptor);
+                                    // TODO: throw elsewhere? currently try-catch blocks can't catch this...
+                                    return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_name) + u"." + name + descriptor);
                                 }
                                 for(auto attr: fn.GetAttributes()) {
                                     if(attr.GetName() == AttributeType::Code) {
                                         MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
                                         CodeAttributeData code(reader);
+                                        JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", StrUtils::ToUtf8(name).c_str(), StrUtils::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
                                         auto self_type = this->FindSelf();
                                         const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
                                         ExecutionScopeGuard guard(self_type, name, descriptor);
@@ -404,14 +406,17 @@ namespace javm::vm {
                 if(ClassUtils::EqualClassNames(class_name, this->class_name)) {
                     return true;
                 }
+
                 for(auto &intf: this->interface_class_names) {
                     if(ClassUtils::EqualClassNames(class_name, intf)) {
                         return true;
                     }
                 }
+
                 if(this->HasSuperClass()) {
                     return this->GetSuperClassType()->CanCastTo(class_name);
                 }
+
                 return false;
             }
     };
@@ -627,7 +632,8 @@ namespace javm::vm {
                                 return native_fn(this_as_var, param_vars);
                             }
                             else if(fn.HasFlag<AccessFlags::Native>()) {
-                                return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/RuntimeException", u"Native instance method not implemented: " + this->class_type->GetClassName() + u" - " + name + descriptor);
+                                // TODO: throw elsewhere? currently try-catch blocks can't catch this...
+                                return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_type->GetClassName()) + u"." + name + descriptor);
                             }
                             for(const auto &attr: fn.GetAttributes()) {
                                 if(attr.GetName() == AttributeType::Code) {
