@@ -24,7 +24,7 @@ Check the [examples](examples) directory for some example programs using this li
 
 ## Comparison with JRE
 
-The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 22 out of 28 tests are successfully passed (comparing their output with JRE):
+The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 23 out of 28 tests are successfully passed (comparing their output with JRE):
 
 - `ArgumentTest`: pass!
 
@@ -40,7 +40,7 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ChineseTest`: pass!
 
-- `ClassCastTest`: fail (unrelated classes can be casted right now, class casting must be corrected)
+- `ClassCastTest`: pass!
 
 - `ClassNameTest`: pass!
 
