@@ -27,13 +27,20 @@ namespace javm::vm {
                 }
             }
 
-            inline u8 *GetInfo() {
+            inline u8 *GetInfo() const {
                 return this->attribute_data;
             }
 
-            inline size_t GetInfoLength() {
+            inline size_t GetInfoLength() const {
                 return this->length;
             }
+    };
+
+    struct ExceptionTableEntry {
+        u16 start_pc;
+        u16 end_pc;
+        u16 handler_pc;
+        u16 catch_exc_type_index;
     };
 
     class CodeAttributeData {
@@ -42,6 +49,7 @@ namespace javm::vm {
             u16 max_locals;
             u32 code_len;
             u8 *code;
+            std::vector<ExceptionTableEntry> exc_table;
 
         public:
             CodeAttributeData(MemoryReader &reader) : max_stack(0), max_locals(0), code_len(0), code(nullptr) {
@@ -50,7 +58,19 @@ namespace javm::vm {
                 this->code_len = BE(reader.Read<u32>());
                 if(this->code_len > 0) {
                     this->code = new u8[this->code_len]();
-                    reader.ReadPointer(this->code, this->code_len * sizeof(u8));
+                    reader.ReadPointer(this->code, this->code_len);
+                }
+
+                const auto exc_table_len = BE(reader.Read<u16>());
+                this->exc_table.reserve(exc_table_len);
+                for(u32 i = 0; i < exc_table_len; i++) {
+                    const ExceptionTableEntry exc_table_entry = {
+                        .start_pc = BE(reader.Read<u16>()),
+                        .end_pc = BE(reader.Read<u16>()),
+                        .handler_pc = BE(reader.Read<u16>()),
+                        .catch_exc_type_index = BE(reader.Read<u16>())
+                    };
+                    this->exc_table.push_back(exc_table_entry);
                 }
             }
 
@@ -75,6 +95,10 @@ namespace javm::vm {
 
             inline u8 *GetCode() {
                 return this->code;
+            }
+
+            inline std::vector<ExceptionTableEntry> &GetExceptionTable() {
+                return this->exc_table;
             }
     };
 

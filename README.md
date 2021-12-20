@@ -24,17 +24,17 @@ Check the [examples](examples) directory for some example programs using this li
 
 ## Comparison with JRE
 
-The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 19 out of 28 tests are successfully passed (comparing their output with JRE):
+The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 21 out of 28 tests are successfully passed (comparing their output with JRE):
 
 - `ArgumentTest`: pass!
 
-- `ArithmeticTest`: pass! (although small differencies between exception msgs)
+- `ArithmeticTest`: pass!
 
 - `ArrayTest`: pass!
 
-- `ArrayTest1`: fail (JRE throws certain exceptions we currently don't)
+- `ArrayTest1`: pass! (although small differencies between stack trace msgs)
 
-- `ArrayTest2`: fail (we need to handle OOB array accesses)
+- `ArrayTest2`: pass!
 
 - `AssertTest`: pass!
 
@@ -91,3 +91,5 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 - Support or take into account other annotations (currently only `CallerSensitive` is checked)
 
 - The many `TODO` comments spread in code
+
+- (...)

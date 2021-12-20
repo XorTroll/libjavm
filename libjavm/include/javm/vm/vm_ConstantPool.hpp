@@ -33,7 +33,7 @@ namespace javm::vm {
             String name;
 
         public:
-            inline u16 GetNameIndex() {
+            inline u16 GetNameIndex() const {
                 return this->name_idx;
             }
 
@@ -41,11 +41,11 @@ namespace javm::vm {
                 this->name_idx = idx;
             }
 
-            inline String GetName() {
+            inline String GetName() const {
                 return this->name;
             }
 
-            inline bool HasName() {
+            inline bool HasName() const {
                 return !this->name.empty();
             }
 

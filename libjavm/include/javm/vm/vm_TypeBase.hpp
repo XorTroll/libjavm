@@ -9,6 +9,7 @@ namespace javm::vm {
     class ClassInstance;
     class Variable;
     class Array;
+    struct ExceptionTableEntry;
 
     // Null object... nothing to store :P
     struct NullObject {};
@@ -95,10 +96,10 @@ namespace javm::vm {
     namespace inner_impl {
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, JArgs &&...java_args);
+        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, JArgs &&...java_args);
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args);
+        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args);
 
         Ptr<ClassType> LocateClassTypeImpl(const String &class_name);
 

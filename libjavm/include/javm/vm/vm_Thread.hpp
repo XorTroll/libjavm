@@ -77,7 +77,7 @@ namespace javm::vm {
                 return this->call_stack.back();
             }
 
-            inline std::vector<CallInfo> GetCallStack() {
+            inline std::vector<CallInfo> &GetCallStack() {
                 return this->call_stack;
             }
 
@@ -225,6 +225,10 @@ namespace javm::vm {
 
             static inline Ptr<ThreadAccessor> GetCurrentThread() {
                 return inner_impl::GetCurrentThreadImpl();
+            }
+
+            static inline std::vector<CallInfo> &GetCurrentCallStack() {
+                return GetCurrentThread()->GetCallStack();
             }
 
             static inline Ptr<ThreadAccessor> GetThreadByHandle(const native::ThreadHandle handle) {

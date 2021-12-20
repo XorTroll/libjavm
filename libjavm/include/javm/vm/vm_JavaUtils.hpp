@@ -6,7 +6,7 @@ namespace javm::vm {
 
     class ExceptionUtils {
         private:
-            static Ptr<Variable> CreateThrowableByType(const String &class_name) {
+            static Ptr<Variable> CreateThrowableImpl(const String &class_name) {
                 auto class_type = inner_impl::LocateClassTypeImpl(class_name);
                 if(class_type) {
                     return inner_impl::NewClassVariableImpl(class_type);
@@ -16,7 +16,7 @@ namespace javm::vm {
 
         public:
             static ExecutionResult ThrowWithType(const String &class_name) {
-                auto throwable_v = CreateThrowableByType(class_name);
+                auto throwable_v = CreateThrowableImpl(class_name);
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto ret = throwable_obj->CallConstructor(throwable_v, u"()V");
@@ -29,7 +29,7 @@ namespace javm::vm {
             }
 
             static ExecutionResult ThrowWithTypeAndMessage(const String &class_name, const String &msg) {
-                auto throwable_v = CreateThrowableByType(class_name);
+                auto throwable_v = CreateThrowableImpl(class_name);
                 if(throwable_v) {
                     auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
                     auto msg_v = inner_impl::CreateNewString(msg);
@@ -44,6 +44,28 @@ namespace javm::vm {
 
             static inline ExecutionResult ThrowInternalException(const String &msg) {
                 return ThrowWithTypeAndMessage(u"java/lang/RuntimeException", u"[JAVM-INTERNAL] " + msg);
+            }
+
+            static inline Ptr<Variable> CreateThrowable(const String &class_name, const String &msg = u"") {
+                auto throwable_v = CreateThrowableImpl(class_name);
+                if(throwable_v) {
+                    auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
+                    if(msg.empty()) {
+                        auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
+                        const auto ret = throwable_obj->CallConstructor(throwable_v, u"()V");
+                        if(ret.IsInvalidOrThrown()) {
+                            return nullptr;
+                        }
+                    }
+                    else {
+                        auto msg_v = inner_impl::CreateNewString(msg);
+                        const auto ret = throwable_obj->CallConstructor(throwable_v, u"(Ljava/lang/String;)V", msg_v);
+                        if(ret.IsInvalidOrThrown()) {
+                            return nullptr;
+                        }
+                    }
+                }
+                return throwable_v;
             }
     };
 

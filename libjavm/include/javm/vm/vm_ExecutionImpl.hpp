@@ -73,6 +73,54 @@ namespace javm::vm {
                 return std::make_pair(this_var, params);
             }
 
+            static ExecutionResult ThrowExceptionInstance(ExecutionFrame &frame, Ptr<Variable> throwable_v, const bool ignore_exc_table = false) {
+                auto throwable_obj = throwable_v->GetAs<type::ClassInstance>();
+
+                if(!ignore_exc_table) {
+                    auto &const_pool = frame.GetThisConstantPool();
+                    auto jumped_to_exc_table_entry = false;
+                    for(const auto active_exc: frame.GetAvailableExceptionTableEntries()) {
+                        auto const_class_item = const_pool.GetItemAt(active_exc.catch_exc_type_index, ConstantPoolTag::Class);
+                        if(const_class_item) {
+                            auto const_class_data = const_class_item->GetClassData();
+                            const auto class_name = const_class_data.processed_name;
+
+                            JAVM_LOG("[VM-THROW] Exception table entry class name: '%s'", StrUtils::ToUtf8(class_name).c_str());
+                            if(throwable_obj->GetClassType()->CanCastTo(class_name)) {
+                                JAVM_LOG("[VM-THROW] Jumping to exception table entry...");
+                                auto &pos = frame.GetCodePosition();
+                                pos = active_exc.handler_pc;
+                                frame.PushStack(throwable_v);
+                                return ExecutionResult::ContinueCodeExecution();
+                            }
+                        }
+                        else {
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid constant pool item");
+                        }
+                    }
+                }
+
+                const auto msg_ret = throwable_obj->CallInstanceMethod(u"getMessage", u"()Ljava/lang/String;", throwable_v);
+                const auto msg_str = StringUtils::GetValue(msg_ret.ret_var);
+                JAVM_LOG("[VM-THROW] Thrown message: '%s'", StrUtils::ToUtf8(msg_str).c_str());
+                inner_impl::NotifyExceptionThrownImpl(throwable_v);
+                return ExecutionResult::Thrown();
+            }
+            
+            static ExecutionResult ThrowException(ExecutionFrame &frame, const String &class_name, const String &msg = u"", const bool ignore_exc_table = false) {
+                JAVM_LOG("Throwing regularexcpt of type '%s'...", StrUtils::ToUtf8(class_name).c_str());
+                auto throwable_v = ExceptionUtils::CreateThrowable(class_name, msg);
+                if(throwable_v) {
+                    return ThrowExceptionInstance(frame, throwable_v, ignore_exc_table);
+                }
+                return ExecutionResult::InvalidState();
+            }
+
+            static inline ExecutionResult ThrowInternalException(ExecutionFrame &frame, const String &msg) {
+                const auto InternalExceptionType = u"java/lang/RuntimeException";
+
+                return ThrowException(frame, InternalExceptionType, u"[JAVM-INTERNAL] " + msg, true);
+            }
     };
 
     namespace exec_impl {
@@ -202,7 +250,7 @@ namespace javm::vm {
                                 frame.PushStack(class_v); \
                             } \
                             else { \
-                                ExceptionUtils::ThrowInternalException(u"Invalid or unsupported constant pool item"); \
+                                ExecutionUtils::ThrowInternalException(frame, u"Invalid or unsupported constant pool item"); \
                             } \
                             break; \
                         } \
@@ -211,7 +259,7 @@ namespace javm::vm {
                     } \
                 } \
                 else { \
-                    ExceptionUtils::ThrowInternalException(u"Invalid or unsupported constant pool item"); \
+                    ExecutionUtils::ThrowInternalException(frame, u"Invalid or unsupported constant pool item"); \
                 } \
             }
 
@@ -225,25 +273,29 @@ namespace javm::vm {
             #define _JAVM_ALOAD_INSTRUCTION(instr) \
             case Instruction::instr: { \
                     auto index_var = frame.PopStack(); \
-                    auto index_obj = index_var->GetAs<type::Integer>(); \
-                    const auto index = ptr::GetValue(index_obj); \
+                    const auto index = index_var->GetValue<type::Integer>(); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowInternalException(u"Negative array index"); \
+                        return ExecutionUtils::ThrowInternalException(frame, u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
                         if(array_var->CanGetAs<VariableType::Array>()) { \
                             auto array_obj = array_var->GetAs<type::Array>(); \
-                            auto inner_var = array_obj->GetAt(index); \
-                            if(inner_var) { \
-                                frame.PushStack(inner_var); \
+                            if(index < array_obj->GetLength()) { \
+                                auto inner_var = array_obj->GetAt(index); \
+                                if(inner_var) { \
+                                    frame.PushStack(inner_var); \
+                                } \
+                                else { \
+                                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid array index"); \
+                                } \
                             } \
                             else { \
-                                return ExceptionUtils::ThrowInternalException(u"Invalid array index"); \
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
                             } \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowInternalException(u"Invalid array item"); \
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
                         } \
                     } \
                     break; \
@@ -253,19 +305,23 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto value = frame.PopStack(); \
                     auto index_var = frame.PopStack(); \
-                    auto index_obj = index_var->GetAs<type::Integer>(); \
-                    const auto index = ptr::GetValue(index_obj); \
+                    const auto index = index_var->GetValue<type::Integer>(); \
                     if(index < 0) { \
-                        return ExceptionUtils::ThrowInternalException(u"Negative array index"); \
+                        return ExecutionUtils::ThrowInternalException(frame, u"Negative array index"); \
                     } \
                     else { \
                         auto array_var = frame.PopStack(); \
                         if(array_var->CanGetAs<VariableType::Array>()) { \
                             auto array_obj = array_var->GetAs<type::Array>(); \
-                            array_obj->SetAt(index, value); \
+                            if(index < array_obj->GetLength()) { \
+                                array_obj->SetAt(index, value); \
+                            } \
+                            else { \
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
+                            } \
                         } \
                         else { \
-                            return ExceptionUtils::ThrowInternalException(u"Invalid array index"); \
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array index"); \
                         } \
                     } \
                     break; \
@@ -287,7 +343,7 @@ namespace javm::vm {
                     auto var2 = frame.PopStack(); \
                     const auto var2_val = var2->GetValue<typ>(); \
                     if(var2_val == 0) { \
-                        return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/ArithmeticException", u"/ by zero"); \
+                        return ExecutionUtils::ThrowException(frame, u"java/lang/ArithmeticException", u"/ by zero"); \
                     } \
                     auto var1 = frame.PopStack(); \
                     const auto var1_val = var1->GetValue<typ>(); \
@@ -454,7 +510,7 @@ namespace javm::vm {
                     break;
                 }
                 case Instruction::BIPUSH: {
-                    const auto byte = frame.ReadCode<u8>();
+                    const auto byte = frame.ReadCode<i8>();
                     auto i_v = TypeUtils::NewPrimitiveVariable<type::Integer>(static_cast<type::Integer>(byte));
                     frame.PushStack(i_v);
                     break;
@@ -1219,12 +1275,12 @@ namespace javm::vm {
                                                 frame.PushStack(ret.ret_var);
                                             }
                                             else {
-                                                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
+                                                return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
                                             }
                                         }
                                     }
                                     else {
-                                        return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable 1: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                                        return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid this variable 1: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
                                     }
                                 }
                                 else if(this_var->CanGetAs<VariableType::Array>()) {
@@ -1242,25 +1298,25 @@ namespace javm::vm {
                                             frame.PushStack(ret.ret_var);
                                         }
                                         else {
-                                            return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
+                                            return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid return var: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(ret.ret_var)).c_str()));
                                         }
                                     }
                                 }
                                 else {
-                                    return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable 2: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                                    return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid this variable 2: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
                                 }
                                 JAVM_LOG("[invoke] Done '%s'::'%s'::'%s'...", StrUtils::ToUtf8(class_name).c_str(), StrUtils::ToUtf8(fn_name).c_str(), StrUtils::ToUtf8(fn_desc).c_str());
                             }
                             else {
-                                return ExceptionUtils::ThrowInternalException(u"Invalid const pool NAT item");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool NAT item");
                             }
                         }
                         else {
-                            return ExceptionUtils::ThrowInternalException(u"Invalid const pool Class item");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool Class item");
                         }
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid const pool FieldRef item");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid const pool FieldRef item");
                     }
 
                     break;
@@ -1366,15 +1422,15 @@ namespace javm::vm {
                                 frame.PushStack(arr_v);
                             }
                             else {
-                                JAVM_LOG("Invalid array type...");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid array type...");
                             }
                         }
                         else {
-                            JAVM_LOG("Array length < 0...");
+                            return ExecutionUtils::ThrowException(frame, u"java/lang/NegativeArraySizeException");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid length variable...");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid length variable...");
                     }
 
                     break;
@@ -1406,19 +1462,19 @@ namespace javm::vm {
                                     frame.PushStack(arr_v);
                                 }
                                 else {
-                                    JAVM_LOG("Array length < 0: %d", len_val);
+                                    return ExecutionUtils::ThrowException(frame, u"java/lang/NegativeArraySizeException");
                                 }
                             }
                             else {
-                                JAVM_LOG("Invalid length variable...");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid length variable...");
                             }
                         }
                         else {
-                            JAVM_LOG("Invalid array class type...");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array class type...");
                         }
                     }
                     else {
-                        JAVM_LOG("Invalid constant pool item...");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid constant pool item...");
                     }
 
                     break;
@@ -1436,21 +1492,16 @@ namespace javm::vm {
                         frame.PushStack(len_v);
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid array object");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid array object");
                     }
 
                     break;
                 }
                 case Instruction::ATHROW: {
-                    // TODO - proper exception handling?
                     auto throwable_var = frame.PopStack();
                     JAVM_LOG("[athrow] Throwable object: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(throwable_var)).c_str());
-                    auto throwable_obj = throwable_var->GetAs<type::ClassInstance>();
-                    const auto msg_ret = throwable_obj->CallInstanceMethod(u"getMessage", u"()Ljava/lang/String;", throwable_var);
-                    const auto msg_str = StringUtils::GetValue(msg_ret.ret_var);
-                    JAVM_LOG("[athrow] Thrown message: '%s'", StrUtils::ToUtf8(msg_str).c_str());
-                    inner_impl::NotifyExceptionThrownImpl(throwable_var);
-                    return ExecutionResult::Thrown();
+
+                    return ExecutionUtils::ThrowExceptionInstance(frame, throwable_var);
                 }
                 case Instruction::CHECKCAST: {
                     const auto index = BE(frame.ReadCode<u16>());
@@ -1471,7 +1522,7 @@ namespace javm::vm {
                                 frame.PushStack(var);
                             }
                             else {
-                                return ExceptionUtils::ThrowInternalException(u"Invalid object cast");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid object cast");
                             }
                         }
                         else if(var->CanGetAs<VariableType::NullObject>()) {
@@ -1487,19 +1538,19 @@ namespace javm::vm {
                                     frame.PushStack(var);
                                 }
                                 else {
-                                    return ExceptionUtils::ThrowInternalException(u"Invalid array cast");
+                                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid array cast");
                                 }
                             }
                             else {
-                                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Casting array of '%s' to non-array type '%s'...", StrUtils::ToUtf8(class_type->GetClassName()).c_str(), StrUtils::ToUtf8(class_name).c_str()));
+                                return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Casting array of '%s' to non-array type '%s'...", StrUtils::ToUtf8(class_type->GetClassName()).c_str(), StrUtils::ToUtf8(class_name).c_str()));
                             }
                         }
                         else {
-                            return ExceptionUtils::ThrowInternalException(u"Invalid var type");
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid var type");
                         }
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid constant pool item");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid constant pool item");
                     }
 
                     break;
@@ -1538,7 +1589,7 @@ namespace javm::vm {
                         monitor->Enter();
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid monitor enter");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid monitor enter");
                     }
 
                     break;
@@ -1551,7 +1602,7 @@ namespace javm::vm {
                         monitor->Leave();
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid monitor leave");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid monitor leave");
                     }
 
                     break;
@@ -1572,6 +1623,10 @@ namespace javm::vm {
                         for(u32 i = 0; i < dimensions; i++) {
                             auto len_var = frame.PopStack();
                             const auto len_val = len_var->GetValue<type::Integer>();
+                            if(len_val < 0) {
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/NegativeArraySizeException");
+                            }
+
                             lens.insert(lens.begin(), len_val);
                         }
                         Ptr<Variable> base_arr_v;
@@ -1595,7 +1650,7 @@ namespace javm::vm {
                                 PopulateArrayDimension(dimensions, lens, class_type, VariableType::Invalid, base_arr_v);
                             }
                             else {
-                                return ExceptionUtils::ThrowInternalException(u"Invalid array class type...");
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid array class type...");
                             }
                         }
 
@@ -1603,7 +1658,7 @@ namespace javm::vm {
                         frame.PushStack(base_arr_v);
                     }
                     else {
-                        return ExceptionUtils::ThrowInternalException(u"Invalid constant pool item...");
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid constant pool item...");
                     }
                     break;
                 }
@@ -1633,7 +1688,7 @@ namespace javm::vm {
                 }
                 
                 default:
-                    return ExceptionUtils::ThrowInternalException(u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
+                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
             }
             return ExecutionResult::ContinueCodeExecution();
         }
@@ -1678,43 +1733,43 @@ namespace javm::vm {
         }
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
+        ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
             for(auto &param: param_vars) {
                 // Longs and doubles take extra spaces
-                if(param->CanGetAs<VariableType::Long>() || param->CanGetAs<VariableType::Double>()) {
+                if(param->IsBigComputationalType()) {
                     max_locals_val++;
                 }
             }
-            ExecutionFrame frame(code_ptr, max_locals_val, pool);
+            ExecutionFrame frame(code_ptr, max_locals_val, exc_table, pool);
             SetLocalStaticParameters(frame, param_vars);
             return CommonDoExecute(frame);
         }
 
         template<typename ...JArgs>
-        inline ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, ConstantPool pool, JArgs &&...java_args) {
+        inline ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, JArgs &&...java_args) {
             const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
-            return ExecuteStaticCode(code_ptr, max_locals, pool, param_vars);
+            return ExecuteStaticCode(code_ptr, max_locals, exc_table, pool, param_vars);
         }
 
         template<typename ...JArgs>
-        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
+        ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, Ptr<Variable> this_var, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
             for(auto &param: param_vars) {
                 // Longs and doubles take extra spaces
-                if(param->CanGetAs<VariableType::Long>() || param->CanGetAs<VariableType::Double>()) {
+                if(param->IsBigComputationalType()) {
                     max_locals_val++;
                 }
             }
-            ExecutionFrame frame(code_ptr, max_locals_val, pool, this_var);
+            ExecutionFrame frame(code_ptr, max_locals_val, exc_table, pool, this_var);
             SetLocalParameters(frame, this_var, param_vars);
             return CommonDoExecute(frame);
         }
 
         template<typename ...JArgs>
-        inline ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args) {
+        inline ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, Ptr<Variable> this_var, ConstantPool pool, JArgs &&...java_args) {
             const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
-            return ExecuteCode(code_ptr, max_locals, this_var, pool, param_vars);
+            return ExecuteCode(code_ptr, max_locals, exc_table, this_var, pool, param_vars);
         }
 
     }

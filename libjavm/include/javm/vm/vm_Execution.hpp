@@ -79,11 +79,12 @@ namespace javm::vm {
             VariableStack stack;
             VariableStack locals;
             ConstantPool exec_pool;
+            std::vector<ExceptionTableEntry> exc_table;
             const u8 *code_ptr;
             u32 code_offset;
 
         public:
-            ExecutionFrame(const u8 *raw_code, const u16 max_locals, ConstantPool pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), code_ptr(raw_code), code_offset(0) {
+            ExecutionFrame(const u8 *raw_code, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), exc_table(exc_table), code_ptr(raw_code), code_offset(0) {
                 this->locals.ResetFill(this_var, max_locals);
             }
 
@@ -109,7 +110,7 @@ namespace javm::vm {
                 this->locals.SetAt(idx, var);
             }
 
-            Ptr<Variable> PopStack() {
+            inline Ptr<Variable> PopStack() {
                 return this->stack.Pop();
             }
 
@@ -136,6 +137,18 @@ namespace javm::vm {
 
             inline u32 &GetCodePosition() {
                 return this->code_offset;
+            }
+
+            inline std::vector<ExceptionTableEntry> GetAvailableExceptionTableEntries() {
+                JAVM_LOG("total count: %ld", this->exc_table.size());
+                std::vector<ExceptionTableEntry> active_excs;
+                for(const auto &exc_table_entry: this->exc_table) {
+                    JAVM_LOG("start: %d, cur: %d, end: %d", exc_table_entry.start_pc, this->code_offset, exc_table_entry.end_pc);
+                    if((exc_table_entry.start_pc <= this->code_offset) && (exc_table_entry.end_pc >= this->code_offset)) {
+                        active_excs.push_back(exc_table_entry);
+                    }
+                }
+                return active_excs;
             }
     };
 

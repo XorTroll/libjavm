@@ -27,6 +27,8 @@ namespace javm::vm {
             _JAVM_VAR_CTOR(Array, arr_val)
             _JAVM_VAR_CTOR(NullObject, null_val)
 
+            #undef _JAVM_VAR_CTOR
+
             template<VariableType Type>
             inline constexpr bool CanGetAs() {
                 return this->type == Type;

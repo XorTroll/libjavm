@@ -18,15 +18,15 @@ namespace javm::vm {
                 this->SetAttributes(attrs, pool);
             }
 
-            inline NameAndTypeData GetNameAndType() {
+            inline NameAndTypeData GetNameAndType() const {
                 return this->nat_data;
             }
 
-            inline String GetName() {
+            inline String GetName() const {
                 return this->nat_data.processed_name;
             }
 
-            inline String GetDescriptor() {
+            inline String GetDescriptor() const {
                 return this->nat_data.processed_desc;
             }
 
@@ -35,7 +35,7 @@ namespace javm::vm {
                 if(this->HasFlag<AccessFlags::Native>()) {
                     return true;
                 }
-                for(auto &attr: this->GetAttributes()) {
+                for(const auto &attr: this->GetAttributes()) {
                     if(attr.GetName() == AttributeType::Code) {
                         return true;
                     }
@@ -277,7 +277,7 @@ namespace javm::vm {
                                         if(is_sync) {
                                             this->monitor->Enter();
                                         }
-                                        const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), this->pool, param_vars);
+                                        const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this->pool, param_vars);
                                         if(is_sync) {
                                             this->monitor->Leave();
                                         }
@@ -600,7 +600,7 @@ namespace javm::vm {
 
             Ptr<Variable> GetFieldByUnsafeOffset(const type::Integer offset) {
                 for(u32 i = 0; i < this->member_fields.size(); i++) {
-                    auto &field = this->member_fields[i];
+                    const auto &field = this->member_fields[i];
                     if(i == static_cast<u32>(offset)) {
                         return this->GetField(field.GetName(), field.GetDescriptor());
                     }
@@ -610,7 +610,7 @@ namespace javm::vm {
 
             void SetFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
                 for(u32 i = 0; i < this->member_fields.size(); i++) {
-                    auto &field = this->member_fields[i];
+                    const auto &field = this->member_fields[i];
                     if(i == static_cast<u32>(offset)) {
                         this->SetField(field.GetName(), field.GetDescriptor(), var);
                     }
@@ -629,7 +629,7 @@ namespace javm::vm {
                             else if(fn.HasFlag<AccessFlags::Native>()) {
                                 return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/RuntimeException", u"Native instance method not implemented: " + this->class_type->GetClassName() + u" - " + name + descriptor);
                             }
-                            for(auto attr: fn.GetAttributes()) {
+                            for(const auto &attr: fn.GetAttributes()) {
                                 if(attr.GetName() == AttributeType::Code) {
                                     MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
                                     CodeAttributeData code(reader);
@@ -638,7 +638,7 @@ namespace javm::vm {
                                     if(is_sync) {
                                         this->monitor->Enter();
                                     }
-                                    const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), this_as_var, this->class_type->GetConstantPool(), param_vars);
+                                    const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this_as_var, this->class_type->GetConstantPool(), param_vars);
                                     if(is_sync) {
                                         this->monitor->Leave();
                                     }

@@ -87,6 +87,27 @@ namespace javm::native {
             return ExecutionResult::ReturnVariable(flags_v);
         }
 
+        ExecutionResult GetObjectHashCode(Ptr<Variable> var) {
+            // TODO: consider better hash code (not just the object pointer as an i32...)
+            if(var->CanGetAs<VariableType::ClassInstance>()) {
+                auto obj = var->GetAs<type::ClassInstance>();
+                const auto obj_ptr = reinterpret_cast<uintptr_t>(obj.get());
+                const auto hash_code = static_cast<type::Integer>(obj_ptr);
+                JAVM_LOG("[java.lang.Object.hashCode] called - hash code: %d", hash_code);
+                return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
+            }
+            else if(var->CanGetAs<VariableType::Array>()) {
+                auto array = var->GetAs<type::Array>();
+                auto array_obj = array->GetObjectInstance();
+                const auto array_obj_ptr = reinterpret_cast<uintptr_t>(array_obj.get());
+                const auto hash_code = static_cast<type::Integer>(array_obj_ptr);
+                JAVM_LOG("[java.lang.Object.hashCode] called - array hash code: %d", hash_code);
+                return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
+            }
+            
+            return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid hashcode variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(var)).c_str()));
+        }
+
         namespace java::lang::Object {
 
             ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
@@ -114,24 +135,7 @@ namespace javm::native {
             }
 
             ExecutionResult hashCode(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
-                // TODO: consider better hash code (not just the object pointer as an i32...)
-                if(this_var->CanGetAs<VariableType::ClassInstance>()) {
-                    auto this_obj = this_var->GetAs<type::ClassInstance>();
-                    const auto this_obj_ptr = reinterpret_cast<uintptr_t>(this_obj.get());
-                    const auto hash_code = static_cast<type::Integer>(this_obj_ptr);
-                    JAVM_LOG("[java.lang.Object.hashCode] called - hash code: %d", hash_code);
-                    return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
-                }
-                else if(this_var->CanGetAs<VariableType::Array>()) {
-                    auto this_array = this_var->GetAs<type::Array>();
-                    auto array_obj = this_array->GetObjectInstance();
-                    const auto array_obj_ptr = reinterpret_cast<uintptr_t>(array_obj.get());
-                    const auto hash_code = static_cast<type::Integer>(array_obj_ptr);
-                    JAVM_LOG("[java.lang.Object.hashCode] called - array hash code: %d", hash_code);
-                    return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(hash_code));
-                }
-                
-                return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
+                return GetObjectHashCode(this_var);
             }
 
             ExecutionResult notify(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
@@ -305,6 +309,10 @@ namespace javm::native {
                 auto time_ms = time.tv_sec * 1000 + time.tv_usec / 1000;
                 JAVM_LOG("[java.lang.System.currentTimeMillis] called - time ms: %ld", time_ms);
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(time_ms));
+            }
+
+            ExecutionResult identityHashCode(std::vector<Ptr<Variable>> param_vars) {
+                return GetObjectHashCode(param_vars[0]);
             }
 
         }
@@ -773,6 +781,40 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(this_var);
             }
 
+            ExecutionResult getStackTraceDepth(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+                const auto cur_stack = ThreadUtils::GetCurrentCallStack();
+                JAVM_LOG("[java.lang.Throwable.getStackTraceDepth] called - stack size: %ld", cur_stack.size());
+                return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(cur_stack.size()));
+            }
+
+            ExecutionResult getStackTraceElement(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+                const auto cur_stack = ThreadUtils::GetCurrentCallStack();
+
+                auto idx_v = param_vars[0];
+                const auto idx = idx_v->GetValue<type::Integer>();
+
+                const auto &call_info = cur_stack.at(idx);
+                auto stack_trace_elem_v = TypeUtils::NewClassVariable(rt::LocateClassType(u"java/lang/StackTraceElement"));
+                auto stack_trace_elem_obj = stack_trace_elem_v->GetAs<type::ClassInstance>();
+
+                const auto declaring_class_name = ClassUtils::MakeDotClassName(call_info.caller_type->GetClassName());
+                const auto method_name = call_info.invokable_name;
+                const auto file_name = u"dummy-file.java";
+                const auto line_no = 69;
+                JAVM_LOG("[java.lang.Throwable.getStackTraceElement] called - stack[%d] -> class_name: '%s', method_name: '%s', file_name: '%s', line_no: %d", idx, StrUtils::ToUtf8(declaring_class_name).c_str(), StrUtils::ToUtf8(method_name).c_str(), StrUtils::ToUtf8(file_name).c_str(), line_no);
+
+                auto declaring_class_name_v = StringUtils::CreateNew(declaring_class_name);
+                auto method_name_v = StringUtils::CreateNew(method_name);
+                auto file_name_v = StringUtils::CreateNew(file_name);
+                auto line_no_v = TypeUtils::NewPrimitiveVariable<type::Integer>(line_no);
+                const auto ret = stack_trace_elem_obj->CallConstructor(stack_trace_elem_v, u"(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V", declaring_class_name_v, method_name_v, file_name_v, line_no_v);
+                if(ret.IsInvalidOrThrown()) {
+                    return ret;
+                }
+
+                return ExecutionResult::ReturnVariable(stack_trace_elem_v);
+            }
+
         }
 
         namespace java::lang::String {
@@ -1015,6 +1057,7 @@ namespace javm::native {
         RegisterNativeClassMethod(u"java/lang/System", u"mapLibraryName", u"(Ljava/lang/String;)Ljava/lang/String;", &impl::java::lang::System::mapLibraryName);
         RegisterNativeClassMethod(u"java/lang/System", u"loadLibrary", u"(Ljava/lang/String;)V", &impl::java::lang::System::loadLibrary);
         RegisterNativeClassMethod(u"java/lang/System", u"currentTimeMillis", u"()J", &impl::java::lang::System::currentTimeMillis);
+        RegisterNativeClassMethod(u"java/lang/System", u"identityHashCode", u"(Ljava/lang/Object;)I", &impl::java::lang::System::identityHashCode);
         RegisterNativeClassMethod(u"java/lang/Class", u"registerNatives", u"()V", &impl::java::lang::Class::registerNatives);
         RegisterNativeClassMethod(u"java/lang/Class", u"getPrimitiveClass", u"(Ljava/lang/String;)Ljava/lang/Class;", &impl::java::lang::Class::getPrimitiveClass);
         RegisterNativeClassMethod(u"java/lang/Class", u"desiredAssertionStatus0", u"(Ljava/lang/Class;)Z", &impl::java::lang::Class::desiredAssertionStatus0);
@@ -1045,6 +1088,8 @@ namespace javm::native {
         RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"getByte", u"(J)B", &impl::sun::misc::Unsafe::getByte);
         RegisterNativeInstanceMethod(u"sun/misc/Unsafe", u"freeMemory", u"(J)V", &impl::sun::misc::Unsafe::freeMemory);
         RegisterNativeInstanceMethod(u"java/lang/Throwable", u"fillInStackTrace", u"(I)Ljava/lang/Throwable;", &impl::java::lang::Throwable::fillInStackTrace);
+        RegisterNativeInstanceMethod(u"java/lang/Throwable", u"getStackTraceDepth", u"()I", &impl::java::lang::Throwable::getStackTraceDepth);
+        RegisterNativeInstanceMethod(u"java/lang/Throwable", u"getStackTraceElement", u"(I)Ljava/lang/StackTraceElement;", &impl::java::lang::Throwable::getStackTraceElement);
         RegisterNativeInstanceMethod(u"java/lang/String", u"intern", u"()Ljava/lang/String;", &impl::java::lang::String::intern);
         RegisterNativeClassMethod(u"java/io/FileDescriptor", u"initIDs", u"()V", &impl::java::io::FileDescriptor::initIDs);
         RegisterNativeClassMethod(u"java/io/FileDescriptor", u"set", u"(I)J", &impl::java::io::FileDescriptor::set);
