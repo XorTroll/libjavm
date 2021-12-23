@@ -30,11 +30,12 @@ namespace javm::vm {
                 return this->nat_data.processed_desc;
             }
 
-            bool MethodIsInvokable() {
+            bool MethodIsInvokable() const {
                 // Is invokable: is native or has Code attribute
                 if(this->HasFlag<AccessFlags::Native>()) {
                     return true;
                 }
+
                 for(const auto &attr: this->GetAttributes()) {
                     if(attr.GetName() == AttributeType::Code) {
                         return true;
@@ -56,7 +57,7 @@ namespace javm::vm {
                 this->var = new_var;
             }
 
-            inline Ptr<Variable> GetVariable() {
+            inline Ptr<Variable> GetVariable() const {
                 return this->var;
             }
 
@@ -120,7 +121,7 @@ namespace javm::vm {
         public:
             ClassType(const String &name, const String &super_name, const std::vector<String> &interface_names, const std::vector<ClassBaseField> &fields, const std::vector<ClassBaseField> &invokables, const u16 flags, ConstantPool pool) : MonitoredItem(), class_name(name), super_class_name(super_name), interface_class_names(interface_names), fields(fields), invokables(invokables), static_block_called(false), static_block_enabled(true), pool(pool) {
                 this->SetAccessFlags(flags);
-                for(auto &field: this->fields) {
+                for(const auto &field: this->fields) {
                     if(field.HasFlag<AccessFlags::Static>()) {
                         // Push a copy, this kind of field can be got/set
                         // Since static fields are used from the class and not the instance, the type needs to hold 'editable' static fields
@@ -171,20 +172,16 @@ namespace javm::vm {
             type::Integer GetRawFieldUnsafeOffset(const String &name, const String &descriptor) {
                 u32 static_count = 0;
                 for(u32 i = 0; i < this->fields.size(); i++) {
-                    auto &field = this->fields[i];
+                    const auto &field = this->fields.at(i);
                     if(field.HasFlag<AccessFlags::Static>()) {
-                        if(field.GetName() == name) {
-                            if(field.GetDescriptor() == descriptor) {
-                                return static_count;
-                            }
+                        if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                            return static_count;
                         }
                         static_count++;
                     }
                     else {
-                        if(field.GetName() == name) {
-                            if(field.GetDescriptor() == descriptor) {
-                                return i - static_count;
-                            }
+                        if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                            return i - static_count;
                         }
                     }
                 }
@@ -192,11 +189,9 @@ namespace javm::vm {
             }
 
             bool IsRawFieldStatic(const String &name, const String &descriptor) {
-                for(auto &field: this->fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            return field.HasFlag<AccessFlags::Static>();
-                        }
+                for(const auto &field: this->fields) {
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        return field.HasFlag<AccessFlags::Static>();
                     }
                 }
                 return false;
@@ -221,16 +216,21 @@ namespace javm::vm {
                         }
                     }
                 }
+
                 // Check if we can call the static initializer
                 if(this->static_block_enabled) {
-                    // Just in case, call the static initializer if it hasn't been called yet
+                    // Call the static initializer if it hasn't been called yet
                     if(!this->static_block_called) {
                         this->static_block_called = true;
-                        if(!this->HasClassMethod(u"<clinit>", u"()V")) {
+
+                        constexpr auto StaticInitializerMethodName = u"<clinit>";
+                        constexpr auto StaticInitializerMethodDescriptor = u"()V";
+                        if(!this->HasClassMethod(StaticInitializerMethodName, StaticInitializerMethodDescriptor)) {
                             return ExecutionResult::Void();
                         }
+
                         JAVM_LOG("[clinit] Calling static init of '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
-                        const auto ret = this->CallClassMethod(u"<clinit>", u"()V");
+                        const auto ret = this->CallClassMethod(StaticInitializerMethodName, StaticInitializerMethodDescriptor);
                         JAVM_LOG("[clinit] Done '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
                         return ret;
                     }
@@ -256,39 +256,35 @@ namespace javm::vm {
                 if(ret.IsInvalidOrThrown()) {
                     return ret;
                 }
-                for(auto &fn: this->invokables) {
-                    if(fn.HasFlag<AccessFlags::Static>()) {
-                        if(fn.GetName() == name) {
-                            if(fn.GetDescriptor() == descriptor) {
-                                if(native::HasNativeClassMethod(this->class_name, name, descriptor)) {
-                                    auto native_fn = native::FindNativeClassMethod(this->class_name, name, descriptor);
-                                    return native_fn(param_vars);
+                for(const auto &fn: this->invokables) {
+                    if(fn.HasFlag<AccessFlags::Static>() && (fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
+                        if(native::HasNativeClassMethod(this->class_name, name, descriptor)) {
+                            auto native_fn = native::FindNativeClassMethod(this->class_name, name, descriptor);
+                            return native_fn(param_vars);
+                        }
+                        else if(fn.HasFlag<AccessFlags::Native>()) {
+                            // TODO: throw elsewhere? currently try-catch blocks can't catch this...
+                            return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_name) + u"." + name + descriptor);
+                        }
+                        for(const auto &attr: fn.GetAttributes()) {
+                            if(attr.GetName() == AttributeType::Code) {
+                                MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
+                                CodeAttributeData code(reader);
+                                JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", StrUtils::ToUtf8(name).c_str(), StrUtils::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
+                                auto self_type = this->FindSelf();
+                                const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
+                                ExecutionScopeGuard guard(self_type, name, descriptor);
+                                if(is_sync) {
+                                    this->monitor->Enter();
                                 }
-                                else if(fn.HasFlag<AccessFlags::Native>()) {
-                                    // TODO: throw elsewhere? currently try-catch blocks can't catch this...
-                                    return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_name) + u"." + name + descriptor);
+                                const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this->pool, param_vars);
+                                if(is_sync) {
+                                    this->monitor->Leave();
                                 }
-                                for(auto attr: fn.GetAttributes()) {
-                                    if(attr.GetName() == AttributeType::Code) {
-                                        MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
-                                        CodeAttributeData code(reader);
-                                        JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", StrUtils::ToUtf8(name).c_str(), StrUtils::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
-                                        auto self_type = this->FindSelf();
-                                        const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
-                                        ExecutionScopeGuard guard(self_type, name, descriptor);
-                                        if(is_sync) {
-                                            this->monitor->Enter();
-                                        }
-                                        const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this->pool, param_vars);
-                                        if(is_sync) {
-                                            this->monitor->Leave();
-                                        }
-                                        if(ret.Is<ExecutionStatus::Thrown>()) {
-                                            guard.NotifyThrown();
-                                        }
-                                        return ret;
-                                    }
+                                if(ret.Is<ExecutionStatus::Thrown>()) {
+                                    guard.NotifyThrown();
                                 }
+                                return ret;
                             }
                         }
                     }
@@ -303,15 +299,12 @@ namespace javm::vm {
             }
 
             bool HasClassMethod(const String &name, const String &descriptor) {
-                for(auto &fn: this->invokables) {
-                    if(fn.HasFlag<AccessFlags::Static>()) {
-                        if(fn.GetName() == name) {
-                            if(fn.GetDescriptor() == descriptor) {
-                                return true;
-                            }
-                        }
+                for(const auto &fn: this->invokables) {
+                    if(fn.HasFlag<AccessFlags::Static>() && (fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
+                        return true;
                     }
                 }
+
                 return false;
             }
 
@@ -327,27 +320,28 @@ namespace javm::vm {
                 if(ret.IsInvalidOrThrown()) {
                     return nullptr;
                 }
+
                 for(auto &field: this->static_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            if(field.HasVariable()) {
-                                return field.GetVariable();
-                            }
-                            else {
-                                auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
-                                auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
-                                field.SetVariable(default_var);
-                                return default_var;
-                            }
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        if(field.HasVariable()) {
+                            return field.GetVariable();
+                        }
+                        else {
+                            auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
+                            auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
+                            field.SetVariable(default_var);
+                            return default_var;
                         }
                     }
                 }
+
                 if(this->HasSuperClass()) {
                     auto super_class_type = this->GetSuperClassType();
                     if(super_class_type) {
                         return super_class_type->GetStaticField(name, descriptor);
                     }
                 }
+
                 return nullptr;
             }
 
@@ -357,48 +351,44 @@ namespace javm::vm {
                 if(ret.IsInvalidOrThrown()) {
                     return;
                 }
+
                 for(auto &field: this->static_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            field.SetVariable(var);
-                        }
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        field.SetVariable(var);
                     }
                 }
             }
 
             bool HasStaticField(const String &name, const String &descriptor) {
-                for(auto &field: this->static_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            return true;
-                        }
+                for(const auto &field: this->static_fields) {
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        return true;
                     }
                 }
+
                 if(this->HasSuperClass()) {
                     auto super_class_type = this->GetSuperClassType();
                     if(super_class_type) {
                         return super_class_type->HasStaticField(name, descriptor);
                     }
                 }
+
                 return false;
             }
 
             Ptr<Variable> GetStaticFieldByUnsafeOffset(const type::Integer offset) {
-                for(u32 i = 0; i < this->static_fields.size(); i++) {
-                    auto &field = this->static_fields[i];
-                    if(i == static_cast<u32>(offset)) {
-                        return this->GetStaticField(field.GetName(), field.GetDescriptor());
-                    }
+                if(offset < this->static_fields.size()) {
+                    const auto &field = this->static_fields.at(offset);
+                    return this->GetStaticField(field.GetName(), field.GetDescriptor());
                 }
+
                 return nullptr;
             }
 
             void SetStaticFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
-                for(u32 i = 0; i < this->static_fields.size(); i++) {
-                    auto &field = this->static_fields[i];
-                    if(i == static_cast<u32>(offset)) {
-                        this->SetStaticField(field.GetName(), field.GetDescriptor(), var);
-                    }
+                if(offset < this->static_fields.size()) {
+                    const auto &field = this->static_fields.at(offset);
+                    this->SetStaticField(field.GetName(), field.GetDescriptor(), var);
                 }
             }
 
@@ -407,7 +397,7 @@ namespace javm::vm {
                     return true;
                 }
 
-                for(auto &intf: this->interface_class_names) {
+                for(const auto &intf: this->interface_class_names) {
                     if(ClassUtils::EqualClassNames(class_name, intf)) {
                         return true;
                     }
@@ -437,20 +427,20 @@ namespace javm::vm {
                         this->super_class_instance = ptr::New<ClassInstance>(super_class_type);
                     }
                 }
-                for(auto &intf_name: type->GetInterfaceClassNames()) {
+                for(const auto &intf_name: type->GetInterfaceClassNames()) {
                     auto intf_type = inner_impl::LocateClassTypeImpl(intf_name);
                     if(intf_type) {
                         auto intf_instance = ptr::New<ClassInstance>(intf_type);
                         this->interface_instances.push_back(intf_instance);
                     }
                 }
-                for(auto &field: type->GetFields()) {
+                for(const auto &field: type->GetFields()) {
                     if(!field.HasFlag<AccessFlags::Static>()) {
                         // Create non-static get/set fields
                         this->member_fields.emplace_back(field.GetNameAndType(), field.GetAccessFlags(), field.GetAttributes(), type->GetConstantPool());
                     }
                 }
-                for(auto &fn: type->GetInvokables()) {
+                for(const auto &fn: type->GetInvokables()) {
                     if(!fn.HasFlag<AccessFlags::Static>()) {
                         this->methods.emplace_back(fn.GetNameAndType(), fn.GetAccessFlags(), fn.GetAttributes(), type->GetConstantPool());
                     }
@@ -478,7 +468,7 @@ namespace javm::vm {
                     return this_as_obj;
                 }
                 // Check interfaces - if the class name refers to an interface, then we should be implementing the method
-                for(auto &intf: this->class_type->GetInterfaceClassNames()) {
+                for(const auto &intf: this->class_type->GetInterfaceClassNames()) {
                     if(ClassUtils::EqualClassNames(class_name, intf)) {
                         return this_as_obj;
                     }
@@ -493,24 +483,17 @@ namespace javm::vm {
                 // This means that the method belongs to the instance or to an implemented version of it
                 if(ClassUtils::EqualClassNames(class_name, this->class_type->GetClassName())) {
                     // First: check self
-                    for(auto &method: this->methods) {
-                        if(method.GetName() == fn_name) {
-                            if(method.GetDescriptor() == fn_descriptor) {
-                                if(method.MethodIsInvokable()) {
-                                    return this_as_obj;
-                                }
-                            }
+                    for(const auto &method: this->methods) {
+                        if((method.GetName() == fn_name) && (method.GetDescriptor() == fn_descriptor) && method.MethodIsInvokable()) {
+                            return this_as_obj;
                         }
                     }
+
                     // Next: check interfaces
-                    for(auto &intf: this->interface_instances) {
-                        for(auto &intf_method: intf->GetMethods()) {
-                            if(intf_method.GetName() == fn_name) {
-                                if(intf_method.GetDescriptor() == fn_descriptor) {
-                                    if(intf_method.MethodIsInvokable()) {
-                                        return intf;
-                                    }
-                                }
+                    for(const auto &intf: this->interface_instances) {
+                        for(const auto &intf_method: intf->GetMethods()) {
+                            if((intf_method.GetName() == fn_name) && (intf_method.GetDescriptor() == fn_descriptor) && intf_method.MethodIsInvokable()) {
+                                return intf;
                             }
                         }
                     }
@@ -524,25 +507,16 @@ namespace javm::vm {
 
             Ptr<ClassInstance> GetInstanceByClassTypeAndMethodVirtualInterface(Ptr<ClassInstance> this_as_obj, const String &class_name, const String &fn_name, const String &fn_descriptor) {
                 // First: check self
-                for(auto &method: this->methods) {
-                    if(method.GetName() == fn_name) {
-                        if(method.GetDescriptor() == fn_descriptor) {
-                            if(method.MethodIsInvokable()) {
-                                return this_as_obj;
-                            }
-                        }
+                for(const auto &method: this->methods) {
+                    if((method.GetName() == fn_name) && (method.GetDescriptor() == fn_descriptor) && method.MethodIsInvokable()) {
+                        return this_as_obj;
                     }
                 }
                 // Next: check interfaces
-                for(auto &intf: this->interface_instances) {
-                    for(auto &intf_method: intf->GetMethods()) {
-                        
-                        if(intf_method.GetName() == fn_name) {
-                            if(intf_method.GetDescriptor() == fn_descriptor) {
-                                if(intf_method.MethodIsInvokable()) {
-                                    return intf;
-                                }
-                            }
+                for(const auto &intf: this->interface_instances) {
+                    for(const auto &intf_method: intf->GetMethods()) {
+                        if((intf_method.GetName() == fn_name) && (intf_method.GetDescriptor() == fn_descriptor) && intf_method.MethodIsInvokable()) {
+                            return intf;
                         }
                     }
                 }
@@ -555,17 +529,15 @@ namespace javm::vm {
 
             Ptr<Variable> GetField(const String &name, const String &descriptor) {
                 for(auto &field: this->member_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            if(field.HasVariable()) {
-                                return field.GetVariable();
-                            }
-                            else {
-                                auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
-                                auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
-                                field.SetVariable(default_var);
-                                return default_var;
-                            }
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        if(field.HasVariable()) {
+                            return field.GetVariable();
+                        }
+                        else {
+                            auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
+                            auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
+                            field.SetVariable(default_var);
+                            return default_var;
                         }
                     }
                 }
@@ -577,82 +549,76 @@ namespace javm::vm {
 
             void SetField(const String &name, const String &descriptor, Ptr<Variable> var) {
                 for(auto &field: this->member_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            field.SetVariable(var);
-                            return;
-                        }
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        field.SetVariable(var);
+                        return;
                     }
                 }
+
                 if(this->HasSuperClass()) {
                     return this->super_class_instance->SetField(name, descriptor, var);
                 }
             }
 
             bool HasField(const String &name, const String &descriptor) {
-                for(auto &field: this->member_fields) {
-                    if(field.GetName() == name) {
-                        if(field.GetDescriptor() == descriptor) {
-                            return true;
-                        }
+                for(const auto &field: this->member_fields) {
+                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
+                        return true;
                     }
                 }
+
                 if(this->HasSuperClass()) {
                     return this->super_class_instance->HasField(name, descriptor);
                 }
+
                 return false;
             }
 
             Ptr<Variable> GetFieldByUnsafeOffset(const type::Integer offset) {
-                for(u32 i = 0; i < this->member_fields.size(); i++) {
-                    const auto &field = this->member_fields[i];
-                    if(i == static_cast<u32>(offset)) {
-                        return this->GetField(field.GetName(), field.GetDescriptor());
-                    }
+                if(offset < this->member_fields.size()) {
+                    const auto &field = this->member_fields.at(offset);
+                    return this->GetField(field.GetName(), field.GetDescriptor());
                 }
+
                 return nullptr;
             }
 
             void SetFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
-                for(u32 i = 0; i < this->member_fields.size(); i++) {
-                    const auto &field = this->member_fields[i];
-                    if(i == static_cast<u32>(offset)) {
-                        this->SetField(field.GetName(), field.GetDescriptor(), var);
-                    }
+                if(offset < this->member_fields.size()) {
+                    const auto &field = this->member_fields.at(offset);
+                    this->SetField(field.GetName(), field.GetDescriptor(), var);
                 }
             }
 
             ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, const std::vector<Ptr<Variable>> &param_vars) {
-                for(auto &fn: this->methods) {
-                    if(fn.GetName() == name) {
-                        if(fn.GetDescriptor() == descriptor) {
-                            const auto class_name = this->class_type->GetClassName();
-                            if(native::HasNativeInstanceMethod(class_name, name, descriptor)) {
-                                auto native_fn = native::FindNativeInstanceMethod(class_name, name, descriptor);
-                                return native_fn(this_as_var, param_vars);
-                            }
-                            else if(fn.HasFlag<AccessFlags::Native>()) {
-                                // TODO: throw elsewhere? currently try-catch blocks can't catch this...
-                                return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_type->GetClassName()) + u"." + name + descriptor);
-                            }
-                            for(const auto &attr: fn.GetAttributes()) {
-                                if(attr.GetName() == AttributeType::Code) {
-                                    MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
-                                    CodeAttributeData code(reader);
-                                    const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
-                                    ExecutionScopeGuard guard(this->class_type, name, descriptor);
-                                    if(is_sync) {
-                                        this->monitor->Enter();
-                                    }
-                                    const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this_as_var, this->class_type->GetConstantPool(), param_vars);
-                                    if(is_sync) {
-                                        this->monitor->Leave();
-                                    }
-                                    if(ret.Is<ExecutionStatus::Thrown>()) {
-                                        guard.NotifyThrown();
-                                    }
-                                    return ret;
+                for(const auto &fn: this->methods) {
+                    if((fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
+                        const auto class_name = this->class_type->GetClassName();
+                        if(native::HasNativeInstanceMethod(class_name, name, descriptor)) {
+                            auto native_fn = native::FindNativeInstanceMethod(class_name, name, descriptor);
+                            return native_fn(this_as_var, param_vars);
+                        }
+                        else if(fn.HasFlag<AccessFlags::Native>()) {
+                            // TODO: throw elsewhere? currently try-catch blocks can't catch this...
+                            return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_type->GetClassName()) + u"." + name + descriptor);
+                        }
+                        for(const auto &attr: fn.GetAttributes()) {
+                            if(attr.GetName() == AttributeType::Code) {
+                                MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
+                                CodeAttributeData code(reader);
+                                const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
+                                ExecutionScopeGuard guard(this->class_type, name, descriptor);
+                                if(is_sync) {
+                                    this->monitor->Enter();
                                 }
+                                const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this_as_var, this->class_type->GetConstantPool(), param_vars);
+                                if(is_sync) {
+                                    this->monitor->Leave();
+                                }
+                                if(ret.Is<ExecutionStatus::Thrown>()) {
+                                    guard.NotifyThrown();
+                                }
+                                return ret;
                             }
                         }
                     }

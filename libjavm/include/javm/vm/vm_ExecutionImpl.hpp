@@ -79,7 +79,7 @@ namespace javm::vm {
                 if(!ignore_exc_table) {
                     auto &const_pool = frame.GetThisConstantPool();
                     JAVM_LOG("[VM-THROW] Exception table entry size: %ld", frame.GetAvailableExceptionTableEntries().size());
-                    for(const auto active_exc: frame.GetAvailableExceptionTableEntries()) {
+                    for(const auto &active_exc: frame.GetAvailableExceptionTableEntries()) {
                         auto const_class_item = const_pool.GetItemAt(active_exc.catch_exc_type_index, ConstantPoolTag::Class);
                         if(const_class_item) {
                             auto const_class_data = const_class_item->GetClassData();
@@ -117,15 +117,13 @@ namespace javm::vm {
             }
 
             static inline ExecutionResult ThrowInternalException(ExecutionFrame &frame, const String &msg) {
-                const auto InternalExceptionType = u"java/lang/RuntimeException";
-
-                return ThrowException(frame, InternalExceptionType, u"[JAVM-INTERNAL] " + msg, true);
+                return ThrowException(frame, u"java/lang/InternalError", u"[JAVM-INTERNAL] " + msg, true);
             }
     };
 
     namespace exec_impl {
 
-        void PopulateArrayDimension(const u32 dimensions, const std::vector<u32> &lengths, Ptr<ClassType> class_type, const VariableType type, Ptr<Variable> &cur_array, const u32 cur_dimension_idx = 0) {
+        void CreatePopulateMultidimensionalArray(const u32 dimensions, const std::vector<u32> &lengths, Ptr<ClassType> class_type, const VariableType type, Ptr<Variable> &cur_array, const u32 cur_dimension_idx = 0) {
             const auto dim_len = lengths.at(cur_dimension_idx);
             if(cur_dimension_idx == 0) {
                 if(class_type) {
@@ -134,7 +132,7 @@ namespace javm::vm {
                 else {
                     cur_array = TypeUtils::NewArray(dim_len, type, dimensions - cur_dimension_idx);
                 }
-                PopulateArrayDimension(dimensions, lengths, class_type, type, cur_array, cur_dimension_idx + 1);
+                CreatePopulateMultidimensionalArray(dimensions, lengths, class_type, type, cur_array, cur_dimension_idx + 1);
             }
             else if(cur_dimension_idx < (dimensions - 1)) {
                 auto cur_array_obj = cur_array->GetAs<type::Array>();
@@ -147,7 +145,7 @@ namespace javm::vm {
                         array = TypeUtils::NewArray(dim_len, type, dimensions - cur_dimension_idx);
                     }
 
-                    PopulateArrayDimension(dimensions, lengths, class_type, type, array, cur_dimension_idx + 1);
+                    CreatePopulateMultidimensionalArray(dimensions, lengths, class_type, type, array, cur_dimension_idx + 1);
                     cur_array_obj->SetAt(i, array);
                 }
             }
@@ -274,33 +272,38 @@ namespace javm::vm {
             #define _JAVM_ALOAD_INSTRUCTION(instr) \
             case Instruction::instr: { \
                     auto index_var = frame.PopStack(); \
-                    const auto index = index_var->GetValue<type::Integer>(); \
-                    if(index < 0) { \
-                        return ExecutionUtils::ThrowInternalException(frame, u"Negative array index"); \
-                    } \
-                    else { \
-                        auto array_var = frame.PopStack(); \
-                        if(array_var->CanGetAs<VariableType::Array>()) { \
-                            auto array_obj = array_var->GetAs<type::Array>(); \
-                            if(index < array_obj->GetLength()) { \
-                                auto inner_var = array_obj->GetAt(index); \
-                                if(inner_var) { \
-                                    frame.PushStack(inner_var); \
-                                } \
-                                else { \
-                                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid array index"); \
-                                } \
-                            } \
-                            else { \
-                                return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
-                            } \
-                        } \
-                        else if(array_var->IsNull()) { \
-                            return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                    if(index_var->CanGetAs<VariableType::Integer>()) { \
+                        const auto index = index_var->GetValue<type::Integer>(); \
+                        if(index < 0) { \
+                            return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
                         } \
                         else { \
-                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
+                            auto array_var = frame.PopStack(); \
+                            if(array_var->CanGetAs<VariableType::Array>()) { \
+                                auto array_obj = array_var->GetAs<type::Array>(); \
+                                if(index < array_obj->GetLength()) { \
+                                    auto inner_var = array_obj->GetAt(index); \
+                                    if(inner_var) { \
+                                        frame.PushStack(inner_var); \
+                                    } \
+                                    else { \
+                                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid array index"); \
+                                    } \
+                                } \
+                                else { \
+                                    return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
+                                } \
+                            } \
+                            else if(array_var->IsNull()) { \
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                            } \
+                            else { \
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
+                            } \
                         } \
+                    } \
+                    else { \
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid index var"); \
                     } \
                     break; \
                 }
@@ -309,27 +312,34 @@ namespace javm::vm {
             case Instruction::instr: { \
                     auto value = frame.PopStack(); \
                     auto index_var = frame.PopStack(); \
-                    const auto index = index_var->GetValue<type::Integer>(); \
-                    if(index < 0) { \
-                        return ExecutionUtils::ThrowInternalException(frame, u"Negative array index"); \
-                    } \
-                    else { \
-                        auto array_var = frame.PopStack(); \
-                        if(array_var->CanGetAs<VariableType::Array>()) { \
-                            auto array_obj = array_var->GetAs<type::Array>(); \
-                            if(index < array_obj->GetLength()) { \
-                                array_obj->SetAt(index, value); \
-                            } \
-                            else { \
-                                return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
-                            } \
-                        } \
-                        else if(array_var->IsNull()) { \
-                            return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                    if(index_var->CanGetAs<VariableType::Integer>()) { \
+                        const auto index = index_var->GetValue<type::Integer>(); \
+                        if(index < 0) { \
+                            return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
                         } \
                         else { \
-                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
+                            auto array_var = frame.PopStack(); \
+                            if(array_var->CanGetAs<VariableType::Array>()) { \
+                                auto array_obj = array_var->GetAs<type::Array>(); \
+                                if(index < array_obj->GetLength()) { \
+                                    if(!array_obj->SetAt(index, value)) { \
+                                        return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayStoreException", TypeUtils::FormatVariableType(value)); \
+                                    } \
+                                } \
+                                else { \
+                                    return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
+                                } \
+                            } \
+                            else if(array_var->IsNull()) { \
+                                return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                            } \
+                            else { \
+                                return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
+                            } \
                         } \
+                    } \
+                    else { \
+                        return ExecutionUtils::ThrowInternalException(frame, u"Invalid index var"); \
                     } \
                     break; \
                 }
@@ -990,6 +1000,7 @@ namespace javm::vm {
                 }
                 // TODO: TABLESWITCH
                 case Instruction::LOOKUPSWITCH: {
+                    // TODO: maybe a slight cleanup of this implementation?
                     auto prev_pos = pos - 1;
                     const auto orig_prev_pos = prev_pos;
                     if((prev_pos % 4) != 0) {
@@ -1515,6 +1526,9 @@ namespace javm::vm {
                         auto len_v = TypeUtils::NewPrimitiveVariable<type::Integer>(arr_len);
                         frame.PushStack(len_v);
                     }
+                    else if(arr_var->IsNull()) {
+                        return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException");
+                    }
                     else {
                         return ExecutionUtils::ThrowInternalException(frame, u"Invalid array object");
                     }
@@ -1524,6 +1538,10 @@ namespace javm::vm {
                 case Instruction::ATHROW: {
                     auto throwable_var = frame.PopStack();
                     JAVM_LOG("[athrow] Throwable object: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(throwable_var)).c_str());
+
+                    if(throwable_var->IsNull()) {
+                        return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException");
+                    }
 
                     return ExecutionUtils::ThrowExceptionInstance(frame, throwable_var);
                 }
@@ -1659,7 +1677,7 @@ namespace javm::vm {
                             const auto type = TypeTraits::GetFieldDescriptorType(base_type_name);
                             JAVM_LOG("[multianewarray] Primitive type name: '%s'", StrUtils::ToUtf8(TypeTraits::GetNameForPrimitiveType(type)).c_str());
 
-                            PopulateArrayDimension(dimensions, lens, nullptr, type, base_arr_v);
+                            CreatePopulateMultidimensionalArray(dimensions, lens, nullptr, type, base_arr_v);
                         }
                         else {
                             JAVM_LOG("[multianewarray] Full array type name: '%s'", StrUtils::ToUtf8(class_name).c_str());
@@ -1671,7 +1689,7 @@ namespace javm::vm {
                                     return ret;
                                 }
 
-                                PopulateArrayDimension(dimensions, lens, class_type, VariableType::Invalid, base_arr_v);
+                                CreatePopulateMultidimensionalArray(dimensions, lens, class_type, VariableType::Invalid, base_arr_v);
                             }
                             else {
                                 return ExecutionUtils::ThrowInternalException(frame, u"Invalid array class type...");
@@ -1711,13 +1729,17 @@ namespace javm::vm {
                     break;
                 }
                 case Instruction::JSR_W: {
-                    // Old instructions, not implementing them
-                    // TODO: throw?
+                    const auto branch = BE(frame.ReadCode<i32>());
+                    auto pos_v = TypeUtils::NewPrimitiveVariable<type::Integer>(pos);
+                    frame.PushStack(pos_v);
+
+                    pos = orig_pos;
+                    pos += branch;
                     break;
                 }
                 
                 default:
-                    return ExecutionUtils::ThrowInternalException(frame, u"Invalid or unimplemented instruction: " + StrUtils::From(static_cast<u32>(inst)));
+                    return ExecutionUtils::ThrowInternalException(frame, StrUtils::Format("Invalid or unimplemented instruction: 0x%X", static_cast<u32>(inst)));
             }
             return ExecutionResult::ContinueCodeExecution();
         }
@@ -1728,7 +1750,7 @@ namespace javm::vm {
 
         inline void SetLocalParametersImpl(ExecutionFrame &frame, const std::vector<Ptr<Variable>> &param_vars, const u32 i_base) {
             auto i = i_base;
-            for(auto param: param_vars) {
+            for(const auto &param: param_vars) {
                 frame.SetLocalAt(i, param);
                 i++;
                 if(param->IsBigComputationalType()) {
@@ -1764,7 +1786,7 @@ namespace javm::vm {
         template<typename ...JArgs>
         ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
-            for(auto &param: param_vars) {
+            for(const auto &param: param_vars) {
                 // Longs and doubles take extra spaces
                 if(param->IsBigComputationalType()) {
                     max_locals_val++;
@@ -1784,7 +1806,7 @@ namespace javm::vm {
         template<typename ...JArgs>
         ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, Ptr<Variable> this_var, ConstantPool pool, const std::vector<Ptr<Variable>> &param_vars) {
             auto max_locals_val = max_locals;
-            for(auto &param: param_vars) {
+            for(const auto &param: param_vars) {
                 // Longs and doubles take extra spaces
                 if(param->IsBigComputationalType()) {
                     max_locals_val++;

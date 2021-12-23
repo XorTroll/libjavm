@@ -12,31 +12,31 @@ namespace javm::vm {
         public:
             Monitor() : lock(native::CreateRecursiveMutex()), cond_var(native::CreateConditionVariable()) {}
 
-            void Enter() {
+            inline void Enter() {
                 this->lock->Lock();
             }
 
-            void Leave() {
+            inline void Leave() {
                 this->lock->Unlock();
             }
 
-            void Wait() {
+            inline void Wait() {
                 this->cond_var->Wait(this->lock);
             }
 
-            void WaitFor(const type::Long ms) {
+            inline void WaitFor(const type::Long ms) {
                 this->cond_var->WaitFor(this->lock, ms);
             }
 
-            void Notify() {
+            inline void Notify() {
                 this->cond_var->Notify();
             }
 
-            void NotifyAll() {
+            inline void NotifyAll() {
                 this->cond_var->NotifyAll();
             }
 
-            void ForceUnlock() {
+            inline void ForceUnlock() {
                 this->lock->TryLock();
                 this->lock->Unlock();
             }

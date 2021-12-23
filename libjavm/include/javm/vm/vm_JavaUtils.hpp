@@ -131,7 +131,7 @@ namespace javm::vm {
 
             static Ptr<Variable> CheckInternValue(const String &native_str) {
                 for(auto &var: inner_impl::GetInternStringTable()) {
-                    auto value_val = GetValue(var);
+                    const auto value_val = GetValue(var);
                     if(native_str == value_val) {
                         return var;
                     }
@@ -140,7 +140,7 @@ namespace javm::vm {
             }
             
             static Ptr<Variable> CheckIntern(Ptr<Variable> str_var) {
-                auto value = GetValue(str_var);
+                const auto value = GetValue(str_var);
                 auto intern_v = CheckInternValue(value);
                 if(intern_v) {
                     return intern_v;
@@ -171,6 +171,7 @@ namespace javm::vm {
                     }
                     Assign(str_var, native_str);
                 }
+
                 // String isn't cached, so cache it now
                 inner_impl::AddInternString(str_var);
 

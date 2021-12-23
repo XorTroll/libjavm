@@ -169,7 +169,7 @@ namespace javm::vm {
 
         public:
             static bool IsPrimitiveType(const String &class_name) {
-                for(auto &[type, name]: PrimitiveTypeNameTable) {
+                for(const auto &[type, name]: PrimitiveTypeNameTable) {
                     if(name == class_name) {
                         return true;
                     }
@@ -179,7 +179,7 @@ namespace javm::vm {
                 while(class_copy.front() == u'[') {
                     class_copy.erase(0, 1);
                 }
-                for(auto &[type, name]: PrimitiveTypeDescriptorTable) {
+                for(const auto &[type, name]: PrimitiveTypeDescriptorTable) {
                     if(name == class_copy) {
                         return true;
                     }
@@ -226,29 +226,51 @@ namespace javm::vm {
                 return (type != VariableType::Invalid) && (type != VariableType::ClassInstance) && (type != VariableType::Array) && (type != VariableType::NullObject);
             }
 
+            static inline constexpr bool IsCommonIntegerVariableType(const VariableType type) {
+                return (type == VariableType::Byte) || (type == VariableType::Boolean) || (type == VariableType::Short) || (type == VariableType::Character) || (type == VariableType::Integer);
+            }
+
+            static inline constexpr bool IsVariableTypeConvertibleTo(const VariableType src_type, const VariableType dst_type) {
+                if(IsCommonIntegerVariableType(src_type) && IsCommonIntegerVariableType(dst_type)) {
+                    return true;
+                }
+
+                if((src_type == VariableType::NullObject) == (dst_type == VariableType::ClassInstance)) {
+                    return true;
+                }
+                if((src_type == VariableType::Array) == (dst_type == VariableType::ClassInstance)) {
+                    return true;
+                }
+
+                return src_type == dst_type;
+            }
+
             static VariableType GetFieldNameType(const String &descriptor) {
-                for(auto &[type, name] : PrimitiveTypeNameTable) {
+                for(const auto &[type, name] : PrimitiveTypeNameTable) {
                     if(name == descriptor) {
                         return type;
                     }
                 }
+
                 return VariableType::Invalid;
             }
 
             static VariableType GetFieldDescriptorType(const String &descriptor) {
-                for(auto &[type, name] : PrimitiveTypeDescriptorTable) {
+                for(const auto &[type, name] : PrimitiveTypeDescriptorTable) {
                     if(name == descriptor) {
                         return type;
                     }
                 }
+
                 return VariableType::Invalid;
             }
 
             static inline VariableType GetFieldAnyType(const String &descriptor) {
-                auto type = GetFieldNameType(descriptor);
+                const auto type = GetFieldNameType(descriptor);
                 if(type == VariableType::Invalid) {
                     return GetFieldDescriptorType(descriptor);
                 }
+
                 return type;
             }
 
@@ -282,9 +304,10 @@ namespace javm::vm {
                     return ExtendedVariableType::MakeSimpleType(VariableType::Array);
                 }
                 if(descriptor.front() == u'L') {
-                    auto class_name = descriptor.substr(1, descriptor.length() - 2);
+                    const auto class_name = descriptor.substr(1, descriptor.length() - 2);
                     return ExtendedVariableType::MakeClassType(class_name);
                 }
+
                 return ExtendedVariableType::MakeSimpleType(VariableType::NullObject);
             }
 
@@ -326,6 +349,7 @@ namespace javm::vm {
                 if(MakeSlashClassName(name_a) == MakeSlashClassName(name_b)) {
                     return true;
                 }
+
                 return false;
             }
     };

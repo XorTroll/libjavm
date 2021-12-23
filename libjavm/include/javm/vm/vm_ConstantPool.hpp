@@ -114,7 +114,7 @@ namespace javm::vm {
             u16 access_flags;
 
         public:
-            inline u16 GetAccessFlags() {
+            inline u16 GetAccessFlags() const {
                 return this->access_flags;
             }
 
@@ -123,7 +123,7 @@ namespace javm::vm {
             }
 
             template<AccessFlags Flag>
-            inline constexpr bool HasFlag() {
+            inline constexpr bool HasFlag() const {
                 return this->access_flags & static_cast<u16>(Flag);
             }
 

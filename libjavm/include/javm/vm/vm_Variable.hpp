@@ -135,11 +135,12 @@ namespace javm::vm {
                 for(auto &class_v: g_cached_class_types) {
                     auto class_obj = class_v->GetAs<type::ClassInstance>();
                     auto name_v = class_obj->GetField(u"name", u"Ljava/lang/String;");
-                    auto name = inner_impl::GetStringValue(name_v);
+                    const auto name = inner_impl::GetStringValue(name_v);
                     if(class_name == name) {
                         return class_v;
                     }
                 }
+
                 return nullptr;
             }
 
@@ -343,12 +344,14 @@ namespace javm::vm {
                             else {
                                 cur_array_obj = cur_array_obj->GetAt(0)->GetAs<type::Array>();
                             }
+
                             base_s += u"[" + StrUtils::From(cur_array_obj->GetLength()) + u"]";
                         }
                         
                         return base_s;
                     }
                 }
+
                 return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
             }
 
@@ -396,6 +399,7 @@ namespace javm::vm {
                         return u"<array>";
                     }
                 }
+
                 return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
             }
 
@@ -429,6 +433,14 @@ namespace javm::vm {
         template<typename ...JArgs>
         inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
             return TypeUtils::NewClassVariable(class_type, init_descriptor, java_args...);
+        }
+
+        Ptr<ClassType> GetClassInstanceTypeImpl(Ptr<Variable> &var) {
+            return var->GetAs<type::ClassInstance>()->GetClassType();
+        }
+
+        VariableType GetVariableTypeImpl(Ptr<Variable> &var) {
+            return var->GetType();
         }
         
     }

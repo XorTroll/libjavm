@@ -37,7 +37,7 @@ namespace javm::vm {
             void CacheThreadName() {
                 auto java_thr_v = this->thread_obj->GetJavaThreadVariable();
                 auto thr_obj = java_thr_v->GetAs<type::ClassInstance>();
-                auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", java_thr_v);
+                const auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", java_thr_v);
                 if(!name_res.IsInvalidOrThrown()) {
                     auto name_v = name_res.ret_var;
                     this->cached_name = StringUtils::GetValue(name_v);
@@ -128,7 +128,7 @@ namespace javm::vm {
         static Ptr<Variable> GetCurrentThreadInstanceImpl() {
             ScopedMonitorLock lk(g_thread_table_lock);
             auto handle = native::GetCurrentThreadHandle();
-            for(auto &thr: g_thread_table) {
+            for(const auto &thr: g_thread_table) {
                 if(thr->GetThreadHandle() == handle) {
                     return thr->GetJavaThreadInstance();
                 }
@@ -139,7 +139,7 @@ namespace javm::vm {
         static Ptr<ThreadAccessor> GetCurrentThreadImpl() {
             ScopedMonitorLock lk(g_thread_table_lock);
             auto handle = native::GetCurrentThreadHandle();
-            for(auto &thr: g_thread_table) {
+            for(const auto &thr: g_thread_table) {
                 if(thr->GetThreadHandle() == handle) {
                     return thr;
                 }
@@ -149,7 +149,7 @@ namespace javm::vm {
 
         static Ptr<ThreadAccessor> GetThreadByHandleImpl(const native::ThreadHandle handle) {
             ScopedMonitorLock lk(g_thread_table_lock);
-            for(auto &thr: g_thread_table) {
+            for(const auto &thr: g_thread_table) {
                 if(thr->GetThreadHandle() == handle) {
                     return thr;
                 }
@@ -188,7 +188,7 @@ namespace javm::vm {
         static inline void NotifyExceptionThrownImpl(Ptr<Variable> throwable_v) {
             ScopedMonitorLock lk(g_thrown_lock);
             g_thrown_throwable = throwable_v;
-            auto cur_handle = native::GetCurrentThreadHandle();
+            const auto cur_handle = native::GetCurrentThreadHandle();
             g_thrown_thread = GetThreadByHandleImpl(cur_handle);
         }
 
@@ -208,9 +208,9 @@ namespace javm::vm {
                 auto java_thr_v = thr_ref->GetJavaThreadVariable();
                 auto java_thr_obj = java_thr_v->GetAs<type::ClassInstance>();
 
-                auto eetop = thr_ref->GetHandle();
+                const auto eetop = thr_ref->GetHandle();
                 java_thr_obj->SetField(u"eetop", u"J", TypeUtils::NewPrimitiveVariable<type::Long>(eetop));
-                auto prio = native::GetThreadPriority(eetop);
+                const auto prio = native::GetThreadPriority(eetop);
                 java_thr_obj->SetField(u"priority", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
 
                 java_thr_obj->CallInstanceMethod(u"run", u"()V", java_thr_v);
@@ -259,7 +259,7 @@ namespace javm::vm {
             }
 
             static Ptr<Variable> RegisterMainThread() {
-                auto handle = native::GetCurrentThreadHandle();
+                const auto handle = native::GetCurrentThreadHandle();
                 auto thread_obj = native::CreateExistingThread(handle);
                 
                 auto thread_class_type = inner_impl::LocateClassTypeImpl(u"java/lang/Thread");
@@ -269,7 +269,7 @@ namespace javm::vm {
 
                 auto java_thread_obj = java_thread_v->GetAs<type::ClassInstance>();
                 java_thread_obj->SetField(u"eetop", u"J", TypeUtils::NewPrimitiveVariable<type::Long>(handle));
-                auto prio = native::GetThreadPriority(handle);
+                const auto prio = native::GetThreadPriority(handle);
                 java_thread_obj->SetField(u"priority", u"I", TypeUtils::NewPrimitiveVariable<type::Integer>(prio));
 
                 thread_obj->AssignJavaThreadVariable(java_thread_v);
@@ -285,9 +285,10 @@ namespace javm::vm {
                     auto thr = inner_impl::GetExceptionThreadImpl();
                     auto throwable_v = inner_impl::GetThrownExceptionImpl();
                     inner_impl::ConsumeThrownExceptionImpl();
-                    return std::make_pair(thr, throwable_v);
+                    return { thr, throwable_v };
                 }
-                return std::make_pair(nullptr, nullptr);
+
+                return {};
             }
     };
 

@@ -25,7 +25,7 @@ namespace javm::extras {
                 this->cpp_mutex.unlock();
             }
 
-            std::recursive_mutex &GetCppHandle() {
+            inline std::recursive_mutex &GetCppHandle() {
                 return this->cpp_mutex;
             }
     };

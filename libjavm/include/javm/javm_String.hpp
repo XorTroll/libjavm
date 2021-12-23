@@ -12,7 +12,7 @@ namespace javm {
 
     }
 
-    // TODO: change to a javm::str::* namespace?
+    // TODO: change all/most of *Utils static classes into namespaces...
 
     class StrUtils {
         public:

@@ -598,15 +598,12 @@ namespace javm::native {
                 auto thr = ThreadUtils::GetCurrentThread();
                 JAVM_LOG("[sun.reflect.Reflection.getCallerClass] called...");
 
-                for(auto call_info: thr->GetInvertedCallStack()) {
+                for(const auto &call_info: thr->GetInvertedCallStack()) {
                     // Find the currently invoked method, check if it is '@CallerSensitive'
                     bool found = false;
-                    for(auto &raw_inv: call_info.caller_type->GetRawInvokables()) {
-                        if(raw_inv.GetName() == call_info.invokable_name) {
-                            if(raw_inv.GetDescriptor() == call_info.invokable_desc) {
-                                found = !raw_inv.HasAnnotation(u"Lsun/reflect/CallerSensitive;");
-                                break;
-                            }
+                    for(const auto &raw_inv: call_info.caller_type->GetRawInvokables()) {
+                        if((raw_inv.GetName() == call_info.invokable_name) && (raw_inv.GetDescriptor() == call_info.invokable_desc)) {
+                            found = !raw_inv.HasAnnotation(u"Lsun/reflect/CallerSensitive;");
                         }
                     }
                     if(found) {

@@ -80,13 +80,13 @@ int main(int argc, char **argv) {
     }
 
     if(main_jar->CanBeExecuted()) {
-        // Call the JAR's main(String[]) method
+        // Call the JAR's entrypoint class's main(String[]) method
         auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
         const auto ret = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
         CheckHandleException(ret);
     }
     else {
-        // The JAR failed to load or it doesn't specify a main class (is a JAR library)
+        // The JAR failed to load or it doesn't specify a main class (is an invalid file, or a JAR library)
         printf("The JAR file can't be executed or is not an executable JAR...\n");
     }
 

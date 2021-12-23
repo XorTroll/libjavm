@@ -293,7 +293,7 @@ namespace javm::vm {
                 }
             }
 
-            inline std::vector<Annotation> &GetAnnotations() {
+            inline const std::vector<Annotation> &GetAnnotations() const {
                 return this->annotations;
             }
 
@@ -331,7 +331,7 @@ namespace javm::vm {
             }
 
             void ProcessAttributes(ConstantPool &pool) {
-                for(auto &attr: this->attributes) {
+                for(const auto &attr: this->attributes) {
                     if(attr.GetName() == AttributeType::RuntimeVisibleAnnotations) {
                         MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
                         RuntimeAnnotationsAttributeData runtime_annot(reader);
@@ -341,22 +341,23 @@ namespace javm::vm {
                 }
             }
 
-            inline std::vector<AttributeInfo> &GetAttributes() {
+            inline const std::vector<AttributeInfo> &GetAttributes() const {
                 return this->attributes;
             }
 
-            inline std::vector<RuntimeAnnotationsAttributeData> &GetRuntimeAttributeAnnotations() {
+            inline const std::vector<RuntimeAnnotationsAttributeData> &GetRuntimeAttributeAnnotations() const {
                 return this->annotation_infos;
             }
 
-            bool HasAnnotation(const String &type) {
-                for(auto &rt_annot: this->annotation_infos) {
-                    for(auto &annot: rt_annot.GetAnnotations()) {
+            bool HasAnnotation(const String &type) const {
+                for(const auto &rt_annot: this->annotation_infos) {
+                    for(const auto &annot: rt_annot.GetAnnotations()) {
                         if(annot.processed_type == type) {
                             return true;
                         }
                     }
                 }
+
                 return false;
             }
     };
