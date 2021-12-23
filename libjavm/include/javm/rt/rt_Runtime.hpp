@@ -97,8 +97,9 @@ namespace javm::rt {
         return vm::ExecutionResult::Void();
     }
 
-    static inline void InitializeVM() {
+    static inline void InitializeVM(const vm::PropertyTable &initial_system_props) {
         RegisterNativeStandardMethods();
+        vm::SetInitialSystemProperties(initial_system_props);
     }
 
     static inline void ResetExecution() {

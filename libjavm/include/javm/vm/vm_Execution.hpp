@@ -135,6 +135,8 @@ namespace javm::vm {
                 return t;
             }
 
+            // TODO: naming consistency, pos/branch -> offset/relative offset (also referring to execution code...)
+
             inline u32 &GetCodePosition() {
                 return this->code_offset;
             }

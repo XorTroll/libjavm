@@ -52,18 +52,37 @@ void CheckHandleException(vm::ExecutionResult ret) {
     }
 }
 
+// In this example, the homebrew will read rt.jar and an entrypoint JAR from the SD card
+
+// Define the initial/base system properties of our VM, which are needed for the VM setup
+inline vm::PropertyTable GetInitialSystemProperties() {
+    const auto hos_ver = hosversionGet();
+    const auto os_version = StrUtils::Format("%d.%d.%d", HOSVER_MAJOR(hos_ver), HOSVER_MINOR(hos_ver), HOSVER_MICRO(hos_ver));
+
+    return vm::PropertyTable {
+        { u"path.separator", u":" },
+        { u"file.encoding.pkg", u"sun.io" },
+        { u"os.arch", u"aarch64" },
+        { u"os.name", u"horizon-nx" },
+        { u"os.version", os_version },
+        { u"line.separator", u"\n" },
+        { u"file.separator", u"/" },
+        { u"sun.jnu.encoding", u"UTF-8" },
+        { u"file.encoding", u"UTF-8" },
+    };
+}
+
 int main(int argc, char **argv) {
     consoleInit(nullptr);
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&g_hid_pad);
 
     // 1) add class sources (JARs, class files...)
-    // Note: the following JAR files are expected to exist within sd:/javm-libnx/...
     auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/rt.jar"); // Java standard library JAR (rt.jar)
     auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/entry.jar"); // Entrypoint JAR
 
     // 2) initial VM preparation (must be called ONCE)
-    rt::InitializeVM();
+    rt::InitializeVM(GetInitialSystemProperties());
 
     // 3) prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
     const auto ret = rt::PrepareExecution();

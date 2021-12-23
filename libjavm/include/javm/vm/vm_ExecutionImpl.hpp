@@ -169,6 +169,8 @@ namespace javm::vm {
         }
 
         static ExecutionResult HandleInstructionImpl(ExecutionFrame &frame) {
+            const auto orig_pos = frame.GetCodePosition();
+
             const auto inst = static_cast<Instruction>(frame.ReadCode<u8>());
             JAVM_LOG("Got instruction: 0x%X", static_cast<u8>(inst));
 
@@ -293,6 +295,9 @@ namespace javm::vm {
                                 return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
                             } \
                         } \
+                        else if(array_var->IsNull()) { \
+                            return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                        } \
                         else { \
                             return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
                         } \
@@ -319,8 +324,11 @@ namespace javm::vm {
                                 return ExecutionUtils::ThrowException(frame, u"java/lang/ArrayIndexOutOfBoundsException", StrUtils::From(index)); \
                             } \
                         } \
+                        else if(array_var->IsNull()) { \
+                            return ExecutionUtils::ThrowException(frame, u"java/lang/NullPointerException"); \
+                        } \
                         else { \
-                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array index"); \
+                            return ExecutionUtils::ThrowInternalException(frame, u"Invalid array item"); \
                         } \
                     } \
                     break; \
@@ -868,7 +876,7 @@ namespace javm::vm {
                 auto var = frame.PopStack(); \
                 const auto var_val = var->GetValue<type::Integer>(); \
                 if(var_val op 0) { \
-                    pos -= 3; \
+                    pos = orig_pos; \
                     pos += branch; \
                 } \
 
@@ -905,7 +913,7 @@ namespace javm::vm {
                 const auto var1_val = var1->GetValue<type::Integer>(); \
                 JAVM_LOG("[icmp] %d " #op " %d", var1_val, var2_val); \
                 if(var1_val op var2_val) { \
-                    pos -= 3; \
+                    pos = orig_pos; \
                     pos += branch; \
                 } \
 
@@ -939,7 +947,7 @@ namespace javm::vm {
                     JAVM_LOG("[acmpeq] %s == %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
                     const auto branch = BE(frame.ReadCode<i16>());
                     if(ptr::Equal(var1, var2)) {
-                        pos -= 3;
+                        pos = orig_pos;
                         pos += branch;
                     }
                     break;
@@ -950,21 +958,34 @@ namespace javm::vm {
                     JAVM_LOG("[acmpne] %s != %s", StrUtils::ToUtf8(TypeUtils::FormatVariable(var1)).c_str(), StrUtils::ToUtf8(TypeUtils::FormatVariable(var2)).c_str());
                     const auto branch = BE(frame.ReadCode<i16>());
                     if(!ptr::Equal(var1, var2)) {
-                        pos -= 3;
+                        pos = orig_pos;
                         pos += branch;
                     }
                     break;
                 }
                 case Instruction::GOTO: {
                     const auto branch = BE(frame.ReadCode<i16>());
-                    pos -= 3;
+                    pos = orig_pos;
                     pos += branch;
                     break;
                 }
-                case Instruction::JSR:
+                case Instruction::JSR: {
+                    const auto branch = BE(frame.ReadCode<i16>());
+                    // Note: technically the variable should be a special "returnAddress", but we use a regular int for simplicity
+                    // TODO: be more accurate with that?
+                    auto pos_v = TypeUtils::NewPrimitiveVariable<type::Integer>(pos);
+                    frame.PushStack(pos_v);
+
+                    pos = orig_pos;
+                    pos += branch;
+                    break;
+                }
                 case Instruction::RET: {
-                    // Old instructions, not implementing them
-                    // TODO: throw exception?
+                    const auto index = frame.ReadCode<u8>();
+                    auto pos_v = frame.GetLocalAt(index);
+
+                    const auto new_pos = pos_v->GetValue<type::Integer>();
+                    pos = new_pos;
                     break;
                 }
                 // TODO: TABLESWITCH
@@ -1669,7 +1690,7 @@ namespace javm::vm {
                     auto var = frame.PopStack();
                     const auto branch = BE(frame.ReadCode<i16>());
                     if(var->CanGetAs<VariableType::NullObject>()) {
-                        pos -= 3;
+                        pos = orig_pos;
                         pos += branch;
                     }
                     break;
@@ -1678,12 +1699,17 @@ namespace javm::vm {
                     auto var = frame.PopStack();
                     const auto branch = BE(frame.ReadCode<i16>());
                     if(!var->CanGetAs<VariableType::NullObject>()) {
-                        pos -= 3;
+                        pos = orig_pos;
                         pos += branch;
                     }
                     break;
                 }
-                case Instruction::GOTO_W:
+                case Instruction::GOTO_W: {
+                    const auto branch = BE(frame.ReadCode<i32>());
+                    pos = orig_pos;
+                    pos += branch;
+                    break;
+                }
                 case Instruction::JSR_W: {
                     // Old instructions, not implementing them
                     // TODO: throw?

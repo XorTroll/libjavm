@@ -61,35 +61,35 @@ namespace javm {
         }
 
         template<typename T>
-        inline T GetValue(Ptr<T> ptr) {
+        inline T GetValue(Ptr<T> &ptr) {
             return *ptr.get();
         }
 
         template<typename T>
-        inline void SetValue(Ptr<T> ptr, const T val) {
+        inline void SetValue(Ptr<T> &ptr, const T val) {
             *ptr.get() = val;
         }
 
         template<typename T>
-        inline bool IsValid(Ptr<T> ptr) {
+        inline bool IsValid(Ptr<T> &ptr) {
             return bool(ptr);
         }
 
         template<typename T>
-        inline bool Equal(Ptr<T> ptr1, Ptr<T> ptr2) {
+        inline bool Equal(Ptr<T> &ptr1, Ptr<T> &ptr2) {
             return ptr1.get() == ptr2.get();
         }
 
         template<typename T>
-        inline void Destroy(Ptr<T> &ptr_ref) {
-            if(ptr_ref) {
-                ptr_ref.reset();
-                ptr_ref = nullptr;
+        inline void Destroy(Ptr<T> &ptr) {
+            if(ptr) {
+                ptr.reset();
+                ptr = nullptr;
             }
         }
 
         template<typename T, typename U>
-        inline Ptr<T> CastTo(Ptr<U> ptr) {
+        inline Ptr<T> CastTo(Ptr<U> &ptr) {
             return std::dynamic_pointer_cast<T>(ptr);
         }
 

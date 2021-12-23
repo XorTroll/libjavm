@@ -173,8 +173,8 @@ namespace javm::vm {
         IF_ACMPEQ = 0xA5,
         IF_ACMPNE = 0xA6,
         GOTO = 0xA7,
-        JSR = 0xA8, // Not implementing this one anyway
-        RET = 0xA9, // Same for this one ^ (they're too old)
+        JSR = 0xA8,
+        RET = 0xA9,
         TABLESWITCH = 0xAA, // TODO
         LOOKUPSWITCH = 0xAB,
         IRETURN = 0xAC,
@@ -205,8 +205,8 @@ namespace javm::vm {
         MULTIANEWARRAY = 0xC5,
         IFNULL = 0xC6,
         IFNONNULL = 0xC7,
-        GOTO_W = 0xC8, // Again, old opcode
-        JSR_W = 0xC9, // Same as JSR above, not implementing it
+        GOTO_W = 0xC8,
+        JSR_W = 0xC9,
     };
 
     // Types for NEWARRAY instruction

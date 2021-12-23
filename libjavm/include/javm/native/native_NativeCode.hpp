@@ -7,8 +7,8 @@
 
 namespace javm::native {
 
-    using NativeInstanceMethod = std::function<vm::ExecutionResult(Ptr<vm::Variable>, std::vector<Ptr<vm::Variable>>)>;
-    using NativeClassMethod = std::function<vm::ExecutionResult(std::vector<Ptr<vm::Variable>>)>;
+    using NativeInstanceMethod = std::function<vm::ExecutionResult(Ptr<vm::Variable>, const std::vector<Ptr<vm::Variable>>&)>;
+    using NativeClassMethod = std::function<vm::ExecutionResult(const std::vector<Ptr<vm::Variable>>&)>;
 
     namespace inner_impl {
 
@@ -35,42 +35,42 @@ namespace javm::native {
         static inline NativeTable<NativeClassMethod> g_native_static_fn_table;
         static inline vm::Monitor g_native_lock;
 
-        static inline vm::ExecutionResult EmptyNativeInstanceMethod(Ptr<vm::Variable> this_var, std::vector<Ptr<vm::Variable>> param_vars) {
+        static inline vm::ExecutionResult EmptyNativeInstanceMethod(Ptr<vm::Variable> this_var, const std::vector<Ptr<vm::Variable>> &param_vars) {
             vm::ScopedMonitorLock lk(g_native_lock);
             return vm::ExecutionResult::InvalidState();
         }
 
-        static inline vm::ExecutionResult EmptyNativeClassMethod(std::vector<Ptr<vm::Variable>> param_vars) {
+        static inline vm::ExecutionResult EmptyNativeClassMethod(const std::vector<Ptr<vm::Variable>> &param_vars) {
             vm::ScopedMonitorLock lk(g_native_lock);
             return vm::ExecutionResult::InvalidState();
         }
 
-        static inline bool SameLocation(NativeLocation a, NativeLocation b) {
+        static inline bool SameLocation(const NativeLocation a, const NativeLocation b) {
             vm::ScopedMonitorLock lk(g_native_lock);
             if(vm::ClassUtils::EqualClassNames(a.class_name, b.class_name)) {
-                if(a.name == b.name) {
-                    if(a.descriptor == b.descriptor) {
-                        return true;
-                    }
+                if((a.name == b.name) && (a.descriptor == b.descriptor)) {
+                    return true;
                 }
             }
+
             return false;
         }
 
-        static inline void RegisterNativeInstanceMethod(NativeLocation method_location, NativeInstanceMethod method) {
+        static inline void RegisterNativeInstanceMethod(const NativeLocation method_location, NativeInstanceMethod method) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, _method] : g_native_method_table) {
+            for(auto &[location, cur_method] : g_native_method_table) {
                 if(SameLocation(location, method_location)) {
-                    // A native method for this is already present
+                    // Change the currently registered native method
+                    cur_method = method;
                     return;
                 }
             }
             g_native_method_table.push_back(std::make_pair(method_location, method));
         }
 
-        static inline bool HasNativeInstanceMethod(NativeLocation method_location) {
+        static inline bool HasNativeInstanceMethod(const NativeLocation method_location) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, _method] : g_native_method_table) {
+            for(const auto &[location, _method] : g_native_method_table) {
                 if(SameLocation(location, method_location)) {
                     return true;
                 }
@@ -78,9 +78,9 @@ namespace javm::native {
             return false;
         }
 
-        static inline NativeInstanceMethod FindNativeInstanceMethod(NativeLocation method_location) {
+        static inline NativeInstanceMethod FindNativeInstanceMethod(const NativeLocation method_location) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, method] : g_native_method_table) {
+            for(const auto &[location, method] : g_native_method_table) {
                 if(SameLocation(location, method_location)) {
                     return method;
                 }
@@ -88,20 +88,21 @@ namespace javm::native {
             return &EmptyNativeInstanceMethod;
         }
 
-        static inline void RegisterNativeClassMethod(NativeLocation fn_location, NativeClassMethod fn) {
+        static inline void RegisterNativeClassMethod(const NativeLocation fn_location, NativeClassMethod fn) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, _fn] : g_native_static_fn_table) {
+            for(auto &[location, cur_fn] : g_native_static_fn_table) {
                 if(SameLocation(location, fn_location)) {
-                    // A native method for this is already present
+                    // Change the currently registered native fn
+                    cur_fn = fn;
                     return;
                 }
             }
             g_native_static_fn_table.push_back(std::make_pair(fn_location, fn));
         }
 
-        static inline bool HasNativeClassMethod(NativeLocation fn_location) {
+        static inline bool HasNativeClassMethod(const NativeLocation fn_location) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, _fn] : g_native_static_fn_table) {
+            for(const auto &[location, _fn] : g_native_static_fn_table) {
                 if(SameLocation(location, fn_location)) {
                     return true;
                 }
@@ -109,9 +110,9 @@ namespace javm::native {
             return false;
         }
 
-        static inline NativeClassMethod FindNativeClassMethod(NativeLocation fn_location) {
+        static inline NativeClassMethod FindNativeClassMethod(const NativeLocation fn_location) {
             vm::ScopedMonitorLock lk(g_native_lock);
-            for(auto &[location, fn] : g_native_static_fn_table) {
+            for(const auto &[location, fn] : g_native_static_fn_table) {
                 if(SameLocation(location, fn_location)) {
                     return fn;
                 }

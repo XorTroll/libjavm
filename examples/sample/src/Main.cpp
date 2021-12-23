@@ -39,8 +39,21 @@ void CheckHandleException(const vm::ExecutionResult ret) {
 
 // In this example, the program is called with Java's standard lib JAR (rt.jar) and another executable JAR to run it, plus optional arguments to be forwarded to Java code
 
+// Define the initial/base system properties of our VM, which are needed for the VM setup
+const vm::PropertyTable DemoInitialSystemProperties = {
+    { u"path.separator", u":" },
+    { u"file.encoding.pkg", u"sun.io" },
+    { u"os.arch", u"demo-arch" },
+    { u"os.name", u"Demo OS" },
+    { u"os.version", u"0.1-demo" },
+    { u"line.separator", u"\n" },
+    { u"file.separator", u"/" },
+    { u"sun.jnu.encoding", u"UTF-8" },
+    { u"file.encoding", u"UTF-8" },
+};
+
 int main(int argc, char **argv) {
-    constexpr auto ExpectedArgCount = 3;
+    constexpr auto ExpectedArgCount = 3; // (including the executable itself)
     if(argc < ExpectedArgCount) {
         printf("Expected usage: sample <rt-jar-path> <main-jar-path> [<java-main-args>]\n");
         return 0;
@@ -51,7 +64,7 @@ int main(int argc, char **argv) {
     auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>(argv[2]); // Entrypoint JAR
 
     // 2) initial VM preparation (must be called ONCE)
-    rt::InitializeVM();
+    rt::InitializeVM(DemoInitialSystemProperties);
 
     // 3) prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
     const auto ret = rt::PrepareExecution();

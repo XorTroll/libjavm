@@ -24,7 +24,7 @@ Check the [examples](examples) directory for some example programs using this li
 
 ## Comparison with JRE
 
-The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 23 out of 28 tests are successfully passed (comparing their output with JRE):
+The tests used to test the VM (slightly modified KiVM tests) are located at [javm-test-suite](javm-test-suite). Currently 24 out of 28 tests are successfully passed (comparing their output with JRE):
 
 - `ArgumentTest`: pass!
 
@@ -48,11 +48,11 @@ The tests used to test the VM (slightly modified KiVM tests) are located at [jav
 
 - `ExceptionTest`: pass!
 
-- `ExceptionTest1`: fail (invalid classes should throw an exception)
+- `ExceptionTest1`: pass!
 
-- `ExceptionTest2`: fail (makes the VM crash...? needs more work)
+- `ExceptionTest2`: fail (something seems to be wrong with try-catch blocks?)
 
-- `ExceptionTest3`: fail (because the exceptions we throw aren't the ones JRE throws, thus the catch blocks inside the test do nothing...)
+- `ExceptionTest3`: fail (something seems to be wrong with try-catch blocks?)
 
 - `FileTest`: fail (filesystem-related native methods aren't implemented)
 

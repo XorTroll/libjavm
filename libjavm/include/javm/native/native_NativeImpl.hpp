@@ -110,12 +110,12 @@ namespace javm::native {
 
         namespace java::lang::Object {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Object.registerNatives] called...");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult getClass(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getClass(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Object.getClass] called - array type name: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str());
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
@@ -134,11 +134,11 @@ namespace javm::native {
                 return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
-            ExecutionResult hashCode(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult hashCode(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 return GetObjectHashCode(this_var);
             }
 
-            ExecutionResult notify(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult notify(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
                     auto monitor = this_obj->GetMonitor();
@@ -158,7 +158,7 @@ namespace javm::native {
                 return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
-            ExecutionResult notifyAll(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult notifyAll(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 if(this_var->CanGetAs<VariableType::ClassInstance>()) {
                     auto this_obj = this_var->GetAs<type::ClassInstance>();
                     auto monitor = this_obj->GetMonitor();
@@ -178,7 +178,7 @@ namespace javm::native {
                 return ExceptionUtils::ThrowInternalException(StrUtils::Format("Invalid this variable: %s", StrUtils::ToUtf8(TypeUtils::FormatVariableType(this_var)).c_str()));
             }
 
-            ExecutionResult wait(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult wait(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto timeout_v = param_vars[0];
                 const auto timeout = timeout_v->GetValue<type::Long>();
 
@@ -205,17 +205,24 @@ namespace javm::native {
 
         namespace java::lang::System {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.System.registerNatives] called...");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult initProperties(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initProperties(const std::vector<Ptr<Variable>> &param_vars) {
                 auto props_v = param_vars[0];
                 auto props_obj = props_v->GetAs<type::ClassInstance>();
 
-                for(const auto &[key, value] : vm::GetSystemPropertyTable()) {
-                    JAVM_LOG("[java.lang.System.initProperties] setting property '%s' of value '%s'", StrUtils::ToUtf8(key).c_str(), StrUtils::ToUtf8(value).c_str());
+                // First set user/dev-provided properties, then set default VM ones to ensure they're set correctly
+                for(const auto &[key, value] : vm::GetInitialSystemPropertyTable()) {
+                    JAVM_LOG("[java.lang.System.initProperties] setting provided initial property '%s' with value '%s'", StrUtils::ToUtf8(key).c_str(), StrUtils::ToUtf8(value).c_str());
+                    auto key_str = StringUtils::CreateNew(key);
+                    auto val_str = StringUtils::CreateNew(value);
+                    props_obj->CallInstanceMethod(u"setProperty", u"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", props_v, key_str, val_str);
+                }
+                for(const auto &[key, value] : vm::InitialVmPropertyTable) {
+                    JAVM_LOG("[java.lang.System.initProperties] setting VM initial property '%s' with value '%s'", StrUtils::ToUtf8(key).c_str(), StrUtils::ToUtf8(value).c_str());
                     auto key_str = StringUtils::CreateNew(key);
                     auto val_str = StringUtils::CreateNew(value);
                     props_obj->CallInstanceMethod(u"setProperty", u"(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;", props_v, key_str, val_str);
@@ -224,7 +231,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(props_v);
             }
 
-            ExecutionResult arraycopy(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult arraycopy(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.System.arraycopy] called");
                 
                 // TODO: handle invalid param types/count
@@ -263,7 +270,7 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult setIn0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult setIn0(const std::vector<Ptr<Variable>> &param_vars) {
                 auto stream_v = param_vars[0];
                 JAVM_LOG("[java.lang.System.setIn0] called - in stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
                 auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
@@ -271,7 +278,7 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult setOut0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult setOut0(const std::vector<Ptr<Variable>> &param_vars) {
                 auto stream_v = param_vars[0];
                 JAVM_LOG("[java.lang.System.setOut0] called - out stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
                 auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
@@ -279,7 +286,7 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult setErr0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult setErr0(const std::vector<Ptr<Variable>> &param_vars) {
                 auto stream_v = param_vars[0];
                 JAVM_LOG("[java.lang.System.setErr0] called - err stream: '%s'...", StrUtils::ToUtf8(TypeUtils::FormatVariableType(stream_v)).c_str());
                 auto system_class_type = vm::inner_impl::LocateClassTypeImpl(u"java/lang/System");
@@ -289,21 +296,21 @@ namespace javm::native {
 
             // TODO: lib load support
 
-            ExecutionResult mapLibraryName(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult mapLibraryName(const std::vector<Ptr<Variable>> &param_vars) {
                 auto lib_v = param_vars[0];
                 const auto lib = StringUtils::GetValue(lib_v);
                 JAVM_LOG("[java.lang.System.mapLibraryName] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::ReturnVariable(lib_v);
             }
 
-            ExecutionResult loadLibrary(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult loadLibrary(const std::vector<Ptr<Variable>> &param_vars) {
                 auto lib_v = param_vars[0];
                 const auto lib = StringUtils::GetValue(lib_v);
                 JAVM_LOG("[java.lang.System.loadLibrary] called - library name: '%s'...", StrUtils::ToUtf8(lib).c_str());
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult currentTimeMillis(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult currentTimeMillis(const std::vector<Ptr<Variable>> &param_vars) {
                 timeval time = {};
                 gettimeofday(&time, nullptr);
                 auto time_ms = time.tv_sec * 1000 + time.tv_usec / 1000;
@@ -311,7 +318,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(time_ms));
             }
 
-            ExecutionResult identityHashCode(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult identityHashCode(const std::vector<Ptr<Variable>> &param_vars) {
                 return GetObjectHashCode(param_vars[0]);
             }
 
@@ -319,12 +326,12 @@ namespace javm::native {
 
         namespace java::lang::Class {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.registerNatives] called...");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult getPrimitiveClass(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getPrimitiveClass(const std::vector<Ptr<Variable>> &param_vars) {
                 auto type_name_v = param_vars[0];
                 auto type_name = StringUtils::GetValue(type_name_v);
                 JAVM_LOG("[java.lang.Class.getPrimitiveClass] called - primitive type name: '%s'...", StrUtils::ToUtf8(type_name).c_str());
@@ -335,7 +342,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::Null());
             }
 
-            ExecutionResult desiredAssertionStatus0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult desiredAssertionStatus0(const std::vector<Ptr<Variable>> &param_vars) {
                 auto ref_type = GetReflectionTypeFromClassVariable(param_vars[0]);
                 if(ref_type) {
                     JAVM_LOG("[java.lang.Class.desiredAssertionStatus0] called - Reflection type name: '%s'...", StrUtils::ToUtf8(ref_type->GetTypeName()).c_str());
@@ -343,7 +350,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(0));
             }
 
-            ExecutionResult forName0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult forName0(const std::vector<Ptr<Variable>> &param_vars) {
                 auto class_name_v = param_vars[0];
                 const auto class_name = StringUtils::GetValue(class_name_v);
                 auto init_v = param_vars[1];
@@ -366,11 +373,12 @@ namespace javm::native {
                     }
                     return ExecutionResult::ReturnVariable(TypeUtils::NewClassTypeVariable(ref_type));
                 }
-
-                return ExecutionResult::ReturnVariable(TypeUtils::Null());
+                else {
+                    return ExceptionUtils::ThrowWithTypeAndMessage(u"java/lang/ClassNotFoundException", class_name);
+                }
             }
 
-            ExecutionResult getDeclaredFields0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getDeclaredFields0(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.getDeclaredFields0] called...");
                 auto public_only_v = param_vars[0];
 
@@ -434,7 +442,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::Null());
             }
 
-            ExecutionResult isInterface(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult isInterface(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.isInterface] called...");
 
                 auto ref_type = GetReflectionTypeFromClassVariable(this_var);
@@ -451,7 +459,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
 
-            ExecutionResult isPrimitive(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult isPrimitive(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.isPrimitive] called...");
 
                 auto ref_type = GetReflectionTypeFromClassVariable(this_var);
@@ -465,7 +473,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
 
-            ExecutionResult isAssignableFrom(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult isAssignableFrom(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.isAssignableFrom] called...");
 
                 auto ref_type_1 = GetReflectionTypeFromClassVariable(this_var);
@@ -487,7 +495,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
 
-            ExecutionResult getModifiers(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getModifiers(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Class.getModifiers] called");
                 return GetClassModifiers(this_var);
             }
@@ -496,7 +504,7 @@ namespace javm::native {
 
         namespace java::lang::ClassLoader {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.ClassLoader.registerNatives] called...");
                 return ExecutionResult::Void();
             }
@@ -505,7 +513,7 @@ namespace javm::native {
 
         namespace java::security::AccessController {
 
-            ExecutionResult doPrivileged(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult doPrivileged(const std::vector<Ptr<Variable>> &param_vars) {
                 auto action_v = param_vars[0];
                 JAVM_LOG("[java.security.AccessController.doPrivileged] called - action type: '%s'", StrUtils::ToUtf8(TypeUtils::FormatVariableType(action_v)).c_str());
                 auto action_obj = action_v->GetAs<type::ClassInstance>();
@@ -514,7 +522,7 @@ namespace javm::native {
                 return ret;
             }
 
-            ExecutionResult getStackAccessControlContext(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getStackAccessControlContext(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.security.AccessController.getStackAccessControlContext] called");
                 return ExecutionResult::ReturnVariable(TypeUtils::Null());
             }
@@ -523,7 +531,7 @@ namespace javm::native {
 
         namespace java::lang::Float {
 
-            ExecutionResult floatToRawIntBits(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult floatToRawIntBits(const std::vector<Ptr<Variable>> &param_vars) {
                 auto f_v = param_vars[0];
                 auto f_flt = f_v->GetValue<type::Float>();
                 JAVM_LOG("[java.lang.Float.floatToRawIntBits] called - float: %f", f_flt);
@@ -542,7 +550,7 @@ namespace javm::native {
 
         namespace java::lang::Double {
 
-            ExecutionResult doubleToRawLongBits(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult doubleToRawLongBits(const std::vector<Ptr<Variable>> &param_vars) {
                 auto d_v = param_vars[0];
                 const auto d_dbl = d_v->GetValue<type::Double>();
                 JAVM_LOG("[java.lang.Double.doubleToRawLongBits] called - double: %f", d_dbl);
@@ -558,7 +566,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(res_l));
             }
 
-            ExecutionResult longBitsToDouble(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult longBitsToDouble(const std::vector<Ptr<Variable>> &param_vars) {
                 auto l_v = param_vars[0];
                 const auto l_long = l_v->GetValue<type::Long>();
                 JAVM_LOG("[java.lang.Double.longBitsToDouble] called - long: %ld", l_long);
@@ -577,7 +585,7 @@ namespace javm::native {
 
         namespace sun::misc::VM {
 
-            ExecutionResult initialize(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initialize(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.VM.initialize] called");
                 return ExecutionResult::Void();
             }
@@ -586,7 +594,7 @@ namespace javm::native {
         
         namespace sun::reflect::Reflection {
 
-            ExecutionResult getCallerClass(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getCallerClass(const std::vector<Ptr<Variable>> &param_vars) {
                 auto thr = ThreadUtils::GetCurrentThread();
                 JAVM_LOG("[sun.reflect.Reflection.getCallerClass] called...");
 
@@ -613,7 +621,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::Null());
             }
 
-            ExecutionResult getClassAccessFlags(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getClassAccessFlags(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.reflect.Reflection.getClassAccessFlags] called");
                 return GetClassModifiers(param_vars[0]);
             }
@@ -622,27 +630,27 @@ namespace javm::native {
 
         namespace sun::misc::Unsafe {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.registerNatives] called");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult arrayBaseOffset(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult arrayBaseOffset(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.arrayBaseOffset] called");
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(0));
             }
 
-            ExecutionResult arrayIndexScale(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult arrayIndexScale(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.arrayIndexScale] called");
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(sizeof(intptr_t)));
             }
 
-            ExecutionResult addressSize(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult addressSize(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.addressSize] called");
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(sizeof(intptr_t)));
             }
 
-            ExecutionResult objectFieldOffset(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult objectFieldOffset(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.objectFieldOffset] called");
                 auto field_v = param_vars[0];
                 auto field_obj = field_v->GetAs<type::ClassInstance>();
@@ -666,7 +674,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(0));
             }
 
-            ExecutionResult getIntVolatile(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getIntVolatile(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto obj_v = param_vars[0];
                 auto obj_obj = obj_v->GetAs<type::ClassInstance>();
                 auto obj_type = obj_obj->GetClassType();
@@ -701,7 +709,7 @@ namespace javm::native {
                 }
             }
 
-            ExecutionResult compareAndSwapInt(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult compareAndSwapInt(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Unsafe.compareAndSwapInt] called");
                 auto var_v = param_vars[0];
                 auto var_obj = var_v->GetAs<type::ClassInstance>();
@@ -732,7 +740,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
 
-            ExecutionResult allocateMemory(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult allocateMemory(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto size_v = param_vars[0];
                 const auto size = size_v->GetValue<type::Long>();
                 auto ptr = new u8[size]();
@@ -742,7 +750,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(ptr_v);
             }
 
-            ExecutionResult putLong(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult putLong(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto addr_v = param_vars[0];
                 const auto addr = addr_v->GetValue<type::Long>();
                 auto val_v = param_vars[1];
@@ -753,7 +761,7 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult getByte(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getByte(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto addr_v = param_vars[0];
                 const auto addr = addr_v->GetValue<type::Long>();
                 auto ptr = reinterpret_cast<u8*>(addr);
@@ -763,7 +771,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(byte_v);
             }
 
-            ExecutionResult freeMemory(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult freeMemory(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto addr_v = param_vars[0];
                 const auto addr = addr_v->GetValue<type::Long>();
                 auto ptr = reinterpret_cast<u8*>(addr);
@@ -776,18 +784,18 @@ namespace javm::native {
 
         namespace java::lang::Throwable {
 
-            ExecutionResult fillInStackTrace(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult fillInStackTrace(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Throwable.fillInStackTrace] called");
                 return ExecutionResult::ReturnVariable(this_var);
             }
 
-            ExecutionResult getStackTraceDepth(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getStackTraceDepth(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 const auto cur_stack = ThreadUtils::GetCurrentCallStack();
                 JAVM_LOG("[java.lang.Throwable.getStackTraceDepth] called - stack size: %ld", cur_stack.size());
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Integer>(cur_stack.size()));
             }
 
-            ExecutionResult getStackTraceElement(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult getStackTraceElement(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 const auto cur_stack = ThreadUtils::GetCurrentCallStack();
 
                 auto idx_v = param_vars[0];
@@ -821,7 +829,7 @@ namespace javm::native {
 
         namespace java::lang::String {
 
-            ExecutionResult intern(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult intern(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.String.intern] called - string: '%s'", StrUtils::ToUtf8(StringUtils::GetValue(this_var)).c_str());
                 return ExecutionResult::ReturnVariable(StringUtils::CheckIntern(this_var));
             }
@@ -830,12 +838,12 @@ namespace javm::native {
 
         namespace java::io::FileDescriptor {
 
-            ExecutionResult initIDs(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.io.FileDescriptor.initIDs] called");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult set(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult set(const std::vector<Ptr<Variable>> &param_vars) {
                 auto fd_v = param_vars[0];
                 const auto fd_i = fd_v->GetValue<type::Integer>();
                 JAVM_LOG("[java.io.FileDescriptor.set] called - fd: %d", fd_i);
@@ -847,19 +855,19 @@ namespace javm::native {
 
         namespace java::lang::Thread {
 
-            ExecutionResult registerNatives(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult registerNatives(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.lang.Thread.registerNatives] called");
                 return ExecutionResult::Void();
             }
             
-            ExecutionResult currentThread(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult currentThread(const std::vector<Ptr<Variable>> &param_vars) {
                 auto thread_v = ThreadUtils::GetCurrentThreadInstance();
                 JAVM_LOG("[java.lang.Thread.currentThread] called");
 
                 return ExecutionResult::ReturnVariable(thread_v);
             }
 
-            ExecutionResult setPriority0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult setPriority0(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto prio_v = param_vars[0];
                 const auto prio = prio_v->GetValue<type::Integer>();
                 JAVM_LOG("[java.lang.Thread.setPriority0] called - priority: %d", prio);
@@ -873,7 +881,7 @@ namespace javm::native {
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult isAlive(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult isAlive(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto thread_obj = this_var->GetAs<type::ClassInstance>();
                 const auto name_ret = thread_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
                 if(name_ret.IsInvalidOrThrown()) {
@@ -898,7 +906,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Boolean>(0));
             }
 
-            ExecutionResult start0(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult start0(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto thr_obj = this_var->GetAs<type::ClassInstance>();
                 const auto name_ret = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", this_var);
                 if(name_ret.IsInvalidOrThrown()) {
@@ -916,7 +924,7 @@ namespace javm::native {
 
         namespace java::io::FileInputStream {
 
-            ExecutionResult initIDs(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.io.FileInputStream.initIDs] called");
                 return ExecutionResult::Void();
             }
@@ -925,12 +933,12 @@ namespace javm::native {
 
         namespace java::io::FileOutputStream {
 
-            ExecutionResult initIDs(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.io.FileOutputStream.initIDs] called");
                 return ExecutionResult::Void();
             }
 
-            ExecutionResult writeBytes(Ptr<Variable> this_var, std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult writeBytes(Ptr<Variable> this_var, const std::vector<Ptr<Variable>> &param_vars) {
                 auto byte_arr_v = param_vars[0];
                 auto byte_arr = byte_arr_v->GetAs<type::Array>();
                 auto off_v = param_vars[1];
@@ -970,7 +978,7 @@ namespace javm::native {
 
         namespace sun::nio::cs::StreamEncoder {
 
-            ExecutionResult forOutputStreamWriter(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult forOutputStreamWriter(const std::vector<Ptr<Variable>> &param_vars) {
                 auto stream_v = param_vars[0];
                 auto obj_v = param_vars[1];
                 auto cs_name_v = param_vars[2];
@@ -987,7 +995,7 @@ namespace javm::native {
 
         namespace java::io::WinNTFileSystem {
 
-            ExecutionResult initIDs(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.io.WinNTFileSystem.initIDs] called");
                 return ExecutionResult::Void();
             }
@@ -996,7 +1004,7 @@ namespace javm::native {
 
         namespace java::util::concurrent::atomic::AtomicLong {
 
-            ExecutionResult VMSupportsCS8(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult VMSupportsCS8(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[java.util.concurrent.atomic.AtomicLong.VMSupportsCS8] called");
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
@@ -1005,7 +1013,7 @@ namespace javm::native {
 
         namespace sun::misc::Signal {
 
-            ExecutionResult findSignal(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult findSignal(const std::vector<Ptr<Variable>> &param_vars) {
                 auto sig_v = param_vars[0];
                 const auto sig = StringUtils::GetValue(sig_v);
                 JAVM_LOG("[sun.misc.Signal.findSignal] called - signal: '%s'...", StrUtils::ToUtf8(sig).c_str());
@@ -1021,7 +1029,7 @@ namespace javm::native {
                 return ExecutionResult::ReturnVariable(TypeUtils::False());
             }
 
-            ExecutionResult handle0(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult handle0(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Signal.handle0] called...");
                 return ExecutionResult::ReturnVariable(TypeUtils::NewPrimitiveVariable<type::Long>(2));
             }
@@ -1030,7 +1038,7 @@ namespace javm::native {
 
         namespace sun::io::Win32ErrorMode {
 
-            ExecutionResult setErrorMode(std::vector<Ptr<Variable>> param_vars) {
+            ExecutionResult setErrorMode(const std::vector<Ptr<Variable>> &param_vars) {
                 JAVM_LOG("[sun.misc.Signal.handle0] setErrorMode...");
                 return ExecutionResult::ReturnVariable(param_vars[0]);
             }
