@@ -4,7 +4,7 @@
 
 The only "dependencies" it does require is standard C and C++17 libraries, plus the offial Java standard library (`rt.jar` file) since virtually all compiled Java uses it.
 
-Note that, for threading and synchronization items (mutexes, condition vars...) you must provide your own implementation. Nevertheless, libjavm provides a default implementation with **pthread** for threading and **standard C++** for sync stuff (`pthread_t`, `std::recursive_mutex`, `std::condition_variable_any`...)
+Note that, for threading and synchronization items (mutexes, condvars...) you must provide your own implementation. Nevertheless, libjavm provides a default implementation with **pthread** for threading and **standard C++** for sync stuff (`pthread_t`, `std::recursive_mutex`, `std::condition_variable_any`...)
 
 It provides everything necessary to run Java (8 or lower...?) code in any kind of system.
 

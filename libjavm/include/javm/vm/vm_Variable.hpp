@@ -345,14 +345,14 @@ namespace javm::vm {
                                 cur_array_obj = cur_array_obj->GetAt(0)->GetAs<type::Array>();
                             }
 
-                            base_s += u"[" + StrUtils::From(cur_array_obj->GetLength()) + u"]";
+                            base_s += u"[" + str::From(cur_array_obj->GetLength()) + u"]";
                         }
                         
                         return base_s;
                     }
                 }
 
-                return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
+                return u"<unknown - type: " + str::From(static_cast<u32>(type)) + u">";
             }
 
             static String FormatVariable(Ptr<Variable> var) {
@@ -371,19 +371,19 @@ namespace javm::vm {
                         case VariableType::Byte:
                         case VariableType::Short: {
                             auto val = var->GetValue<type::Integer>();
-                            return StrUtils::From(val);
+                            return str::From(val);
                         }
                         case VariableType::Float: {
                             auto val = var->GetValue<type::Float>();
-                            return StrUtils::From(val);
+                            return str::From(val);
                         }
                         case VariableType::Double: {
                             auto val = var->GetValue<type::Double>();
-                            return StrUtils::From(val);
+                            return str::From(val);
                         }
                         case VariableType::Long: {
                             auto val = var->GetValue<type::Long>();
-                            return StrUtils::From(val);
+                            return str::From(val);
                         }
                         default:
                             return u"<wtf>";
@@ -400,7 +400,7 @@ namespace javm::vm {
                     }
                 }
 
-                return u"<unknown - type: " + StrUtils::From(static_cast<u32>(type)) + u">";
+                return u"<unknown - type: " + str::From(static_cast<u32>(type)) + u">";
             }
 
             static String GetBaseClassName(const String &class_name) {
@@ -415,7 +415,7 @@ namespace javm::vm {
                     name_copy.pop_back();
                 }
 
-                JAVM_LOG("GetBaseClassName - copy: '%s'", StrUtils::ToUtf8(name_copy).c_str());
+                JAVM_LOG("GetBaseClassName - copy: '%s'", str::ToUtf8(name_copy).c_str());
                 return ClassUtils::MakeSlashClassName(name_copy);
             }
     };

@@ -66,7 +66,7 @@ namespace javm::rt {
                 }
                 try {
                     auto reader = this->OpenSelf();
-                    auto v_data = reader.read(StrUtils::ToUtf8(vm::ClassUtils::MakeSlashClassName(find_class_name) + u".class"));
+                    auto v_data = reader.read(str::ToUtf8(vm::ClassUtils::MakeSlashClassName(find_class_name) + u".class"));
                     auto class_src = ptr::New<JavaClassFileSource>(v_data.data(), v_data.size());
                     this->cached_class_files.push_back(class_src);
                     return class_src->LocateClassType(find_class_name);

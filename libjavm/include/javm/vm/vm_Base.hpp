@@ -40,7 +40,7 @@ namespace javm::vm {
         public:
             template<typename ...AFs>
             static inline constexpr AccessFlags Make(AFs &&...flags) {
-                AccessFlags f = AccessFlags::None;
+                auto f = AccessFlags::None;
                 (AddFlag(f, flags), ...);
                 return f;
             }

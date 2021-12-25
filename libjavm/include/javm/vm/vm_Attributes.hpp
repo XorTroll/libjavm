@@ -212,8 +212,8 @@ namespace javm::vm {
                     auto type_data_item = pool.GetItemAt(annot.type_index, vm::ConstantPoolTag::Utf8);
                     if(type_data_item) {
                         auto &type_data = type_data_item->GetUtf8Data();
-                        annot.processed_type = StrUtils::FromUtf8(type_data.utf8_str);
-                        JAVM_LOG("[annotations] Annotation name: '%s'...", StrUtils::ToUtf8(annot.processed_type).c_str());
+                        annot.processed_type = str::FromUtf8(type_data.utf8_str);
+                        JAVM_LOG("[annotations] Annotation name: '%s'...", str::ToUtf8(annot.processed_type).c_str());
                     }
                     for(auto &val: annot.values) {
                         JAVM_LOG("[annotations] Processing tag '%c'...", (char)val.tag);
@@ -258,7 +258,7 @@ namespace javm::vm {
                                 auto str_data_item = pool.GetItemAt(val.const_value.const_value_index, vm::ConstantPoolTag::Utf8);
                                 if(str_data_item) {
                                     auto &str_data = str_data_item->GetUtf8Data();
-                                    val.const_value.processed_str = StrUtils::FromUtf8(str_data.utf8_str);
+                                    val.const_value.processed_str = str::FromUtf8(str_data.utf8_str);
                                 }
                                 break;
                             }
@@ -266,12 +266,12 @@ namespace javm::vm {
                                 auto name_data_item = pool.GetItemAt(val.enum_const_value.type_name_index, vm::ConstantPoolTag::Utf8);
                                 if(name_data_item) {
                                     auto &name_data = name_data_item->GetUtf8Data();
-                                    val.enum_const_value.processed_type_name = StrUtils::FromUtf8(name_data.utf8_str);
+                                    val.enum_const_value.processed_type_name = str::FromUtf8(name_data.utf8_str);
                                 }
                                 name_data_item = pool.GetItemAt(val.enum_const_value.const_name_index, vm::ConstantPoolTag::Utf8);
                                 if(name_data_item) {
                                     auto &name_data = name_data_item->GetUtf8Data();
-                                    val.enum_const_value.processed_const_name = StrUtils::FromUtf8(name_data.utf8_str);
+                                    val.enum_const_value.processed_const_name = str::FromUtf8(name_data.utf8_str);
                                 }
                                 break;
                             }
@@ -318,7 +318,7 @@ namespace javm::vm {
                     auto name_data_item = pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::Utf8);
                     if(name_data_item) {
                         auto &name_data = name_data_item->GetUtf8Data();
-                        info.SetName(StrUtils::FromUtf8(name_data.utf8_str));
+                        info.SetName(str::FromUtf8(name_data.utf8_str));
                     }
                 }
             }

@@ -1,14 +1,13 @@
 
 #pragma once
 #include <javm/vm/vm_TypeBase.hpp>
-#include <functional>
-#include <map>
 #include <javm/vm/vm_Sync.hpp>
+#include <map>
 
 namespace javm::native {
 
-    using NativeInstanceMethod = std::function<vm::ExecutionResult(Ptr<vm::Variable>, const std::vector<Ptr<vm::Variable>>&)>;
-    using NativeClassMethod = std::function<vm::ExecutionResult(const std::vector<Ptr<vm::Variable>>&)>;
+    using NativeInstanceMethod = vm::ExecutionResult(*)(Ptr<vm::Variable>, const std::vector<Ptr<vm::Variable>>&);
+    using NativeClassMethod = vm::ExecutionResult(*)(const std::vector<Ptr<vm::Variable>>&);
 
     namespace inner_impl {
 

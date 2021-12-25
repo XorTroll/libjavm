@@ -29,7 +29,7 @@ namespace javm::rt {
                             auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::Utf8);
                             if(name_data_item) {
                                 auto &name_data = name_data_item->GetUtf8Data();
-                                data.processed_name = StrUtils::FromUtf8(name_data.utf8_str);
+                                data.processed_name = str::FromUtf8(name_data.utf8_str);
                             }
                             break;
                         }
@@ -38,12 +38,12 @@ namespace javm::rt {
                             auto name_data_item = this->pool.GetItemAt(data.name_index, vm::ConstantPoolTag::Utf8);
                             if(name_data_item) {
                                 auto &name_data = name_data_item->GetUtf8Data();
-                                data.processed_name = StrUtils::FromUtf8(name_data.utf8_str);
+                                data.processed_name = str::FromUtf8(name_data.utf8_str);
                             }
                             auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::Utf8);
                             if(desc_data_item) {
                                 auto &desc_data = desc_data_item->GetUtf8Data();
-                                data.processed_desc = StrUtils::FromUtf8(desc_data.utf8_str);
+                                data.processed_desc = str::FromUtf8(desc_data.utf8_str);
                             }
                             break;
                         }
@@ -52,7 +52,7 @@ namespace javm::rt {
                             auto str_data_item = this->pool.GetItemAt(data.string_index, vm::ConstantPoolTag::Utf8);
                             if(str_data_item) {
                                 auto &str_data = str_data_item->GetUtf8Data();
-                                data.processed_string = StrUtils::FromUtf8(str_data.utf8_str);
+                                data.processed_string = str::FromUtf8(str_data.utf8_str);
                             }
                             break;
                         }
@@ -61,7 +61,7 @@ namespace javm::rt {
                             auto desc_data_item = this->pool.GetItemAt(data.desc_index, vm::ConstantPoolTag::Utf8);
                             if(desc_data_item) {
                                 auto &desc_data = desc_data_item->GetUtf8Data();
-                                data.processed_desc = StrUtils::FromUtf8(desc_data.utf8_str);
+                                data.processed_desc = str::FromUtf8(desc_data.utf8_str);
                             }
                             break;
                         }
@@ -76,12 +76,12 @@ namespace javm::rt {
                     auto name_data_item = this->pool.GetItemAt(info.GetNameIndex(), vm::ConstantPoolTag::Utf8);
                     if(name_data_item) {
                         auto &name_data = name_data_item->GetUtf8Data();
-                        info.SetName(StrUtils::FromUtf8(name_data.utf8_str));
+                        info.SetName(str::FromUtf8(name_data.utf8_str));
                     }
                     auto desc_data_item = this->pool.GetItemAt(info.GetDescriptorIndex(), vm::ConstantPoolTag::Utf8);
                     if(desc_data_item) {
                         auto &desc_data = desc_data_item->GetUtf8Data();
-                        info.SetDescriptor(StrUtils::FromUtf8(desc_data.utf8_str));
+                        info.SetDescriptor(str::FromUtf8(desc_data.utf8_str));
                     }
                 }
             }

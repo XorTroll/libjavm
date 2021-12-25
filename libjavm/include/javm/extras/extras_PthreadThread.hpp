@@ -9,11 +9,11 @@ namespace javm::extras {
 
     using PthreadEntry = void*(*)(void*);
 
-    inline constexpr vm::type::Long CastFromPthread(pthread_t pthread) {
+    inline constexpr vm::type::Long CastFromPthread(const pthread_t pthread) {
         return static_cast<vm::type::Long>(pthread);
     }
 
-    inline constexpr pthread_t CastToPthread(vm::type::Long handle) {
+    inline constexpr pthread_t CastToPthread(const vm::type::Long handle) {
         return static_cast<pthread_t>(handle);
     }
 
@@ -30,7 +30,7 @@ namespace javm::extras {
         public:
             PthreadThread() : existing(false) {}
 
-            PthreadThread(native::ThreadHandle handle) : existing(true), pthread(CastToPthread(handle)) {}
+            PthreadThread(const native::ThreadHandle handle) : existing(true), pthread(CastToPthread(handle)) {}
 
             virtual void Start(native::ThreadEntrypoint entry_fn) override {
                 if(existing) {

@@ -21,13 +21,13 @@ void CheckHandleException(const vm::ExecutionResult ret) {
         auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
         auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
-        const auto msg_str = vm::StringUtils::GetValue(msg_v);
+        const auto msg_str = vm::jstr::GetValue(msg_v);
         if(!msg_str.empty()) {
             msg += u": " + msg_str;
         }
-        printf("%s\n", StrUtils::ToUtf8(msg).c_str());
+        printf("%s\n", str::ToUtf8(msg).c_str());
         for(auto call_info: thread->GetInvertedCallStack()) {
-            printf("    at %s.%s%s\n", StrUtils::ToUtf8(call_info.caller_type->GetClassName()).c_str(), StrUtils::ToUtf8(call_info.invokable_name).c_str(), StrUtils::ToUtf8(call_info.invokable_desc).c_str());
+            printf("    at %s.%s%s\n", str::ToUtf8(call_info.caller_type->GetClassName()).c_str(), str::ToUtf8(call_info.invokable_name).c_str(), str::ToUtf8(call_info.invokable_desc).c_str());
         }
         exit(0);
     }
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
     auto args_arr_v = vm::TypeUtils::NewArray(args_len, rt::LocateClassType(u"java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
     for(auto i = 0; i < args_len; i++) {
-        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(argv[ExpectedArgCount + i])));
+        args_arr_obj->SetAt(i, vm::jstr::CreateNew(str::FromUtf8(argv[ExpectedArgCount + i])));
     }
 
     if(main_jar->CanBeExecuted()) {

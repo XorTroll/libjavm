@@ -229,9 +229,9 @@ namespace javm::vm {
                             return ExecutionResult::Void();
                         }
 
-                        JAVM_LOG("[clinit] Calling static init of '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
+                        JAVM_LOG("[clinit] Calling static init of '%s'...", str::ToUtf8(this->class_name).c_str());
                         const auto ret = this->CallClassMethod(StaticInitializerMethodName, StaticInitializerMethodDescriptor);
-                        JAVM_LOG("[clinit] Done '%s'...", StrUtils::ToUtf8(this->class_name).c_str());
+                        JAVM_LOG("[clinit] Done '%s'...", str::ToUtf8(this->class_name).c_str());
                         return ret;
                     }
                 }
@@ -270,7 +270,7 @@ namespace javm::vm {
                             if(attr.GetName() == AttributeType::Code) {
                                 MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
                                 CodeAttributeData code(reader);
-                                JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", StrUtils::ToUtf8(name).c_str(), StrUtils::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
+                                JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", str::ToUtf8(name).c_str(), str::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
                                 auto self_type = this->FindSelf();
                                 const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
                                 ExecutionScopeGuard guard(self_type, name, descriptor);
@@ -499,7 +499,7 @@ namespace javm::vm {
                     }
                 }
                 if(this->HasSuperClass()) {
-                    JAVM_LOG("Super class: '%s'", StrUtils::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
+                    JAVM_LOG("Super class: '%s'", str::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
                     return this->super_class_instance->GetInstanceByClassTypeAndMethodSpecial(this->super_class_instance, class_name, fn_name, fn_descriptor);
                 }
                 return nullptr;
@@ -521,7 +521,7 @@ namespace javm::vm {
                     }
                 }
                 if(this->HasSuperClass()) {
-                    JAVM_LOG("Super class: '%s'", StrUtils::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
+                    JAVM_LOG("Super class: '%s'", str::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
                     return this->super_class_instance->GetInstanceByClassTypeAndMethodVirtualInterface(this->super_class_instance, class_name, fn_name, fn_descriptor);
                 }
                 return nullptr;

@@ -40,7 +40,7 @@ namespace javm::vm {
                 const auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", java_thr_v);
                 if(!name_res.IsInvalidOrThrown()) {
                     auto name_v = name_res.ret_var;
-                    this->cached_name = StringUtils::GetValue(name_v);
+                    this->cached_name = jstr::GetValue(name_v);
                 }
             }
 

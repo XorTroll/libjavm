@@ -36,13 +36,13 @@ void CheckHandleException(vm::ExecutionResult ret) {
         auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
         auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
         auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
-        const auto msg_str = vm::StringUtils::GetValue(msg_v);
+        const auto msg_str = vm::jstr::GetValue(msg_v);
         if(!msg_str.empty()) {
-            msg +=  + u": " + vm::StringUtils::GetValue(msg_v);
+            msg +=  + u": " + vm::jstr::GetValue(msg_v);
         }
-        printf("%s\n", StrUtils::ToUtf8(msg).c_str());
+        printf("%s\n", str::ToUtf8(msg).c_str());
         for(auto call_info: thread->GetInvertedCallStack()) {
-            printf("    at %s.%s%s\n", StrUtils::ToUtf8(call_info.caller_type->GetClassName()).c_str(), StrUtils::ToUtf8(call_info.invokable_name).c_str(), StrUtils::ToUtf8(call_info.invokable_desc).c_str());
+            printf("    at %s.%s%s\n", str::ToUtf8(call_info.caller_type->GetClassName()).c_str(), str::ToUtf8(call_info.invokable_name).c_str(), str::ToUtf8(call_info.invokable_desc).c_str());
         }
         DoExit();
     }
@@ -57,7 +57,7 @@ void CheckHandleException(vm::ExecutionResult ret) {
 // Define the initial/base system properties of our VM, which are needed for the VM setup
 inline vm::PropertyTable GetInitialSystemProperties() {
     const auto hos_ver = hosversionGet();
-    const auto os_version = StrUtils::Format("%d.%d.%d", HOSVER_MAJOR(hos_ver), HOSVER_MINOR(hos_ver), HOSVER_MICRO(hos_ver));
+    const auto os_version = str::Format("%d.%d.%d", HOSVER_MAJOR(hos_ver), HOSVER_MINOR(hos_ver), HOSVER_MICRO(hos_ver));
 
     return vm::PropertyTable {
         { u"path.separator", u":" },
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
     auto args_arr_v = vm::TypeUtils::NewArray(DummyArgCount, rt::LocateClassType(u"java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
     for(size_t i = 0; i < DummyArgCount; i++) {
-        args_arr_obj->SetAt(i, vm::StringUtils::CreateNew(StrUtils::FromUtf8(DummyArgs[i])));
+        args_arr_obj->SetAt(i, vm::jstr::CreateNew(str::FromUtf8(DummyArgs[i])));
     }
 
     if(main_jar->CanBeExecuted()) {

@@ -56,7 +56,7 @@ namespace javm {
             String FindAttribute(const std::string &name) {
                 auto it = this->attributes.find(name);
                 if(it != this->attributes.end()) {
-                    return StrUtils::FromUtf8(it->second);
+                    return str::FromUtf8(it->second);
                 }
 
                 // TODO

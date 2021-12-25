@@ -62,7 +62,7 @@ namespace javm::rt {
             return ret;
         }
 
-        auto main_thr_name = vm::StringUtils::CreateNew(native::Thread::MainThreadName);
+        auto main_thr_name = vm::jstr::CreateNew(native::Thread::MainThreadName);
 
         // Now, call the main thread group's ctor
         auto main_tg_obj = main_tg_v->GetAs<vm::type::ClassInstance>();
