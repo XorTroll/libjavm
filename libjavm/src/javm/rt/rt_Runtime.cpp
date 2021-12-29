@@ -2,8 +2,36 @@
 
 namespace javm::rt {
 
+    namespace {
+
+        using namespace vm;
+
+        Ptr<Variable> RegisterMainThread() {
+            const auto handle = native::GetCurrentThreadHandle();
+            auto thread = native::CreateExistingThread(handle);
+            
+            auto thread_class_type = rt::LocateClassType(u"java/lang/Thread");
+            thread_class_type->EnsureStaticInitializerCalled();
+
+            auto thread_v = NewClassVariable(thread_class_type);
+
+            auto thread_obj = thread_v->GetAs<type::ClassInstance>();
+            thread_obj->SetField(u"eetop", u"J", NewPrimitiveVariable<type::Long>(handle));
+            const auto prio = native::GetThreadPriority(handle);
+            thread_obj->SetField(u"priority", u"I", NewPrimitiveVariable<type::Integer>(prio));
+
+            thread->SetThreadVariable(thread_v);
+
+            auto thr_accessor = RegisterThread(thread);
+            thr_accessor->SetThreadName(native::Thread::MainThreadName);
+
+            return thread_v;
+        }
+
+    }
+
     vm::ExecutionResult PrepareExecution() {
-        auto main_thr_v = vm::RegisterMainThread();
+        auto main_thr_v = RegisterMainThread();
 
         auto tg_class_type = LocateClassType(u"java/lang/ThreadGroup");
 

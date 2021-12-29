@@ -12,14 +12,6 @@ namespace javm::vm {
         Monitor g_ThrownLock;
         bool g_ThrownNotified = true;
 
-        Ptr<ThreadAccessor> RegisterThreadWithoutNameCache(Ptr<native::Thread> thread_obj) {
-            ScopedMonitorLock lk(g_ThreadListLock);
-
-            auto accessor = ptr::New<ThreadAccessor>(thread_obj);
-            g_ThreadList.push_back(accessor);
-            return accessor;
-        }
-
         void ThreadEntrypoint(void *thread_ptr) {
             auto thread_ref = reinterpret_cast<native::Thread*>(thread_ptr);
             auto thread_v = thread_ref->GetThreadVariable();
@@ -40,15 +32,24 @@ namespace javm::vm {
 
     }
 
-    void ThreadAccessor::CacheThreadName() {
-        auto java_thr_v = this->thread_obj->GetThreadVariable();
-        auto thr_obj = java_thr_v->GetAs<type::ClassInstance>();
+    String ThreadAccessor::GetThreadName() {
+        auto thread_v = this->thread_obj->GetThreadVariable();
+        auto thread_obj = thread_v->GetAs<type::ClassInstance>();
 
-        const auto name_res = thr_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", java_thr_v);
+        const auto name_res = thread_obj->CallInstanceMethod(u"getName", u"()Ljava/lang/String;", thread_v);
         if(!name_res.IsInvalidOrThrown()) {
-            auto name_v = name_res.var;
-            this->SetCachedThreadName(jutil::GetStringValue(name_v));
+            return jutil::GetStringValue(name_res.var);
         }
+
+        return u"";
+    }
+
+    void ThreadAccessor::SetThreadName(const String &new_name) {
+        auto thread_v = this->thread_obj->GetThreadVariable();
+        auto thread_obj = thread_v->GetAs<type::ClassInstance>();
+
+        auto name_v = jutil::NewString(new_name);
+        thread_obj->CallInstanceMethod(u"setName", u"(Ljava/lang/String;)V", thread_v, name_v);
     }
 
     void ThreadAccessor::PushNewCall(Ptr<ClassType> caller_type, const String &invokable_name, const String &invokable_desc) {
@@ -89,7 +90,6 @@ namespace javm::vm {
         ScopedMonitorLock lk(g_ThreadListLock);
 
         auto accessor = ptr::New<ThreadAccessor>(thread_obj);
-        accessor->CacheThreadName();
         g_ThreadList.push_back(accessor);
         return accessor;
     }
@@ -141,33 +141,11 @@ namespace javm::vm {
     }
 
     void RegisterAndStartThread(Ptr<Variable> thread_var) {
-        auto thread_obj = native::CreateThread();
-        thread_obj->SetThreadVariable(thread_var);
+        auto thread = native::CreateThread();
+        thread->SetThreadVariable(thread_var);
 
-        RegisterThread(thread_obj);
-        thread_obj->Start(&ThreadEntrypoint);
-    }
-
-    Ptr<Variable> RegisterMainThread() {
-        const auto handle = native::GetCurrentThreadHandle();
-        auto thread_obj = native::CreateExistingThread(handle);
-        
-        auto thread_class_type = rt::LocateClassType(u"java/lang/Thread");
-        thread_class_type->EnsureStaticInitializerCalled();
-
-        auto java_thread_v = NewClassVariable(thread_class_type);
-
-        auto java_thread_obj = java_thread_v->GetAs<type::ClassInstance>();
-        java_thread_obj->SetField(u"eetop", u"J", NewPrimitiveVariable<type::Long>(handle));
-        const auto prio = native::GetThreadPriority(handle);
-        java_thread_obj->SetField(u"priority", u"I", NewPrimitiveVariable<type::Integer>(prio));
-
-        thread_obj->SetThreadVariable(java_thread_v);
-
-        auto thr_accessor = RegisterThreadWithoutNameCache(thread_obj);
-        thr_accessor->SetCachedThreadName(native::Thread::MainThreadName);
-
-        return java_thread_v;
+        RegisterThread(thread);
+        thread->Start(&ThreadEntrypoint);
     }
 
     void RegisterThrown(Ptr<Variable> throwable_v) {

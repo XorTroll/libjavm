@@ -24,7 +24,6 @@ namespace javm::vm {
             Ptr<native::Thread> thread_obj;
             Ptr<Variable> throwable_v;
             std::vector<CallInfo> call_stack;
-            String cached_name;
             bool caller_sensitive;
 
         public:
@@ -38,18 +37,8 @@ namespace javm::vm {
                 return this->thread_obj;
             }
 
-            void CacheThreadName();
-
-            inline void SetCachedThreadName(const String &name) {
-                this->cached_name = name;
-            }
-
-            inline String GetThreadName() {
-                if(this->cached_name.empty()) {
-                    this->CacheThreadName();
-                }
-                return this->cached_name;
-            }
+            String GetThreadName();
+            void SetThreadName(const String &new_name);
 
             inline Ptr<Variable> GetThreadVariable() {
                 return this->thread_obj->GetThreadVariable();
@@ -110,7 +99,6 @@ namespace javm::vm {
     u32 GetThreadCount();
 
     void RegisterAndStartThread(Ptr<Variable> thread_var);
-    Ptr<Variable> RegisterMainThread();
 
     void RegisterThrown(Ptr<Variable> throwable_v);
     Ptr<ThreadAccessor> RetrieveThrownThread();
