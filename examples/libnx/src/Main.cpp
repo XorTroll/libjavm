@@ -30,23 +30,22 @@ void DoExit()  {
     exit(0);
 }
 
-void CheckHandleException(vm::ExecutionResult ret) {
-    if(ret.Is<vm::ExecutionStatus::Thrown>()) {
-        auto [thread, throwable_var] = vm::ThreadUtils::GetThrownExceptionInfo();
-        auto throwable_obj = throwable_var->GetAs<vm::type::ClassInstance>();
-        auto msg_v = throwable_obj->GetField(u"detailMessage", u"Ljava/lang/String;");
-        auto msg = u"Exception in thread \"" + thread->GetThreadName() + u"\" " + vm::TypeUtils::FormatVariableType(throwable_var);
-        const auto msg_str = vm::jstr::GetValue(msg_v);
-        if(!msg_str.empty()) {
-            msg +=  + u": " + vm::jstr::GetValue(msg_v);
-        }
-        printf("%s\n", str::ToUtf8(msg).c_str());
-        for(auto call_info: thread->GetInvertedCallStack()) {
-            printf("    at %s.%s%s\n", str::ToUtf8(call_info.caller_type->GetClassName()).c_str(), str::ToUtf8(call_info.invokable_name).c_str(), str::ToUtf8(call_info.invokable_desc).c_str());
-        }
+void CheckHandleException(const vm::ExecutionResult res) {
+    if(res.Is<vm::ExecutionStatus::Thrown>()) {
+        // After retrieving the thrown throwable (the thread is less relevant), the "thrown" state in the VM gets reset so executions are available again
+        auto throwable_v = vm::RetrieveThrownThrowable();
+        auto thread = vm::RetrieveThrownThread();
+
+        // Therefore, we can call <throwable>.printStackTrace() to print detailed info about the exception
+        printf("Got exception in thread \"%s\" (%s)\n", str::ToUtf8(thread->GetThreadName()).c_str(), str::ToUtf8(vm::FormatVariableType(throwable_v)).c_str());
+        printf("Printing stack trace:\n");
+        printf("---------------------------------------------------------------------------------\n");
+        auto throwable_obj = throwable_v->GetAs<vm::type::ClassInstance>();
+        throwable_obj->CallInstanceMethod(u"printStackTrace", u"()V", throwable_v);
+        printf("---------------------------------------------------------------------------------\n");
         DoExit();
     }
-    else if(ret.Is<vm::ExecutionStatus::Invalid>()) {
+    else if(res.Is<vm::ExecutionStatus::Invalid>()) {
         printf("Invalid return!?\n");
         DoExit();
     }
@@ -77,33 +76,43 @@ int main(int argc, char **argv) {
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&g_hid_pad);
 
-    // 1) add class sources (JARs, class files...)
+    // Add class sources (JARs, class files...)
     auto rt_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/rt.jar"); // Java standard library JAR (rt.jar)
     auto main_jar = rt::CreateAddClassSource<rt::JavaArchiveSource>("sdmc:/javm-libnx/entry.jar"); // Entrypoint JAR
 
-    // 2) initial VM preparation (must be called ONCE)
+    if(!main_jar->CanBeExecuted()) {
+        // The JAR failed to load or it doesn't specify a main class (is an invalid file, or a JAR library)
+        printf("The JAR file can't be executed or is not an executable JAR...\n");
+        DoExit();
+        return 0;
+    }
+
+    // Initial VM preparation (must be called ONCE)
     rt::InitializeVM(GetInitialSystemProperties());
 
-    // 3) prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
-    const auto ret = rt::PrepareExecution();
-    CheckHandleException(ret);
+    // Prepare execution, which must be done here (before any executions) and/or after having called ResetExecution()
+    const auto res = rt::PrepareExecution();
+    CheckHandleException(res);
 
     // Create a Java string array (String[]) and populate it with some dummy values
     constexpr const char *DummyArgs[] = { "a", "b", "c", "d", "1", "2", "3", "4" };
     constexpr size_t DummyArgCount = sizeof(DummyArgs) / sizeof(const char*);
-    auto args_arr_v = vm::TypeUtils::NewArray(DummyArgCount, rt::LocateClassType(u"java/lang/String"));
+    auto args_arr_v = vm::NewArrayVariable(DummyArgCount, rt::LocateClassType(u"java/lang/String"));
     auto args_arr_obj = args_arr_v->GetAs<vm::type::Array>();
     for(size_t i = 0; i < DummyArgCount; i++) {
-        args_arr_obj->SetAt(i, vm::jstr::CreateNew(str::FromUtf8(DummyArgs[i])));
+        args_arr_obj->SetAt(i, vm::jutil::NewUtf8String(DummyArgs[i]));
     }
 
-    if(main_jar->CanBeExecuted()) {
-        auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
-        const auto ret = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
-        CheckHandleException(ret);
+    // Find the JAR's main class (specified at MANIFEST.MF)
+    auto main_class_type = rt::LocateClassType(main_jar->GetMainClass());
+    if(main_class_type) {
+        // Call the main class's "static void main(String[])" method
+        const auto res = main_class_type->CallClassMethod(u"main", u"([Ljava/lang/String;)V", args_arr_v);
+        CheckHandleException(res);
     }
     else {
-        printf("The JAR file can't be executed or is not an executable JAR...\n");
+        // Unexpected error finding the class...
+        printf("Unexpected error...\n");
     }
 
     DoExit();

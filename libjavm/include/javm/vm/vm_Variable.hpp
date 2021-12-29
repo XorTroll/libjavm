@@ -1,31 +1,98 @@
 
 #pragma once
-#include <javm/vm/vm_Type.hpp>
-#include <javm/vm/vm_Reflection.hpp>
+#include <javm/vm/vm_Array.hpp>
+#include <javm/vm/ref/ref_Reflection.hpp>
 
 namespace javm::vm {
 
     class Variable {
         private:
+            union VariableValue {
+                Ptr<type::Integer> common_int_val;
+                Ptr<type::Long> long_val;
+                Ptr<type::Float> float_val;
+                Ptr<type::Double> double_val;
+                Ptr<type::ClassInstance> class_val;
+                Ptr<type::Array> arr_val;
+                Ptr<type::NullObject> null_val;
+
+                VariableValue(Ptr<type::Integer> common_int_val) : common_int_val(common_int_val) {}
+                VariableValue(Ptr<type::Long> long_val) : long_val(long_val) {}
+                VariableValue(Ptr<type::Float> float_val) : float_val(float_val) {}
+                VariableValue(Ptr<type::Double> double_val) : double_val(double_val) {}
+                VariableValue(Ptr<type::ClassInstance> class_val) : class_val(class_val) {}
+                VariableValue(Ptr<type::Array> arr_val) : arr_val(arr_val) {}
+                VariableValue(Ptr<type::NullObject> null_val) : null_val(null_val) {}
+
+                ~VariableValue() {}
+
+                template<typename T>
+                inline Ptr<T> Get() {
+                    if constexpr(std::is_same_v<T, type::Integer>) {
+                        return this->common_int_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Long>) {
+                        return this->long_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Float>) {
+                        return this->float_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Double>) {
+                        return this->double_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::ClassInstance>) {
+                        return this->class_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Array>) {
+                        return this->arr_val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::NullObject>) {
+                        return this->null_val;
+                    }
+                    else {
+                        return nullptr;
+                    }
+                }
+
+                template<typename T>
+                inline void Set(Ptr<T> val) {
+                    if constexpr(std::is_same_v<T, type::Integer>) {
+                        this->common_int_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Long>) {
+                        this->long_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Float>) {
+                        this->float_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Double>) {
+                        this->double_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::ClassInstance>) {
+                        this->class_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::Array>) {
+                        this->arr_val = val;
+                    }
+                    else if constexpr(std::is_same_v<T, type::NullObject>) {
+                        this->null_val = val;
+                    }
+                }
+            };
+
             VariableType type;
-            Ptr<type::Integer> common_int_val;
-            Ptr<type::Long> long_val;
-            Ptr<type::Float> float_val;
-            Ptr<type::Double> double_val;
-            Ptr<type::ClassInstance> class_val;
-            Ptr<type::Array> arr_val;
-            Ptr<type::NullObject> null_val;
+            VariableValue value;
 
         public:
-            #define _JAVM_VAR_CTOR(type_name, val_name) Variable(Ptr<type::type_name> val) : type(VariableType::type_name), val_name(val) {}
+            #define _JAVM_VAR_CTOR(type_name) Variable(Ptr<type::type_name> val) : type(VariableType::type_name), value(val) {}
 
-            _JAVM_VAR_CTOR(Integer, common_int_val)
-            _JAVM_VAR_CTOR(Long, long_val)
-            _JAVM_VAR_CTOR(Float, float_val)
-            _JAVM_VAR_CTOR(Double, double_val)
-            _JAVM_VAR_CTOR(ClassInstance, class_val)
-            _JAVM_VAR_CTOR(Array, arr_val)
-            _JAVM_VAR_CTOR(NullObject, null_val)
+            _JAVM_VAR_CTOR(Integer) // Byte, Boolean, Character and Short are also handled here
+            _JAVM_VAR_CTOR(Long)
+            _JAVM_VAR_CTOR(Float)
+            _JAVM_VAR_CTOR(Double)
+            _JAVM_VAR_CTOR(ClassInstance)
+            _JAVM_VAR_CTOR(Array)
+            _JAVM_VAR_CTOR(NullObject)
 
             #undef _JAVM_VAR_CTOR
 
@@ -48,31 +115,14 @@ namespace javm::vm {
 
             template<typename T>
             inline Ptr<T> GetAs() {
-                static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
-                constexpr auto v_type = TypeTraits::DetermineVariableType<T>();
+                static_assert(IsValidVariableType<T>(), "Invalid type");
+                constexpr auto v_type = DetermineVariableType<T>();
+                if(v_type != this->type) {
+                    // TODO: critical error!
+                    return nullptr;
+                }
                 
-                if constexpr(v_type == VariableType::Integer) {
-                    return this->common_int_val;
-                }
-                if constexpr(v_type == VariableType::Long) {
-                    return this->long_val;
-                }
-                if constexpr(v_type == VariableType::Float) {
-                    return this->float_val;
-                }
-                if constexpr(v_type == VariableType::Double) {
-                    return this->double_val;
-                }
-                if constexpr(v_type == VariableType::ClassInstance) {
-                    return this->class_val;
-                }
-                if constexpr(v_type == VariableType::Array) {
-                    return this->arr_val;
-                }
-                if constexpr(v_type == VariableType::NullObject) {
-                    return this->null_val;
-                }
-                return nullptr;
+                return this->value.Get<T>();
             }
 
             template<typename T>
@@ -83,366 +133,122 @@ namespace javm::vm {
 
             template<typename T>
             inline void SetAs(Ptr<T> val) {
-                static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
-                const auto v_type = TypeTraits::DetermineVariableType<T>();
+                static_assert(IsValidVariableType<T>(), "Invalid type");
+                const auto v_type = DetermineVariableType<T>();
                 if(v_type != this->type) {
                     // TODO: critical error!
                     return;
                 }
-                if constexpr(v_type == VariableType::Integer) {
-                    this->common_int_val = val;
-                }
-                if constexpr(v_type == VariableType::Long) {
-                    this->long_val = val;
-                }
-                if constexpr(v_type == VariableType::Float) {
-                    this->float_val = val;
-                }
-                if constexpr(v_type == VariableType::Double) {
-                    this->double_val = val;
-                }
-                if constexpr(v_type == VariableType::ClassInstance) {
-                    this->class_val = val;
-                }
-                if constexpr(v_type == VariableType::Array) {
-                    this->arr_val = val;
-                }
-                if constexpr(v_type == VariableType::NullObject) {
-                    this->null_val = val;
-                }
+
+                this->value.Set(val);
             }
     };
 
-    class TypeUtils {
-        private:
-            static inline Ptr<Variable> g_null_ref_var;
-            static inline std::vector<Ptr<Variable>> g_cached_class_types;
+    template<typename T>
+    inline Ptr<Variable> NewPrimitiveVariable(const T t) {
+        static_assert(IsPrimitiveType<T>(), "Invalid primitive type");
 
-            static inline void SetInArray(Ptr<Variable> var, Ptr<Array> &array, u32 &idx) {
-                array->SetAt(idx, var);
-                idx++;
-            }
-
-            static inline Ptr<Variable> GetNullVariableImpl() {
-                if(!g_null_ref_var) {
-                    g_null_ref_var = ptr::New<Variable>(ptr::New<NullObject>());
-                }
-                
-                return g_null_ref_var;
-            }
-
-            static Ptr<Variable> GetCachedClassType(const String &class_name) {
-                for(auto &class_v: g_cached_class_types) {
-                    auto class_obj = class_v->GetAs<type::ClassInstance>();
-                    auto name_v = class_obj->GetField(u"name", u"Ljava/lang/String;");
-                    const auto name = inner_impl::GetStringValue(name_v);
-                    if(class_name == name) {
-                        return class_v;
-                    }
-                }
-
-                return nullptr;
-            }
-
-            static inline void CacheClassType(Ptr<Variable> class_v) {
-                g_cached_class_types.push_back(class_v);
-            }
-
-        public:
-            static inline bool IsPrimitiveType(const VariableType type) {
-                if(type != VariableType::Invalid) {
-                    if(type != VariableType::ClassInstance) {
-                        if(type != VariableType::Array) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            }
-            
-            // Variable creation
-
-            template<typename T>
-            static inline Ptr<Variable> NewPrimitiveVariable(const T t) {
-                static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
-                // Primitive implies no class or array
-                static_assert(!std::is_same_v<T, type::ClassInstance>, "Invalid type");
-                static_assert(!std::is_same_v<T, type::Array>, "Invalid type");
-
-                return ptr::New<Variable>(ptr::New<T>(t));
-            }
-
-            template<typename T>
-            static inline Ptr<Variable> NewDefaultVariable() {
-                static_assert(TypeTraits::IsValidVariableType<T>(), "Invalid type");
-                // Primitive implies no class or array
-                static_assert(!std::is_same_v<T, type::ClassInstance>, "Invalid type");
-                static_assert(!std::is_same_v<T, type::Array>, "Invalid type");
-
-                #define _JAVM_DEFAULT_VALUE_IMPL(type_name, val) \
-                if constexpr(std::is_same_v<T, type::type_name>) { \
-                    return ptr::New<Variable>(ptr::New<T>(val)); \
-                }
-
-                _JAVM_DEFAULT_VALUE_IMPL(Byte, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Boolean, false)
-                _JAVM_DEFAULT_VALUE_IMPL(Short, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Character, '\0')
-                _JAVM_DEFAULT_VALUE_IMPL(Integer, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Long, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Float, 0.0f)
-                _JAVM_DEFAULT_VALUE_IMPL(Double, 0.0f)
-
-                #undef _JAVM_DEFAULT_VALUE_IMPL
-
-                // return null by default, which should be class object or array
-                return Null();
-            }
-
-            static inline Ptr<Variable> NewDefaultVariable(const VariableType type) {
-                if(type == VariableType::Invalid) {
-                    return nullptr;
-                }
-                if(type == VariableType::ClassInstance) {
-                    return Null();
-                }
-                if(type == VariableType::Array) {
-                    return Null();
-                }
-
-                #define _JAVM_DEFAULT_VALUE_IMPL(type_name, val) \
-                if(type == VariableType::type_name) { \
-                    return ptr::New<Variable>(ptr::New<type::type_name>(val)); \
-                }
-
-                _JAVM_DEFAULT_VALUE_IMPL(Byte, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Boolean, false)
-                _JAVM_DEFAULT_VALUE_IMPL(Short, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Character, '\0')
-                _JAVM_DEFAULT_VALUE_IMPL(Integer, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Long, 0)
-                _JAVM_DEFAULT_VALUE_IMPL(Float, 0.0f)
-                _JAVM_DEFAULT_VALUE_IMPL(Double, 0.0f)
-
-                #undef _JAVM_DEFAULT_VALUE_IMPL
-
-                return nullptr;
-            }
-
-            static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type) {
-                auto class_var = ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
-                return class_var;
-            }
-
-            template<typename ...JArgs>
-            static Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
-                auto class_var = ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
-                
-                auto class_obj = class_var->GetAs<type::ClassInstance>();
-                class_obj->CallConstructor(class_var, init_descriptor, java_args...);
-
-                return class_var;
-            }
-
-            static inline Ptr<Variable> NewArray(const u32 length, const VariableType type, const u32 dimension = 1) {
-                return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
-            }
-
-            static inline Ptr<Variable> NewArray(const u32 length, Ptr<ClassType> type, const u32 dimension = 1) {
-                return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
-            }
-
-            template<typename ...JArgs>
-            static inline Ptr<Variable> NewArray(VariableType type, JArgs &&...java_args) {
-                auto arr_obj = ptr::New<type::Array>(type, sizeof...(JArgs));
-                u32 idx = 0;
-                (SetInArray(java_args, arr_obj, idx), ...);
-                return ptr::New<Variable>(arr_obj);
-            }
-
-            template<typename ...JArgs>
-            static inline Ptr<Variable> NewMultiArray(VariableType type, std::vector<u32> dimension_lengths) {
-                auto arr_len = dimension_lengths.front();
-                dimension_lengths.erase(dimension_lengths.begin());
-                return ptr::New<Variable>(ptr::New<type::Array>(arr_len, dimension_lengths, type));
-            }
-
-            static inline Ptr<Variable> True() {
-                return NewPrimitiveVariable<type::Integer>(1);
-            }
-
-            static inline Ptr<Variable> False() {
-                return NewPrimitiveVariable<type::Integer>(0);
-            }
-
-            static inline Ptr<Variable> Null() {
-                return GetNullVariableImpl();
-            }
-
-            // New java.lang.Class from reflection type
-            static inline Ptr<Variable> NewClassTypeVariable(Ptr<ReflectionType> ref_type) {
-                auto class_name = ref_type->GetTypeName();
-                auto cached_v = GetCachedClassType(class_name);
-                if(cached_v) {
-                    return cached_v;
-                }
-
-                auto class_class_type = inner_impl::LocateClassTypeImpl(u"java/lang/Class");
-
-                // No need to call ctor, we set classLoader to null manually to avoid having to execute code
-                auto class_v = NewClassVariable(class_class_type);
-                auto class_obj = class_v->GetAs<type::ClassInstance>();
-
-                auto class_name_v = inner_impl::CreateNewString(class_name);
-
-                class_obj->SetField(u"classLoader", u"Ljava/lang/ClassLoader;", Null());
-                class_obj->SetField(u"name", u"Ljava/lang/String;", class_name_v);
-
-                CacheClassType(class_v);
-                return class_v;
-            }
-
-            // Extras
-
-            static String FormatVariableType(Ptr<Variable> var) {
-                if(!var) {
-                    return u"<invalid>";
-                }
-
-                auto type = var->GetType();
-                if(var->IsNull()) {
-                    return u"<null>";
-                }
-
-                if(IsPrimitiveType(type)) {
-                    return TypeTraits::GetNameForPrimitiveType(type);
-                }
-                else {
-                    if(type == VariableType::ClassInstance) {
-                        auto class_obj = var->GetAs<type::ClassInstance>();
-                        return ClassUtils::MakeDotClassName(class_obj->GetClassType()->GetClassName());
-                    }
-                    else if(type == VariableType::Array) {
-                        auto arr_obj = var->GetAs<type::Array>();
-                        const auto arr_dims = arr_obj->GetDimensions();
-                        const auto arr_len = arr_obj->GetLength();
-
-                        String base_s;
-                        if(arr_obj->IsClassInstanceArray()) {
-                            auto cls_type = arr_obj->GetClassType();
-                            base_s += ClassUtils::MakeDotClassName(cls_type->GetClassName());
-                        }
-                        else {
-                            base_s += TypeTraits::GetNameForPrimitiveType(arr_obj->GetVariableType());
-                        }
-
-                        Ptr<Array> cur_array_obj = nullptr;
-                        for(u32 i = 0; i < arr_dims; i++) {
-                            if(i == 0) {
-                                cur_array_obj = arr_obj;
-                            }
-                            else {
-                                cur_array_obj = cur_array_obj->GetAt(0)->GetAs<type::Array>();
-                            }
-
-                            base_s += u"[" + str::From(cur_array_obj->GetLength()) + u"]";
-                        }
-                        
-                        return base_s;
-                    }
-                }
-
-                return u"<unknown - type: " + str::From(static_cast<u32>(type)) + u">";
-            }
-
-            static String FormatVariable(Ptr<Variable> var) {
-                if(!var) {
-                    return u"<invalid>";
-                }
-                if(var->IsNull()) {
-                    return u"<null>";
-                }
-                const auto type = var->GetType();
-                if(IsPrimitiveType(type)) {
-                    switch(type) {
-                        case VariableType::Integer:
-                        case VariableType::Character:
-                        case VariableType::Boolean:
-                        case VariableType::Byte:
-                        case VariableType::Short: {
-                            auto val = var->GetValue<type::Integer>();
-                            return str::From(val);
-                        }
-                        case VariableType::Float: {
-                            auto val = var->GetValue<type::Float>();
-                            return str::From(val);
-                        }
-                        case VariableType::Double: {
-                            auto val = var->GetValue<type::Double>();
-                            return str::From(val);
-                        }
-                        case VariableType::Long: {
-                            auto val = var->GetValue<type::Long>();
-                            return str::From(val);
-                        }
-                        default:
-                            return u"<wtf>";
-                    }
-                }
-                else {
-                    if(type == VariableType::ClassInstance) {
-                        auto class_obj = var->GetAs<type::ClassInstance>();
-                        auto ret = class_obj->CallInstanceMethod(u"toString", u"()Ljava/lang/String;", var);
-                        return inner_impl::GetStringValue(ret.ret_var);
-                    }
-                    if(type == VariableType::Array) {
-                        return u"<array>";
-                    }
-                }
-
-                return u"<unknown - type: " + str::From(static_cast<u32>(type)) + u">";
-            }
-
-            static String GetBaseClassName(const String &class_name) {
-                auto name_copy = class_name;
-                while(name_copy.front() == u'[') {
-                    name_copy.erase(0, 1);
-                }
-                while(name_copy.front() == u'L') {
-                    name_copy.erase(0, 1);
-                }
-                if(name_copy.back() == u';') {
-                    name_copy.pop_back();
-                }
-
-                JAVM_LOG("GetBaseClassName - copy: '%s'", str::ToUtf8(name_copy).c_str());
-                return ClassUtils::MakeSlashClassName(name_copy);
-            }
-    };
-
-    namespace inner_impl {
-
-        inline Ptr<Variable> NewDefaultVariableImpl(const VariableType type) {
-            return TypeUtils::NewDefaultVariable(type);
-        }
-
-        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type) {
-            return TypeUtils::NewClassVariable(class_type);
-        }
-
-        template<typename ...JArgs>
-        inline Ptr<Variable> NewClassVariableImpl(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
-            return TypeUtils::NewClassVariable(class_type, init_descriptor, java_args...);
-        }
-
-        Ptr<ClassType> GetClassInstanceTypeImpl(Ptr<Variable> &var) {
-            return var->GetAs<type::ClassInstance>()->GetClassType();
-        }
-
-        VariableType GetVariableTypeImpl(Ptr<Variable> &var) {
-            return var->GetType();
-        }
-        
+        return ptr::New<Variable>(ptr::New<T>(t));
     }
+
+    inline Ptr<Variable> NewDefaultPrimitiveVariable(const VariableType type) {
+        if(!IsPrimitiveVariableType(type)) {
+            return nullptr;
+        }
+
+        #define _JAVM_DEFAULT_VALUE_IMPL(type_name, val) \
+        if(type == VariableType::type_name) { \
+            return NewPrimitiveVariable(val); \
+        }
+
+        _JAVM_DEFAULT_VALUE_IMPL(Byte, static_cast<type::Byte>(0))
+        _JAVM_DEFAULT_VALUE_IMPL(Boolean, static_cast<type::Boolean>(false))
+        _JAVM_DEFAULT_VALUE_IMPL(Short, static_cast<type::Short>(0))
+        _JAVM_DEFAULT_VALUE_IMPL(Character, static_cast<type::Character>(u'\0'))
+        _JAVM_DEFAULT_VALUE_IMPL(Integer, static_cast<type::Integer>(0))
+        _JAVM_DEFAULT_VALUE_IMPL(Long, static_cast<type::Long>(0))
+        _JAVM_DEFAULT_VALUE_IMPL(Float, static_cast<type::Float>(0.0f))
+        _JAVM_DEFAULT_VALUE_IMPL(Double, static_cast<type::Double>(0.0f))
+
+        #undef _JAVM_DEFAULT_VALUE_IMPL
+
+        // TODO: is this even reachable?
+        return nullptr;
+    }
+
+    inline Ptr<Variable> MakeNull() {
+        return ptr::New<Variable>(ptr::New<type::NullObject>());
+    }
+    
+    template<typename T>
+    inline Ptr<Variable> NewDefaultPrimitiveVariable() {
+        static_assert(IsPrimitiveType<T>(), "Invalid primitive type");
+
+        return NewDefaultPrimitiveVariable(DetermineVariableType<T>());
+    }
+
+    inline Ptr<Variable> NewDefaultVariable(const VariableType type) {
+        if(type == VariableType::Invalid) {
+            return nullptr;
+        }
+        else if(type == VariableType::ClassInstance) {
+            return MakeNull();
+        }
+        else if(type == VariableType::Array) {
+            return MakeNull();
+        }
+        else {
+            return NewDefaultPrimitiveVariable(type);
+        }
+    }
+
+    inline Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type) {
+        return ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
+    }
+
+    template<typename ...JArgs>
+    inline Ptr<Variable> NewClassVariable(Ptr<ClassType> class_type, const String &init_descriptor, JArgs &&...java_args) {
+        auto class_var = ptr::New<Variable>(ptr::New<type::ClassInstance>(class_type));
+        
+        auto class_obj = class_var->GetAs<type::ClassInstance>();
+        class_obj->CallConstructor(class_var, init_descriptor, java_args...);
+
+        return class_var;
+    }
+
+    inline Ptr<Variable> NewArrayVariable(const u32 length, const VariableType type, const u32 dimension = 1) {
+        return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
+    }
+
+    inline Ptr<Variable> NewArrayVariable(const u32 length, Ptr<ClassType> type, const u32 dimension = 1) {
+        return ptr::New<Variable>(ptr::New<type::Array>(type, length, dimension));
+    }
+
+    template<typename ...JArgs>
+    inline Ptr<Variable> NewArray(VariableType type, JArgs &&...java_args) {
+        auto arr_obj = ptr::New<type::Array>(type, sizeof...(JArgs));
+
+        u32 idx = 0;
+        (arr_obj->SetAt(idx++, java_args), ...);
+
+        return ptr::New<Variable>(arr_obj);
+    }
+
+    // TODO: easy support for creating and using multi-dimensional arrays from C++?
+
+    inline Ptr<Variable> MakeTrue() {
+        return NewPrimitiveVariable<type::Boolean>(true);
+    }
+
+    inline Ptr<Variable> MakeFalse() {
+        return NewPrimitiveVariable<type::Boolean>(false);
+    }
+
+    // New java.lang.Class variable from reflection type
+
+    Ptr<Variable> NewClassTypeVariable(Ptr<ref::ReflectionType> ref_type);
+
+    String FormatVariableType(Ptr<Variable> var);
+    String FormatVariable(Ptr<Variable> var);
 
 }

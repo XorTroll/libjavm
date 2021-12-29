@@ -39,7 +39,21 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	javm-libnx-example
 BUILD		:=	build
-SOURCES		:=	source
+SOURCES		:=	src ../../libjavm/src/javm \
+                       ../../libjavm/src/javm/vm \
+					   ../../libjavm/src/javm/vm/jutil \
+					   ../../libjavm/src/javm/vm/ref \
+					   ../../libjavm/src/javm/rt \
+					   ../../libjavm/src/javm/native \
+					   ../../libjavm/src/javm/native/impl \
+					   ../../libjavm/src/javm/native/impl/java/lang \
+					   ../../libjavm/src/javm/native/impl/java/io \
+					   ../../libjavm/src/javm/native/impl/java/security \
+					   ../../libjavm/src/javm/native/impl/java/util/concurrent/atomic \
+					   ../../libjavm/src/javm/native/impl/sun/io \
+					   ../../libjavm/src/javm/native/impl/sun/misc \
+					   ../../libjavm/src/javm/native/impl/sun/nio/cs \
+					   ../../libjavm/src/javm/native/impl/sun/reflect
 DATA		:=	data
 INCLUDES	:=	include ../../libjavm/include
 # ROMFS	:=	romfs

@@ -4,7 +4,6 @@
 #include <javm/vm/vm_Sync.hpp>
 #include <javm/vm/vm_Attributes.hpp>
 #include <javm/native/native_NativeCode.hpp>
-#include <vector>
 
 namespace javm::vm {
 
@@ -30,14 +29,14 @@ namespace javm::vm {
                 return this->nat_data.processed_desc;
             }
 
-            bool MethodIsInvokable() const {
+            inline bool MethodIsInvokable() const {
                 // Is invokable: is native or has Code attribute
                 if(this->HasFlag<AccessFlags::Native>()) {
                     return true;
                 }
 
                 for(const auto &attr: this->GetAttributes()) {
-                    if(attr.GetName() == AttributeType::Code) {
+                    if(attr.GetName() == AttributeName::Code) {
                         return true;
                     }
                 }
@@ -71,29 +70,6 @@ namespace javm::vm {
             using ClassBaseField::ClassBaseField;
     };
 
-    namespace inner_impl {
-
-        void ThreadNotifyExecutionStartImpl(Ptr<ClassType> type, const String &name, const String &descriptor);
-        void ThreadNotifyExecutionEndImpl();
-        void ThreadNotifyExceptionThrown();
-
-    }
-
-    class ExecutionScopeGuard {
-        public:
-            ExecutionScopeGuard(Ptr<ClassType> type, const String &name, const String &descriptor) {
-                inner_impl::ThreadNotifyExecutionStartImpl(type, name, descriptor);
-            }
-
-            void NotifyThrown() {
-                inner_impl::ThreadNotifyExceptionThrown();
-            }
-
-            ~ExecutionScopeGuard() {
-                inner_impl::ThreadNotifyExecutionEndImpl();
-            }
-    };
-
     class MonitoredItem {
         protected:
             Ptr<Monitor> monitor;
@@ -101,7 +77,7 @@ namespace javm::vm {
         public:
             MonitoredItem() : monitor(ptr::New<Monitor>()) {}
 
-            Ptr<Monitor> GetMonitor() {
+            inline Ptr<Monitor> GetMonitor() {
                 return this->monitor;
             }
     };
@@ -110,6 +86,7 @@ namespace javm::vm {
         private:
             String class_name;
             String super_class_name;
+            String source_file;
             std::vector<String> interface_class_names;
             std::vector<ClassBaseField> fields;
             std::vector<ClassBaseField> invokables;
@@ -119,16 +96,7 @@ namespace javm::vm {
             ConstantPool pool;
 
         public:
-            ClassType(const String &name, const String &super_name, const std::vector<String> &interface_names, const std::vector<ClassBaseField> &fields, const std::vector<ClassBaseField> &invokables, const u16 flags, ConstantPool pool) : MonitoredItem(), class_name(name), super_class_name(super_name), interface_class_names(interface_names), fields(fields), invokables(invokables), static_block_called(false), static_block_enabled(true), pool(pool) {
-                this->SetAccessFlags(flags);
-                for(const auto &field: this->fields) {
-                    if(field.HasFlag<AccessFlags::Static>()) {
-                        // Push a copy, this kind of field can be got/set
-                        // Since static fields are used from the class and not the instance, the type needs to hold 'editable' static fields
-                        this->static_fields.emplace_back(field.GetNameAndType(), field.GetAccessFlags(), field.GetAttributes(), this->pool);
-                    }
-                }
-            }
+            ClassType(const String &name, const String &super_name, const String &source_file, const std::vector<String> &interface_names, const std::vector<ClassBaseField> &fields, const std::vector<ClassBaseField> &invokables, const u16 flags, ConstantPool pool);
 
             inline String GetClassName() {
                 return this->class_name;
@@ -138,20 +106,16 @@ namespace javm::vm {
                 return this->super_class_name;
             }
 
+            inline String GetSourceFile() {
+                return this->source_file;
+            }
+
             inline bool HasSuperClass() {
                 return !this->super_class_name.empty();
             }
 
-            Ptr<ClassType> FindSelf() {
-                return inner_impl::LocateClassTypeImpl(this->class_name);
-            }
-
-            Ptr<ClassType> GetSuperClassType() {
-                if(this->HasSuperClass()) {
-                    return inner_impl::LocateClassTypeImpl(this->super_class_name);
-                }
-                return nullptr;
-            }
+            Ptr<ClassType> FindSelf();
+            Ptr<ClassType> GetSuperClassType();
 
             inline std::vector<String> &GetInterfaceClassNames() {
                 return this->interface_class_names;
@@ -169,33 +133,8 @@ namespace javm::vm {
                 return this->invokables;
             }
 
-            type::Integer GetRawFieldUnsafeOffset(const String &name, const String &descriptor) {
-                u32 static_count = 0;
-                for(u32 i = 0; i < this->fields.size(); i++) {
-                    const auto &field = this->fields.at(i);
-                    if(field.HasFlag<AccessFlags::Static>()) {
-                        if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                            return static_count;
-                        }
-                        static_count++;
-                    }
-                    else {
-                        if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                            return i - static_count;
-                        }
-                    }
-                }
-                return -1;
-            }
-
-            bool IsRawFieldStatic(const String &name, const String &descriptor) {
-                for(const auto &field: this->fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        return field.HasFlag<AccessFlags::Static>();
-                    }
-                }
-                return false;
-            }
+            type::Integer GetRawFieldUnsafeOffset(const String &name, const String &descriptor);
+            bool IsRawFieldStatic(const String &name, const String &descriptor);
 
             inline void EnableStaticInitializer() {
                 this->static_block_enabled = true;
@@ -205,38 +144,7 @@ namespace javm::vm {
                 this->static_block_enabled = false;
             }
 
-            ExecutionResult EnsureStaticInitializerCalled() {
-                // First, call it on our super class (if we have it)
-                if(this->HasSuperClass()) {
-                    auto super_class = this->GetSuperClassType();
-                    if(super_class) {
-                        const auto ret = super_class->EnsureStaticInitializerCalled();
-                        if(ret.IsInvalidOrThrown()) {
-                            return ret;
-                        }
-                    }
-                }
-
-                // Check if we can call the static initializer
-                if(this->static_block_enabled) {
-                    // Call the static initializer if it hasn't been called yet
-                    if(!this->static_block_called) {
-                        this->static_block_called = true;
-
-                        constexpr auto StaticInitializerMethodName = u"<clinit>";
-                        constexpr auto StaticInitializerMethodDescriptor = u"()V";
-                        if(!this->HasClassMethod(StaticInitializerMethodName, StaticInitializerMethodDescriptor)) {
-                            return ExecutionResult::Void();
-                        }
-
-                        JAVM_LOG("[clinit] Calling static init of '%s'...", str::ToUtf8(this->class_name).c_str());
-                        const auto ret = this->CallClassMethod(StaticInitializerMethodName, StaticInitializerMethodDescriptor);
-                        JAVM_LOG("[clinit] Done '%s'...", str::ToUtf8(this->class_name).c_str());
-                        return ret;
-                    }
-                }
-                return ExecutionResult::Void();
-            }
+            ExecutionResult EnsureStaticInitializerCalled();
 
             inline std::vector<ClassBaseField> &GetFields() {
                 return this->fields;
@@ -250,165 +158,25 @@ namespace javm::vm {
                 return this->pool;
             }
 
-            ExecutionResult CallClassMethod(const String &name, const String &descriptor, const std::vector<Ptr<Variable>> &param_vars) {
-                // Ensure static initializer is or has been called
-                const auto ret = this->EnsureStaticInitializerCalled();
-                if(ret.IsInvalidOrThrown()) {
-                    return ret;
-                }
-                for(const auto &fn: this->invokables) {
-                    if(fn.HasFlag<AccessFlags::Static>() && (fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
-                        if(native::HasNativeClassMethod(this->class_name, name, descriptor)) {
-                            auto native_fn = native::FindNativeClassMethod(this->class_name, name, descriptor);
-                            return native_fn(param_vars);
-                        }
-                        else if(fn.HasFlag<AccessFlags::Native>()) {
-                            // TODO: throw elsewhere? currently try-catch blocks can't catch this...
-                            return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_name) + u"." + name + descriptor);
-                        }
-                        for(const auto &attr: fn.GetAttributes()) {
-                            if(attr.GetName() == AttributeType::Code) {
-                                MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
-                                CodeAttributeData code(reader);
-                                JAVM_LOG("[CODATTR] read on fn '%s.%s' -> exc table size: %ld", str::ToUtf8(name).c_str(), str::ToUtf8(descriptor).c_str(), code.GetExceptionTable().size());
-                                auto self_type = this->FindSelf();
-                                const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
-                                ExecutionScopeGuard guard(self_type, name, descriptor);
-                                if(is_sync) {
-                                    this->monitor->Enter();
-                                }
-                                const auto ret = inner_impl::ExecuteStaticCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this->pool, param_vars);
-                                if(is_sync) {
-                                    this->monitor->Leave();
-                                }
-                                if(ret.Is<ExecutionStatus::Thrown>()) {
-                                    guard.NotifyThrown();
-                                }
-                                return ret;
-                            }
-                        }
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    auto super_class = this->GetSuperClassType();
-                    if(super_class) {
-                        return super_class->CallClassMethod(name, descriptor, param_vars);
-                    }
-                }
-                return ExecutionResult::InvalidState();
-            }
-
-            bool HasClassMethod(const String &name, const String &descriptor) {
-                for(const auto &fn: this->invokables) {
-                    if(fn.HasFlag<AccessFlags::Static>() && (fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
+            ExecutionResult CallClassMethod(const String &name, const String &descriptor, const std::vector<Ptr<Variable>> &param_vars);
+            bool HasClassMethod(const String &name, const String &descriptor);
 
             template<typename ...JArgs>
-            ExecutionResult CallClassMethod(const String &name, const String &descriptor, JArgs &&...java_args) {
+            inline ExecutionResult CallClassMethod(const String &name, const String &descriptor, JArgs &&...java_args) {
                 const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
                 return this->CallClassMethod(name, descriptor, param_vars);
             }
 
-            Ptr<Variable> GetStaticField(const String &name, const String &descriptor) {
-                // Just in case, call the static initializer if it hasn't been called yet
-                const auto ret = this->EnsureStaticInitializerCalled();
-                if(ret.IsInvalidOrThrown()) {
-                    return nullptr;
-                }
+            Ptr<Variable> GetStaticField(const String &name, const String &descriptor);
+            void SetStaticField(const String &name, const String &descriptor, Ptr<Variable> var);
+            bool HasStaticField(const String &name, const String &descriptor);
 
-                for(auto &field: this->static_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        if(field.HasVariable()) {
-                            return field.GetVariable();
-                        }
-                        else {
-                            auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
-                            auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
-                            field.SetVariable(default_var);
-                            return default_var;
-                        }
-                    }
-                }
+            Ptr<Variable> GetStaticFieldByUnsafeOffset(const type::Integer offset);
+            void SetStaticFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var);
 
-                if(this->HasSuperClass()) {
-                    auto super_class_type = this->GetSuperClassType();
-                    if(super_class_type) {
-                        return super_class_type->GetStaticField(name, descriptor);
-                    }
-                }
+            bool CanCastTo(const String &class_name);
 
-                return nullptr;
-            }
-
-            void SetStaticField(const String &name, const String &descriptor, Ptr<Variable> var) {
-                // Just in case, call the static initializer if it hasn't been called yet
-                const auto ret = this->EnsureStaticInitializerCalled();
-                if(ret.IsInvalidOrThrown()) {
-                    return;
-                }
-
-                for(auto &field: this->static_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        field.SetVariable(var);
-                    }
-                }
-            }
-
-            bool HasStaticField(const String &name, const String &descriptor) {
-                for(const auto &field: this->static_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        return true;
-                    }
-                }
-
-                if(this->HasSuperClass()) {
-                    auto super_class_type = this->GetSuperClassType();
-                    if(super_class_type) {
-                        return super_class_type->HasStaticField(name, descriptor);
-                    }
-                }
-
-                return false;
-            }
-
-            Ptr<Variable> GetStaticFieldByUnsafeOffset(const type::Integer offset) {
-                if(offset < this->static_fields.size()) {
-                    const auto &field = this->static_fields.at(offset);
-                    return this->GetStaticField(field.GetName(), field.GetDescriptor());
-                }
-
-                return nullptr;
-            }
-
-            void SetStaticFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
-                if(offset < this->static_fields.size()) {
-                    const auto &field = this->static_fields.at(offset);
-                    this->SetStaticField(field.GetName(), field.GetDescriptor(), var);
-                }
-            }
-
-            bool CanCastTo(const String &class_name) {
-                if(ClassUtils::EqualClassNames(class_name, this->class_name)) {
-                    return true;
-                }
-
-                for(const auto &intf: this->interface_class_names) {
-                    if(ClassUtils::EqualClassNames(class_name, intf)) {
-                        return true;
-                    }
-                }
-
-                if(this->HasSuperClass()) {
-                    return this->GetSuperClassType()->CanCastTo(class_name);
-                }
-
-                return false;
-            }
+            LineNumberTable GetMethodLineNumberTable(const String &name, const String &descriptor);
     };
 
     class ClassInstance : public MonitoredItem {
@@ -420,32 +188,7 @@ namespace javm::vm {
             std::vector<ClassInvokable> methods;
 
         public:
-            ClassInstance(Ptr<ClassType> type) : class_type(type) {
-                if(type->HasSuperClass()) {
-                    auto super_class_type = type->GetSuperClassType();
-                    if(super_class_type) {
-                        this->super_class_instance = ptr::New<ClassInstance>(super_class_type);
-                    }
-                }
-                for(const auto &intf_name: type->GetInterfaceClassNames()) {
-                    auto intf_type = inner_impl::LocateClassTypeImpl(intf_name);
-                    if(intf_type) {
-                        auto intf_instance = ptr::New<ClassInstance>(intf_type);
-                        this->interface_instances.push_back(intf_instance);
-                    }
-                }
-                for(const auto &field: type->GetFields()) {
-                    if(!field.HasFlag<AccessFlags::Static>()) {
-                        // Create non-static get/set fields
-                        this->member_fields.emplace_back(field.GetNameAndType(), field.GetAccessFlags(), field.GetAttributes(), type->GetConstantPool());
-                    }
-                }
-                for(const auto &fn: type->GetInvokables()) {
-                    if(!fn.HasFlag<AccessFlags::Static>()) {
-                        this->methods.emplace_back(fn.GetNameAndType(), fn.GetAccessFlags(), fn.GetAttributes(), type->GetConstantPool());
-                    }
-                }
-            }
+            ClassInstance(Ptr<ClassType> type);
 
             inline Ptr<ClassType> GetClassType() {
                 return this->class_type;
@@ -463,174 +206,21 @@ namespace javm::vm {
                 return this->super_class_instance;
             }
 
-            Ptr<ClassInstance> GetInstanceByClassType(Ptr<ClassInstance> this_as_obj, const String &class_name) {
-                if(ClassUtils::EqualClassNames(class_name, this->class_type->GetClassName())) {
-                    return this_as_obj;
-                }
-                // Check interfaces - if the class name refers to an interface, then we should be implementing the method
-                for(const auto &intf: this->class_type->GetInterfaceClassNames()) {
-                    if(ClassUtils::EqualClassNames(class_name, intf)) {
-                        return this_as_obj;
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    return this->super_class_instance->GetInstanceByClassType(this->super_class_instance, class_name);
-                }
-                return nullptr;
-            }
+            Ptr<ClassInstance> GetInstanceByClassType(Ptr<ClassInstance> this_as_obj, const String &class_name);
+            Ptr<ClassInstance> GetInstanceByClassTypeAndMethodSpecial(Ptr<ClassInstance> this_as_obj, const String &class_name, const String &fn_name, const String &fn_descriptor);
+            Ptr<ClassInstance> GetInstanceByClassTypeAndMethodVirtualInterface(Ptr<ClassInstance> this_as_obj, const String &class_name, const String &fn_name, const String &fn_descriptor);
 
-            Ptr<ClassInstance> GetInstanceByClassTypeAndMethodSpecial(Ptr<ClassInstance> this_as_obj, const String &class_name, const String &fn_name, const String &fn_descriptor) {
-                // This means that the method belongs to the instance or to an implemented version of it
-                if(ClassUtils::EqualClassNames(class_name, this->class_type->GetClassName())) {
-                    // First: check self
-                    for(const auto &method: this->methods) {
-                        if((method.GetName() == fn_name) && (method.GetDescriptor() == fn_descriptor) && method.MethodIsInvokable()) {
-                            return this_as_obj;
-                        }
-                    }
+            Ptr<Variable> GetField(const String &name, const String &descriptor);
+            void SetField(const String &name, const String &descriptor, Ptr<Variable> var);
+            bool HasField(const String &name, const String &descriptor);
 
-                    // Next: check interfaces
-                    for(const auto &intf: this->interface_instances) {
-                        for(const auto &intf_method: intf->GetMethods()) {
-                            if((intf_method.GetName() == fn_name) && (intf_method.GetDescriptor() == fn_descriptor) && intf_method.MethodIsInvokable()) {
-                                return intf;
-                            }
-                        }
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    JAVM_LOG("Super class: '%s'", str::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
-                    return this->super_class_instance->GetInstanceByClassTypeAndMethodSpecial(this->super_class_instance, class_name, fn_name, fn_descriptor);
-                }
-                return nullptr;
-            }
+            Ptr<Variable> GetFieldByUnsafeOffset(const type::Integer offset);
+            void SetFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var);
 
-            Ptr<ClassInstance> GetInstanceByClassTypeAndMethodVirtualInterface(Ptr<ClassInstance> this_as_obj, const String &class_name, const String &fn_name, const String &fn_descriptor) {
-                // First: check self
-                for(const auto &method: this->methods) {
-                    if((method.GetName() == fn_name) && (method.GetDescriptor() == fn_descriptor) && method.MethodIsInvokable()) {
-                        return this_as_obj;
-                    }
-                }
-                // Next: check interfaces
-                for(const auto &intf: this->interface_instances) {
-                    for(const auto &intf_method: intf->GetMethods()) {
-                        if((intf_method.GetName() == fn_name) && (intf_method.GetDescriptor() == fn_descriptor) && intf_method.MethodIsInvokable()) {
-                            return intf;
-                        }
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    JAVM_LOG("Super class: '%s'", str::ToUtf8(this->super_class_instance->GetClassType()->GetClassName()).c_str());
-                    return this->super_class_instance->GetInstanceByClassTypeAndMethodVirtualInterface(this->super_class_instance, class_name, fn_name, fn_descriptor);
-                }
-                return nullptr;
-            }
-
-            Ptr<Variable> GetField(const String &name, const String &descriptor) {
-                for(auto &field: this->member_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        if(field.HasVariable()) {
-                            return field.GetVariable();
-                        }
-                        else {
-                            auto f_field_type = TypeTraits::GetFieldDescriptorFullType(descriptor);
-                            auto default_var = inner_impl::NewDefaultVariableImpl(f_field_type.type);
-                            field.SetVariable(default_var);
-                            return default_var;
-                        }
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    return this->super_class_instance->GetField(name, descriptor);
-                }
-                return nullptr;
-            }
-
-            void SetField(const String &name, const String &descriptor, Ptr<Variable> var) {
-                for(auto &field: this->member_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        field.SetVariable(var);
-                        return;
-                    }
-                }
-
-                if(this->HasSuperClass()) {
-                    return this->super_class_instance->SetField(name, descriptor, var);
-                }
-            }
-
-            bool HasField(const String &name, const String &descriptor) {
-                for(const auto &field: this->member_fields) {
-                    if((field.GetName() == name) && (field.GetDescriptor() == descriptor)) {
-                        return true;
-                    }
-                }
-
-                if(this->HasSuperClass()) {
-                    return this->super_class_instance->HasField(name, descriptor);
-                }
-
-                return false;
-            }
-
-            Ptr<Variable> GetFieldByUnsafeOffset(const type::Integer offset) {
-                if(offset < this->member_fields.size()) {
-                    const auto &field = this->member_fields.at(offset);
-                    return this->GetField(field.GetName(), field.GetDescriptor());
-                }
-
-                return nullptr;
-            }
-
-            void SetFieldByUnsafeOffset(const type::Integer offset, Ptr<Variable> var) {
-                if(offset < this->member_fields.size()) {
-                    const auto &field = this->member_fields.at(offset);
-                    this->SetField(field.GetName(), field.GetDescriptor(), var);
-                }
-            }
-
-            ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, const std::vector<Ptr<Variable>> &param_vars) {
-                for(const auto &fn: this->methods) {
-                    if((fn.GetName() == name) && (fn.GetDescriptor() == descriptor)) {
-                        const auto class_name = this->class_type->GetClassName();
-                        if(native::HasNativeInstanceMethod(class_name, name, descriptor)) {
-                            auto native_fn = native::FindNativeInstanceMethod(class_name, name, descriptor);
-                            return native_fn(this_as_var, param_vars);
-                        }
-                        else if(fn.HasFlag<AccessFlags::Native>()) {
-                            // TODO: throw elsewhere? currently try-catch blocks can't catch this...
-                            return inner_impl::ThrowWithTypeAndMessageImpl(u"java/lang/UnsatisfiedLinkError", ClassUtils::MakeDotClassName(this->class_type->GetClassName()) + u"." + name + descriptor);
-                        }
-                        for(const auto &attr: fn.GetAttributes()) {
-                            if(attr.GetName() == AttributeType::Code) {
-                                MemoryReader reader(attr.GetInfo(), attr.GetInfoLength());
-                                CodeAttributeData code(reader);
-                                const bool is_sync = fn.HasFlag<AccessFlags::Synchronized>();
-                                ExecutionScopeGuard guard(this->class_type, name, descriptor);
-                                if(is_sync) {
-                                    this->monitor->Enter();
-                                }
-                                const auto ret = inner_impl::ExecuteCode(code.GetCode(), code.GetMaxLocals(), code.GetExceptionTable(), this_as_var, this->class_type->GetConstantPool(), param_vars);
-                                if(is_sync) {
-                                    this->monitor->Leave();
-                                }
-                                if(ret.Is<ExecutionStatus::Thrown>()) {
-                                    guard.NotifyThrown();
-                                }
-                                return ret;
-                            }
-                        }
-                    }
-                }
-                if(this->HasSuperClass()) {
-                    return this->super_class_instance->CallInstanceMethod(name, descriptor, this_as_var, param_vars);
-                }
-                return ExecutionResult::InvalidState();
-            }
+            ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, const std::vector<Ptr<Variable>> &param_vars);
 
             template<typename ...JArgs>
-            ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, JArgs &&...java_args) {
+            inline ExecutionResult CallInstanceMethod(const String &name, const String &descriptor, Ptr<Variable> this_as_var, JArgs &&...java_args) {
                 const std::vector<Ptr<Variable>> param_vars = { std::forward<JArgs>(java_args)... };
                 return this->CallInstanceMethod(name, descriptor, this_as_var, param_vars);
             }

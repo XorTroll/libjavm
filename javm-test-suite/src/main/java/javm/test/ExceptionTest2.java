@@ -3,16 +3,26 @@ package javm.test;
 public class ExceptionTest2 {
     private int X;
 
+    public static native void nonexistentFunction();
+
     public static void main(String[] args) throws ClassNotFoundException {
         try {
             test1();
         } catch (NullPointerException npe) {
             npe.printStackTrace();
         }
+        
         try {
             test2();
         } catch (NullPointerException npe) {
             npe.printStackTrace();
+        }
+
+        try {
+            nonexistentFunction();
+        }
+        catch (Throwable t) {
+            t.printStackTrace();
         }
     }
 

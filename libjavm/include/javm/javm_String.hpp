@@ -1,28 +1,13 @@
 
 #pragma once
 #include <javm/javm_Base.hpp>
-#include <locale>
-#include <codecvt>
 
 namespace javm {
 
-    namespace inner_impl {
-
-        static inline std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> g_str_convert;
-
-    }
-
-    // TODO: change all/most of *Utils static classes into namespaces...
-
     namespace str {
 
-        inline String FromUtf8(const std::string &str) {
-            return inner_impl::g_str_convert.from_bytes(str);
-        }
-
-        inline std::string ToUtf8(const String &str) {
-            return inner_impl::g_str_convert.to_bytes(str);
-        }
+        String FromUtf8(const std::string &str);
+        std::string ToUtf8(const String &str);
 
         template<typename T>
         inline String From(const T t) {

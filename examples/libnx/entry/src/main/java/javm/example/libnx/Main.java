@@ -1,7 +1,6 @@
 package javm.example.libnx;
 
 public class Main {
-
     public static void doThread() {
         Thread thr = Thread.currentThread();
         String thr_name = thr.getName();

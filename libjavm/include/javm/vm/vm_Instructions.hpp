@@ -206,7 +206,7 @@ namespace javm::vm {
         IFNULL = 0xC6,
         IFNONNULL = 0xC7,
         GOTO_W = 0xC8,
-        JSR_W = 0xC9,
+        JSR_W = 0xC9
     };
 
     // Types for NEWARRAY instruction

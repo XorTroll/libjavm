@@ -1,10 +1,41 @@
 
 #pragma once
 #include <javm/rt/rt_JavaClassFileSource.hpp>
-#include <javm/javm_ManifestFile.hpp>
 #include <andyzip/zipfile_reader.hpp>
 
 namespace javm::rt {
+
+    class ManifestFile : public File {
+        private:
+            std::map<std::string, std::string> attributes;
+
+            void Load();
+
+        public:
+            using File::File;
+
+            ManifestFile(const std::string &path) : File(path) {
+                this->Load();
+            }
+            
+            ManifestFile(const u8 *ptr, const size_t ptr_sz, const bool owns = false) : File(ptr, ptr_sz, owns) {
+                this->Load();
+            }
+
+            inline bool HasAttribute(const std::string &name) {
+                return this->attributes.find(name) != this->attributes.end();
+            }
+
+            inline String FindAttribute(const std::string &name) {
+                auto it = this->attributes.find(name);
+                if(it != this->attributes.end()) {
+                    return str::FromUtf8(it->second);
+                }
+
+                // TODO
+                return u"<no-attr>";
+            }
+    };
 
     class JavaArchiveSource : public ClassSource, public File {
         private:
@@ -16,21 +47,7 @@ namespace javm::rt {
                 return zipfile_reader(this->GetFileData(), this->GetFileData() + this->GetFileSize());
             }
 
-            void Load() {
-                if(this->IsValid()) {
-                    try {
-                        auto reader = this->OpenSelf();
-                        auto v_data = reader.read("META-INF/MANIFEST.MF");
-                        ManifestFile manifest(v_data.data(), v_data.size());
-
-                        this->main_class_name = manifest.FindAttribute("Main-Class");
-                        this->archive_valid = true;
-                    }
-                    catch(std::exception&) {
-                        this->archive_valid = false;
-                    }
-                }
-            }
+            void Load();
 
         public:
             using File::File;
@@ -39,7 +56,7 @@ namespace javm::rt {
                 this->Load();
             }
             
-            JavaArchiveSource(u8 *ptr, const size_t ptr_sz, const bool owns = false) : File(ptr, ptr_sz, owns), archive_valid(false) {
+            JavaArchiveSource(const u8 *ptr, const size_t ptr_sz, const bool owns = false) : File(ptr, ptr_sz, owns), archive_valid(false) {
                 this->Load();
             }
 
@@ -58,38 +75,9 @@ namespace javm::rt {
                 return this->IsValid() && this->archive_valid;
             }
 
-            virtual Ptr<vm::ClassType> LocateClassType(const String &find_class_name) override {
-                for(auto &class_file: this->cached_class_files) {
-                    if(vm::ClassUtils::EqualClassNames(find_class_name, class_file->GetClassName())) {
-                        return class_file->LocateClassType(find_class_name);
-                    }
-                }
-                try {
-                    auto reader = this->OpenSelf();
-                    auto v_data = reader.read(str::ToUtf8(vm::ClassUtils::MakeSlashClassName(find_class_name) + u".class"));
-                    auto class_src = ptr::New<JavaClassFileSource>(v_data.data(), v_data.size());
-                    this->cached_class_files.push_back(class_src);
-                    return class_src->LocateClassType(find_class_name);
-                }
-                catch(std::exception &ex) {}
-                return nullptr;
-            }
-
-            virtual void ResetCachedClassTypes() override {
-                for(auto &cs: this->cached_class_files) {
-                    cs->ResetCachedClassTypes();
-                }
-            }
-
-            virtual std::vector<Ptr<vm::ClassType>> GetClassTypes() override {
-                // Create a list with all the types from our sources
-                std::vector<Ptr<vm::ClassType>> list;
-                for(auto &cs: this->cached_class_files) {
-                    const auto cs_types = cs->GetClassTypes();
-                    list.insert(list.end(), cs_types.begin(), cs_types.end());
-                }
-                return list;
-            }
+            virtual Ptr<vm::ClassType> LocateClassType(const String &find_class_name) override;
+            virtual void ResetCachedClassTypes() override;
+            virtual std::vector<Ptr<vm::ClassType>> GetClassTypes() override;
     };
 
 }

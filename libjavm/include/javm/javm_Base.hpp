@@ -7,16 +7,26 @@
 #include <memory>
 #include <map>
 #include <climits>
+#include <cstring>
+#include <functional>
 
 // TODO: enable logging by log types...?
 
-#ifndef JAVM_LOG
-#ifdef JAVM_DEBUG_LOG
-#define JAVM_LOG(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-#else
-#define JAVM_LOG(fmt, ...)
-#endif
-#endif
+// #ifndef JAVM_LOG
+// #ifdef JAVM_DEBUG_LOG
+#define JAVM_LOG(fmt, ...) // printf(fmt "\n", ##__VA_ARGS__)
+// #else
+// #define JAVM_LOG(fmt, ...)
+// #endif
+// #endif
+
+#define JAVM_DEFINE_FLAG_ENUM(enum_type, base_type) \
+inline constexpr enum_type operator|(const enum_type lhs, const enum_type rhs) { \
+    return static_cast<const enum_type>(static_cast<const base_type>(lhs) | static_cast<const base_type>(rhs)); \
+} \
+inline constexpr enum_type operator&(const enum_type lhs, const enum_type rhs) { \
+    return static_cast<const enum_type>(static_cast<const base_type>(lhs) & static_cast<const base_type>(rhs)); \
+}
 
 namespace javm {
 
@@ -32,10 +42,10 @@ namespace javm {
     #undef _JAVM_DEFINE_INT_TYPE
 
     template<typename N>
-    inline constexpr N BE(N n) {
+    inline constexpr N BE(const N n) {
         auto be_n = n;
         
-        auto n_ptr = reinterpret_cast<u8*>(&n);
+        auto n_ptr = reinterpret_cast<const u8*>(&n);
         auto be_n_ptr = reinterpret_cast<u8*>(&be_n);
         for(size_t i = 0; i < sizeof(N); i++) {
             be_n_ptr[i] = n_ptr[sizeof(N) - (i + 1)];

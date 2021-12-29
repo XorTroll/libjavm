@@ -26,28 +26,14 @@ namespace javm::vm {
         Annotation = 0x2000,
         Enum = 0x4000,
         Miranda = 0x8000,
-        ReflectMask = 0xFFFF,
+        ReflectMask = 0xFFFF
     };
+    JAVM_DEFINE_FLAG_ENUM(AccessFlags, u16)
 
-    class AccessFlagUtils {
-        private:
-            static inline constexpr void AddFlag(AccessFlags &flag, const AccessFlags new_f) {
-                auto flag16 = static_cast<u16>(flag);
-                flag16 |= static_cast<u16>(new_f);
-                flag = static_cast<AccessFlags>(flag16);
-            }
-
-        public:
-            template<typename ...AFs>
-            static inline constexpr AccessFlags Make(AFs &&...flags) {
-                auto f = AccessFlags::None;
-                (AddFlag(f, flags), ...);
-                return f;
-            }
-    };
-
-    struct AttributeType {
+    struct AttributeName {
         static inline constexpr auto Code = u"Code";
+        static inline constexpr auto LineNumberTable = u"LineNumberTable";
+        static inline constexpr auto SourceFile = u"SourceFile";
         static inline constexpr auto RuntimeVisibleAnnotations = u"RuntimeVisibleAnnotations";
     };
 

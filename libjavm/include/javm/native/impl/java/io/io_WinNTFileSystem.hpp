@@ -1,14 +1,6 @@
 
 #pragma once
-#include <javm/native/native_NativeCode.hpp>
-#include <javm/native/impl/impl_Base.hpp>
-#include <javm/vm/vm_JavaUtils.hpp>
-#include <javm/vm/vm_Thread.hpp>
-#include <javm/vm/vm_Properties.hpp>
-#include <javm/vm/vm_Reflection.hpp>
-#include <unistd.h>
-#include <csignal>
-#include <sys/time.h>
+#include <javm/vm/vm_Variable.hpp>
 
 namespace javm::native::impl::java::io {
 
@@ -16,10 +8,7 @@ namespace javm::native::impl::java::io {
 
     class WinNTFileSystem {
         public:
-            static ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars) {
-                JAVM_LOG("[java.io.WinNTFileSystem.initIDs] called");
-                return ExecutionResult::Void();
-            }
+            static ExecutionResult initIDs(const std::vector<Ptr<Variable>> &param_vars);
     };
 
 }

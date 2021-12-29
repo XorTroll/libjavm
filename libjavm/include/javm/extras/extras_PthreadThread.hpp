@@ -2,6 +2,7 @@
 #pragma once
 #include <javm/native/native_NativeThread.hpp>
 #include <pthread.h>
+#include <csignal>
 
 // Threading implementation - pthread
 

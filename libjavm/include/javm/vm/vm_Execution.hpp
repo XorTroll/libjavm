@@ -2,6 +2,7 @@
 #pragma once
 #include <javm/vm/vm_Instructions.hpp>
 #include <javm/vm/vm_Variable.hpp>
+#include <javm/vm/jutil/jutil_Throwable.hpp>
 
 namespace javm::vm {
 
@@ -9,7 +10,7 @@ namespace javm::vm {
         private:
             enum class VariableStackMode {
                 FixedSize, // Locals
-                Growable, // Stack
+                Growable // Stack
             };
 
             class VariableStack {
@@ -17,74 +18,35 @@ namespace javm::vm {
                     std::vector<Ptr<Variable>> inner_list;
                     VariableStackMode stack_mode;
 
+                    constexpr inline bool IsFixedSize() {
+                        return this->stack_mode == VariableStackMode::FixedSize;
+                    }
+
+                    constexpr inline bool IsGrowable() {
+                        return this->stack_mode == VariableStackMode::Growable;
+                    }
+
                 public:
                     VariableStack(const VariableStackMode mode) : stack_mode(mode) {}
 
-                    void ResetFill(Ptr<Variable> this_var, const u16 length) {
-                        if(this->stack_mode != VariableStackMode::FixedSize) {
-                            return;
-                        }
+                    void ResetFill(Ptr<Variable> this_var, const u16 length);
+                    Ptr<Variable> GetAt(const u32 idx);
+                    void SetAt(const u32 idx, Ptr<Variable> var);
 
-                        auto len = length;
-                        if(this_var) {
-                            len++;
-                        }
-                        this->inner_list.clear();
-                        this->inner_list.reserve(len);
-                        for(u16 i = 0; i < len; i++) {
-                            this->inner_list.push_back(nullptr);
-                        }
-                    }
-
-                    Ptr<Variable> GetAt(const u32 idx) {
-                        if(this->stack_mode != VariableStackMode::FixedSize) {
-                            return nullptr;
-                        }
-                        if(idx < this->inner_list.size()) {
-                            return this->inner_list[idx];
-                        }
-                        return nullptr;
-                    }
-
-                    void SetAt(const u32 idx, Ptr<Variable> var) {
-                        if(this->stack_mode != VariableStackMode::FixedSize) {
-                            return;
-                        }
-                        if(idx < this->inner_list.size()) {
-                            this->inner_list[idx] = var;
-                        }
-                    }
-
-                    Ptr<Variable> Pop() {
-                        if(this->stack_mode != VariableStackMode::Growable) {
-                            return nullptr;
-                        }
-                        if(this->inner_list.empty()) {
-                            return nullptr;
-                        }
-                        auto back_var = this->inner_list.back();
-                        this->inner_list.pop_back();
-                        return back_var;
-                    }
-
-                    void Push(Ptr<Variable> var) {
-                        if(this->stack_mode != VariableStackMode::Growable) {
-                            return;
-                        }
-                        this->inner_list.push_back(var);
-                    }
+                    Ptr<Variable> Pop();
+                    void Push(Ptr<Variable> var);
             };
 
         private:
             VariableStack stack;
             VariableStack locals;
-            ConstantPool exec_pool;
+            ConstantPool &exec_pool;
             std::vector<ExceptionTableEntry> exc_table;
             const u8 *code_ptr;
             u32 code_offset;
 
         public:
-            ExecutionFrame(const u8 *raw_code, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), exc_table(exc_table), code_ptr(raw_code), code_offset(0) {
+            ExecutionFrame(const u8 *raw_code, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool &pool, Ptr<Variable> this_var = nullptr) : stack(VariableStackMode::Growable), locals(VariableStackMode::FixedSize), exec_pool(pool), exc_table(exc_table), code_ptr(raw_code), code_offset(0) {
                 this->locals.ResetFill(this_var, max_locals);
             }
 
@@ -92,21 +54,11 @@ namespace javm::vm {
                 return this->exec_pool;
             }
 
-            Ptr<Variable> GetLocalAt(const u32 idx) {
-                auto v = this->locals.GetAt(idx);
-                if(!v) {
-                    JAVM_LOG("Getting empty local var at [%d]...", idx);
-                }
-                return v;
+            inline Ptr<Variable> GetLocalAt(const u32 idx) {
+                return this->locals.GetAt(idx);
             }
 
-            void SetLocalAt(const u32 idx, Ptr<Variable> var) {
-                if(!var) {
-                    JAVM_LOG("Setting empty local var at [%d]...", idx);
-                }
-                else {
-                    JAVM_LOG("Setting local var at [%d]...", idx);
-                }
+            inline void SetLocalAt(const u32 idx, Ptr<Variable> var) {
                 this->locals.SetAt(idx, var);
             }
 
@@ -114,44 +66,54 @@ namespace javm::vm {
                 return this->stack.Pop();
             }
 
-            void PushStack(Ptr<Variable> var) {
-                if(!var) {
-                    JAVM_LOG("Pushing empty var into stack...");
-                }
+            inline void PushStack(Ptr<Variable> var) {
                 this->stack.Push(var);
             }
 
             template<typename T>
-            T ReadCode(const bool forward = true) {
+            inline T ReadCode() {
                 auto t = T();
                 if(this->code_ptr == nullptr) {
                     return t;
                 }
 
                 memcpy(&t, reinterpret_cast<const T*>(&this->code_ptr[this->code_offset]), sizeof(T));
-                if(forward) {
-                    this->code_offset += sizeof(T);
-                }
+                this->code_offset += sizeof(T);
                 return t;
             }
 
-            // TODO: naming consistency, pos/branch -> offset/relative offset (also referring to execution code...)
-
-            inline u32 &GetCodePosition() {
+            inline u32 &GetCodeOffset() {
                 return this->code_offset;
             }
 
-            inline std::vector<ExceptionTableEntry> GetAvailableExceptionTableEntries() {
-                JAVM_LOG("total count: %ld", this->exc_table.size());
-                std::vector<ExceptionTableEntry> active_excs;
-                for(const auto &exc_table_entry: this->exc_table) {
-                    JAVM_LOG("start: %d, cur: %d, end: %d", exc_table_entry.start_pc, this->code_offset, exc_table_entry.end_pc);
-                    if((exc_table_entry.start_pc <= this->code_offset) && (exc_table_entry.end_pc >= this->code_offset)) {
-                        active_excs.push_back(exc_table_entry);
-                    }
-                }
-                return active_excs;
-            }
+            std::vector<ExceptionTableEntry> GetAvailableExceptionTableEntries(const u32 base_code_offset);
     };
+
+    class ExecutionScopeGuard {
+        private:
+            bool self_thrown;
+
+        public:
+            ExecutionScopeGuard(Ptr<ClassType> type, const String &name, const String &descriptor);
+            ~ExecutionScopeGuard();
+
+            void NotifyThrown();
+    };
+
+    ExecutionResult ExecuteStaticCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, ConstantPool &pool, const std::vector<Ptr<Variable>> &param_vars);
+    ExecutionResult ExecuteCode(const u8 *code_ptr, const u16 max_locals, const std::vector<ExceptionTableEntry> &exc_table, Ptr<Variable> this_var, ConstantPool &pool, const std::vector<Ptr<Variable>> &param_vars);
+
+    inline ExecutionResult ThrowExisting(Ptr<Variable> throwable_v, const bool is_catchable = true) {
+        return ExecutionResult::Throw(throwable_v, is_catchable);
+    }
+
+    inline ExecutionResult Throw(const String &type, const String &msg = u"", const bool is_catchable = true) {
+        return ThrowExisting(jutil::NewThrowable(type, msg), is_catchable);
+    }
+
+    inline ExecutionResult ThrowInternal(const String &msg) {
+        JAVM_LOG("INTERNAL THROW: '%s'", str::ToUtf8(msg).c_str());
+        return ThrowExisting(jutil::NewInternalThrowable(msg), false);
+    }
 
 }

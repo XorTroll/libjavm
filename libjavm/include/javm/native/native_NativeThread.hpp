@@ -5,8 +5,6 @@
 
 namespace javm::native {
 
-    using namespace vm::inner_impl;
-
     // Platform/lib-specific native threading functions
 
     using ThreadHandle = vm::type::Long;
@@ -23,15 +21,15 @@ namespace javm::native {
             static constexpr Priority MaxPriority = 10;
 
         private:
-            Ptr<vm::Variable> java_thread;
+            Ptr<vm::Variable> thread_v;
 
         public:
-            inline void AssignJavaThreadVariable(Ptr<vm::Variable> java_thread_v) {
-                this->java_thread = java_thread_v;
+            inline void SetThreadVariable(Ptr<vm::Variable> thread_v) {
+                this->thread_v = thread_v;
             }
 
-            inline Ptr<vm::Variable> GetJavaThreadVariable() {
-                return this->java_thread;
+            inline Ptr<vm::Variable> GetThreadVariable() {
+                return this->thread_v;
             }
 
             virtual void Start(ThreadEntrypoint entry_fn) = 0;
@@ -42,11 +40,9 @@ namespace javm::native {
     ThreadHandle GetCurrentThreadHandle();
 
     Ptr<Thread> CreateThread();
-
     Ptr<Thread> CreateExistingThread(const ThreadHandle handle);
 
     Priority GetThreadPriority(const ThreadHandle handle);
-
     void SetThreadPriority(const ThreadHandle handle, const Priority prio);
 
 }
